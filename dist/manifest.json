@@ -1,0 +1,44 @@
+{
+	"name": "Ferris Wallet Companion",
+	"version": "0.0.1",
+	"manifest_version": 3,
+	"minimum_chrome_version": "116",
+	"description": "An opinionated, minimally injected connection to FerrisWallet TUI app (required) on macOS, Windows or Linux.",
+	"homepage_url": "https://github.com/rndlabs/ferriswallet",
+	"background": {
+		"service_worker": "background.js",
+		"scripts": ["background.js"],
+		"type": "module"
+	},
+	"action": {
+		"default_title": "Ferris Wallet Companion"
+	},
+	"content_scripts": [
+		{
+			"matches": ["file://*/*", "http://*/*", "https://*/*"],
+			"js": ["inject.js"],
+			"run_at": "document_start",
+			"all_frames": true
+		}
+	],
+	"web_accessible_resources": [
+		{
+			"resources": [
+				"injected.js",
+				"pkg/ferris_wallet_bg.wasm",
+				"pkg/ferris_wallet.js"
+			],
+			"matches": ["<all_urls>"]
+		}
+	],
+	"content_security_policy": {
+		"extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+	},
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "{00000000-0000-0000-0000-000000000000}"
+		}
+	},
+	"permissions": ["activeTab", "alarms", "idle", "scripting"],
+	"host_permissions": ["https://*/*", "http://*/*"]
+}

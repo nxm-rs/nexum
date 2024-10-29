@@ -1,0 +1,22 @@
+[package]
+name = "ferris-wallet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wasm-bindgen.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+js-sys.workspace = true
+web-sys.workspace = true
+serde-wasm-bindgen.workspace = true
+tracing.workspace = true
+tracing-wasm.workspace = true
+wasm-bindgen-futures = "0.4.45"
+jsonrpsee.workspace = true
+
+chrome-sys.workspace = true
+gloo-utils = { version = "0.2.0", features = ["serde"] }
+
+[lib]
+crate-type = ["cdylib"]

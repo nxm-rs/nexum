@@ -1,0 +1,15 @@
+{
+  "name": "ferris-wallet",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "ferris_wallet_bg.wasm",
+    "ferris_wallet.js",
+    "ferris_wallet.d.ts"
+  ],
+  "main": "ferris_wallet.js",
+  "types": "ferris_wallet.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

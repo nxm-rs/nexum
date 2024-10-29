@@ -1,0 +1,29 @@
+[package]
+name = "worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+exclude.workspace = true
+
+[dependencies]
+js-sys.workspace = true
+serde.workspace = true
+serde-wasm-bindgen.workspace = true
+serde_json.workspace = true
+chrome-sys.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+futures.workspace = true
+tracing.workspace = true
+tracing-wasm.workspace = true
+url.workspace = true
+jsonrpsee.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+opt-level = "z"

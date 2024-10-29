@@ -1,0 +1,35 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+license = "AGPL-3.0"
+homepage = "https://github.com/nullisxyz/ferris-extension"
+exclude = [".github/"]
+
+[workspace]
+members = [
+    "crates/extension",
+    "crates/chrome-sys",
+    "crates/worker"
+]
+
+# Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
+# https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"
+
+[workspace.dependencies]
+wasm-bindgen = { version = "0.2.95", features = ["serde", "serde_json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+js-sys = "0.3.72"
+futures = "0.3"
+web-sys = { version = "0.3.72", features = ["Window", "WebSocket"] }
+serde-wasm-bindgen = "0.6.5"
+tracing = "0.1.40"
+tracing-wasm = "0.2.1"
+wasm-bindgen-futures = "0.4.45"
+jsonrpsee = { version = "0.24.7", features = ["wasm-client", "client-core", "client-web-transport" ] }
+url = "2.5.2"
+
+chrome-sys = { path = "crates/chrome-sys" }
+worker = { path = "crates/worker" }

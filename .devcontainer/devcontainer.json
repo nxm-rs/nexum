@@ -1,0 +1,20 @@
+{
+    "name": "Foundry + Rust Development Container",
+    "image": "mcr.microsoft.com/devcontainers/base:debian",
+    "features": {
+        "ghcr.io/devcontainers/features/rust:1": {},
+       "ghcr.io/nlordell/features/foundry": {}
+    },
+    "postCreateCommand": "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config libssl-dev clang",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "JuanBlanco.solidity"
+            ]
+        }
+    },
+    "runArgs": [
+        "--network=host"
+    ]
+}
