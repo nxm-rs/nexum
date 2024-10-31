@@ -9,10 +9,11 @@ exclude.workspace = true
 
 [dependencies]
 js-sys.workspace = true
+chrome-sys.workspace = true
+ferris-primitives.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true
 serde_json.workspace = true
-chrome-sys.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 futures.workspace = true
@@ -20,6 +21,14 @@ tracing.workspace = true
 tracing-wasm.workspace = true
 url.workspace = true
 jsonrpsee.workspace = true
+once_cell.workspace = true
+console_error_panic_hook = "0.1.7"
+tonic-web-wasm-client = "0.6.0"
+prost = "0.13"
+tonic = { version = "0.12", default-features = false, features = ["prost", "codegen"] }
+
+[build-dependencies]
+tonic-build = { version = "0.12", default-features = false, features = ["prost"] }
 
 [lib]
 crate-type = ["cdylib"]
