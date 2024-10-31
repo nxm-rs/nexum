@@ -9,6 +9,7 @@ exclude = [".github/"]
 [workspace]
 members = [
     "crates/primitives",
+    "crates/primitives-traits",
     "crates/extension",
     "crates/chrome-sys",
     "crates/worker"
@@ -38,3 +39,4 @@ url = "2.5.2"
 chrome-sys = { path = "crates/chrome-sys" }
 worker = { path = "crates/worker" }
 ferris-primitives = { path = "crates/primitives" }
+ferris-primitives-traits = { path = "crates/primitives-traits" }
