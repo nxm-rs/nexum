@@ -214,11 +214,12 @@ impl MessagePayload {
 
     // Convert JsValue back to MessagePayload
     pub fn from_js_value(js_value: &JsValue) -> Result<Self, JsValue> {
-        js_value
-            .into_serde()
-            .map_err(|_| {
-                trace!("Failed to deserialize JsValue into MessagePayload: {:?}", js_value);
-                JsValue::from_str("Failed to deserialize JsValue into MessagePayload")
+        js_value.into_serde().map_err(|_| {
+            trace!(
+                "Failed to deserialize JsValue into MessagePayload: {:?}",
+                js_value
+            );
+            JsValue::from_str("Failed to deserialize JsValue into MessagePayload")
         })
     }
 }

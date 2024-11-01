@@ -38,21 +38,22 @@ impl Info {
     pub fn valid(&self) -> bool {
         // Check both `id` and `url` fields are present
         let id_and_url_exist = self.id.is_some() && self.url.is_some();
-        
+
         // Check the `url` scheme is either "http" or "file"
-        let url_is_http_or_file = self.url.as_ref().map_or(false, |url| {
-            match Url::parse(url) {
+        let url_is_http_or_file = self
+            .url
+            .as_ref()
+            .map_or(false, |url| match Url::parse(url) {
                 Ok(parsed_url) => {
                     trace!("Parsed URL: {:?}", parsed_url);
                     ["http", "https", "file"].contains(&parsed_url.scheme())
-                },
+                }
                 Err(e) => {
                     trace!("Failed to parse URL: {:?}, Error: {:?}", url, e);
                     false
                 }
-            }
-        });
-        
+            });
+
         // Both conditions must be true for `valid` to return true
         id_and_url_exist && url_is_http_or_file
     }
@@ -170,7 +171,7 @@ pub fn on_activated_add_listener(callback: &Function) -> Result<(), JsValue> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_valid_http_url() {
         let info = Info {

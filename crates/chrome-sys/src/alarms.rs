@@ -1,9 +1,11 @@
-use js_sys::Function;
+use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
+use tracing::{error, info, trace, warn};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlarmInfo {
     pub period_in_minutes: Option<f64>,
@@ -11,7 +13,7 @@ pub struct AlarmInfo {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AlarmCreateInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -26,7 +28,7 @@ pub struct AlarmCreateInfo {
 extern "C" {
     // Binding for chrome.alarms.get
     #[wasm_bindgen(js_namespace = ["chrome", "alarms"], js_name = get)]
-    fn getAlarm(name: &str, callback: &Function);
+    fn getAlarm(name: &str) -> Promise;
 
     // Binding for chrome.alarms.create
     #[wasm_bindgen(js_namespace = ["chrome", "alarms"], js_name = create)]
@@ -39,27 +41,36 @@ extern "C" {
 
 // Rust wrappers
 
-// Function to get an alarm
+// Rust wrapper function for `getAlarm`
 pub async fn get(name: &str) -> Result<Option<AlarmInfo>, JsValue> {
-    let (sender, receiver) = futures::channel::oneshot::channel();
-    let callback = Closure::once_into_js(move |response: JsValue| {
-        let _ = sender.send(response);
-    });
-    getAlarm(name, callback.unchecked_ref());
+    let promise = getAlarm(name);
+    let result = JsFuture::from(promise).await;
 
-    receiver
-        .await
-        .map(|response| {
+    match result {
+        Ok(response) => {
+            // If the response is undefined, return None
             if response.is_undefined() {
-                None // Return None if the response is undefined
+                info!("No alarm found with name: {}", name);
+                Ok(None)
             } else {
-                from_value(response)
-                    .map(Some) // Return Some(AlarmInfo) if parsing succeeds
-                    .map_err(|_| JsValue::from_str("Failed to parse response"))
-                    .unwrap()
+                // Attempt to parse the response as `AlarmInfo`
+                match from_value(response) {
+                    Ok(alarm_info) => {
+                        info!("Successfully retrieved alarm: {:?}", alarm_info);
+                        Ok(Some(alarm_info))
+                    }
+                    Err(err) => {
+                        error!("Failed to parse response for alarm '{}': {:?}", name, err);
+                        Err(JsValue::from_str(&format!("Failed to parse response: {:?}", err)))
+                    }
+                }
             }
-        })
-        .map_err(|_| JsValue::from_str("Failed to receive response"))
+        }
+        Err(err) => {
+            warn!("Failed to retrieve alarm '{}': {:?}", name, err);
+            Err(JsValue::from_str("Failed to retrieve alarm"))
+        }
+    }
 }
 
 // Function to create an alarm
@@ -70,7 +81,7 @@ pub async fn create_alarm(name: &str, alarm_info: AlarmCreateInfo) -> Result<(),
 }
 
 // Function to add an alarm listener
-pub async fn on_alarm_add_listener(callback: &Function) -> Result<(), JsValue> {
+pub fn on_alarm_add_listener(callback: &Function) -> Result<(), JsValue> {
     addAlarmListener(callback);
     Ok(())
 }
