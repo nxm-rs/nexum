@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use chrome_sys::port;
 use ferris_primitives::FrameState;
@@ -6,7 +6,7 @@ use serde_wasm_bindgen::to_value;
 use tracing::{debug, trace};
 use wasm_bindgen::{prelude::Closure, JsValue};
 
-use crate::{subscription::Subscription, INSTANCE};
+use crate::{subscription::Subscription, Extension};
 
 #[derive(Default)]
 pub(crate) struct ExtensionState {
@@ -50,32 +50,32 @@ impl ExtensionState {
         self.frame_state.frame_connected = connected;
         self.update_settings_panel();
     }
+}
 
-    // Cleanup subscriptions when a tab is closed or navigated away
-    pub async fn tab_unsubscribe(&self, tab_id: u32) -> Result<(), JsValue> {
-        // Collect all subscriptions that the tab is subscribed to
-        let subscriptions_to_unsubscribe: Vec<_> = self
-            .subscriptions
-            .iter()
-            .filter(|(_, sub)| sub.tab_id == tab_id)
-            .map(|(key, _)| key.clone())
-            .collect();
+// Cleanup subscriptions when a tab is closed or navigated away
+pub async fn tab_unsubscribe(
+    extension: Rc<RefCell<Extension>>,
+    tab_id: u32,
+) -> Result<(), JsValue> {
+    let extension = extension.borrow_mut();
+    let mut state = extension.state.lock().await;
 
-        let mut ext_ref = INSTANCE.get_mut(); // Directly borrow the Option<Extension> mutably
-        if let Some(extension) = ext_ref.as_mut() {
-            // Lock the state to check if the settings_panel matches the disconnected port
-            let mut state = extension.state.lock().await;
-            // Send unsubscribe request for each relevant subscription and remove it
-            for key in subscriptions_to_unsubscribe {
-                // Placeholder for the unsubscribe call, e.g., `send_unsubscribe(key)`
-                // You could also await an async unsubscribe function if needed.
-                trace!("Unsubscribing: {:?}", key);
-                state.subscriptions.remove(&key);
-            }
-        }
-        // Simply drop all pending payloads as the remote hasn't responded and we just ignore them
-        // TODO: How to drop all requests that are inflight if using a promise model
+    let subscriptions_to_unsubscribe: Vec<_> = state
+        .subscriptions
+        .iter()
+        .filter(|(_, sub)| sub.tab_id == tab_id)
+        .map(|(key, _)| key.clone())
+        .collect();
 
-        Ok(())
+    // Send unsubscribe request for each relevant subscription and remove it
+    for key in subscriptions_to_unsubscribe {
+        // TODO: Placeholder for the unsubscribe call, e.g., `send_unsubscribe(key)`
+        // You could also await an async unsubscribe function if needed.
+        trace!("Unsubscribing: {:?}", key);
+        state.subscriptions.remove(&key);
     }
+    // Simply drop all pending payloads as the remote hasn't responded and we just ignore them
+    // TODO: How to drop all requests that are inflight if using a promise model
+
+    Ok(())
 }
