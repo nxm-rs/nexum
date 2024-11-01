@@ -1,13 +1,14 @@
 mod alarm;
+use std::sync::Arc;
+
 use alarm::*;
 mod idle;
+use futures::lock::Mutex;
 use idle::*;
 mod runtime;
 use runtime::*;
 mod tabs;
 use tabs::*;
-
-use std::{cell::RefCell, rc::Rc};
 
 use crate::Extension;
 use ferris_primitives::{EthEventPayload, MessagePayload};
@@ -17,95 +18,112 @@ use tracing::{trace, warn};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-pub(crate) fn setup_listeners(extension: Rc<RefCell<Extension>>, provider: Rc<RefCell<Client>>) {
-    // Runtime `on_message` event
+pub(crate) fn setup_listeners(extension: Arc<Mutex<Extension>>, provider: Arc<Client>) {
+    // Clone the Arc references once at the start
+    let extension_clone = extension.clone();
+    let provider_clone = provider.clone();
 
-    let closure = Closure::wrap(Box::new(move |payload: JsValue, sender: JsValue| {
-        let provider_clone = provider.clone();
-        trace!("runtime::on_message_add_listener: {:?}", payload);
-        spawn_local(async move {
-            runtime_on_message(provider_clone, payload, sender).await;
-        });
-    }) as Box<dyn FnMut(JsValue, JsValue)>);
+    // Runtime `on_message` event
+    let closure = {
+        let provider = provider_clone.clone();
+        Closure::wrap(Box::new(move |payload: JsValue, sender: JsValue| {
+            let provider = provider.clone();
+            trace!("runtime::on_message_add_listener: {:?}", payload);
+            spawn_local(async move {
+                runtime_on_message(provider, payload, sender).await;
+            });
+        }) as Box<dyn FnMut(JsValue, JsValue)>)
+    };
     chrome_sys::runtime::on_message_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Runtime `on_connect` event
-    let extension_clone = extension.clone();
-    let closure = Closure::wrap(Box::new(move |port: JsValue| {
-        let extension_clone = extension_clone.clone();
-        trace!("runtime::on_connect_add_listener: {:?}", port);
-        spawn_local(async move {
-            runtime_on_connect(extension_clone, port).await;
-        });
-    }) as Box<dyn FnMut(JsValue)>);
+    let closure = {
+        let extension = extension_clone.clone();
+        Closure::wrap(Box::new(move |port: JsValue| {
+            let extension = extension.clone();
+            trace!("runtime::on_connect_add_listener: {:?}", port);
+            spawn_local(async move {
+                runtime_on_connect(extension, port).await;
+            });
+        }) as Box<dyn FnMut(JsValue)>)
+    };
     chrome_sys::runtime::on_connect_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Idle `on_state_changed` event
-    let extension_clone = extension.clone();
-    let closure = Closure::wrap(Box::new(move |state: JsValue| {
-        let extension_clone = extension_clone.clone();
-        trace!("idle::on_state_changed_add_listener: {:?}", state);
-        spawn_local(async move {
-            idle_on_state_changed(extension_clone, state).await;
-        });
-    }) as Box<dyn FnMut(JsValue)>);
+    let closure = {
+        let extension = extension_clone.clone();
+        Closure::wrap(Box::new(move |state: JsValue| {
+            let extension = extension.clone();
+            trace!("idle::on_state_changed_add_listener: {:?}", state);
+            spawn_local(async move {
+                idle_on_state_changed(extension, state).await;
+            });
+        }) as Box<dyn FnMut(JsValue)>)
+    };
     chrome_sys::idle::on_state_changed_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Tabs `on_updated` event
-    let extension_clone = extension.clone();
-    let closure = Closure::wrap(Box::new(
-        move |tab_id: JsValue, change_info: JsValue, tab: JsValue| {
-            let extension_clone = extension_clone.clone();
+    let closure = {
+        let extension = extension_clone.clone();
+        Closure::wrap(Box::new(move |tab_id: JsValue, change_info: JsValue, tab: JsValue| {
+            let extension = extension.clone();
             trace!(
                 "Tab updated: tab_id={:?}, change_info={:?}, tab={:?}",
                 tab_id,
                 change_info,
                 tab
             );
-            tabs_on_updated(extension_clone, tab_id, change_info);
-        },
-    ) as Box<dyn FnMut(JsValue, JsValue, JsValue)>);
+            tabs_on_updated(extension, tab_id, change_info);
+        }) as Box<dyn FnMut(JsValue, JsValue, JsValue)>)
+    };
     chrome_sys::tabs::on_updated_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Tabs `on_activated` event
-    let extension_clone = extension.clone();
-    let closure = Closure::wrap(Box::new(move |tab_id: JsValue| {
-        let extension_clone = extension_clone.clone();
-        trace!("tabs::on_removed_add_listener: {:?}", tab_id);
-        spawn_local(async move {
-            tabs_on_removed(extension_clone, tab_id).await;
-        });
-    }) as Box<dyn FnMut(JsValue)>);
-    chrome_sys::tabs::on_removed_add_listener(closure.as_ref().unchecked_ref());
-    closure.forget();
-
-    // Tabs `on_removed` event
-    let extension_clone = extension.clone();
-    let closure = Closure::wrap(Box::new(move |active_info: JsValue| {
-        let extension_clone = extension_clone.clone();
-        trace!("tabs::on_activated_add_listener: {:?}", active_info);
-        spawn_local(async move {
-            tabs_on_activated(extension_clone, active_info).await;
-        });
-    }) as Box<dyn FnMut(JsValue)>);
+    let closure = {
+        let extension = extension_clone.clone();
+        Closure::wrap(Box::new(move |active_info: JsValue| {
+            let extension = extension.clone();
+            trace!("tabs::on_activated_add_listener: {:?}", active_info);
+            spawn_local(async move {
+                tabs_on_activated(extension, active_info).await;
+            });
+        }) as Box<dyn FnMut(JsValue)>)
+    };
     chrome_sys::tabs::on_activated_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
+    // Tabs `on_removed` event
+    let closure = {
+        let extension = extension_clone.clone();
+        Closure::wrap(Box::new(move |tab_id: JsValue| {
+            let extension = extension.clone();
+            trace!("tabs::on_removed_add_listener: {:?}", tab_id);
+            spawn_local(async move {
+                tabs_on_removed(extension, tab_id).await;
+            });
+        }) as Box<dyn FnMut(JsValue)>)
+    };
+    chrome_sys::tabs::on_removed_add_listener(closure.as_ref().unchecked_ref());
+    closure.forget();
 
     // Alarms `on_alarm` event
-    let extension_clone = extension.clone();
-    let closure = Closure::wrap(Box::new(move |alarm: JsValue| {
-        let extension_clone = extension_clone.clone();
-        trace!("alarms::on_alarm_add_listener: {:?}", alarm);
-        alarms_on_alarm(extension_clone, alarm);
-    }) as Box<dyn FnMut(JsValue)>);
+    let closure = {
+        trace!("Setting up alarms event listener");
+        let provider = provider_clone.clone();
+        Closure::wrap(Box::new(move |alarm: JsValue| {
+            let provider = provider.clone();
+            trace!("alarms::on_alarm_add_listener: {:?}", alarm);
+            on_alarm(provider, alarm);
+        }) as Box<dyn FnMut(JsValue)>)
+    };
     chrome_sys::alarms::on_alarm_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 }
+
 
 // Send an event to a specific tab
 async fn send_event_to_tab(tab_id: u32, event: String, args: JsValue) -> Result<(), JsValue> {

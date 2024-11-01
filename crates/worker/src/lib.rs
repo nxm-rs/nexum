@@ -1,6 +1,6 @@
 #![feature(async_closure)]
 
-use std::{cell::RefCell, rc::Rc};
+use std::sync::Arc;
 
 use chrome_sys::{
     action::{self, IconPath, PopupDetails, TabIconDetails},
@@ -19,8 +19,6 @@ use wasm_bindgen::prelude::*;
 
 extern crate console_error_panic_hook;
 
-// mod singleton;
-// use singleton::Singleton;
 mod events;
 mod state;
 mod subscription;
@@ -42,8 +40,8 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 
     trace!("Starting extension initialization");
 
-    let extension = Rc::new(RefCell::new(Extension::new().await));
-    let provider = extension.borrow().provider.clone();
+    let extension = Arc::new(Mutex::new(Extension::new().await));
+    let provider = extension.lock().await.provider.clone();
 
     trace!("Setting up event listeners");
     setup_listeners(extension.clone(), provider.unwrap().clone());
@@ -53,8 +51,8 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 }
 
 pub struct Extension {
-    state: Mutex<ExtensionState>,
-    pub provider: Option<Rc<RefCell<Client>>>,
+    state: Arc<Mutex<ExtensionState>>,
+    pub provider: Option<Arc<Client>>,
 }
 
 impl Extension {
@@ -109,18 +107,18 @@ impl Extension {
                     ..Default::default()
                 };
 
+                info!("Creating alarm: {:?}", alarm_info);
+
                 if let Err(e) = alarms::create_alarm(CLIENT_STATUS_ALARM_KEY, alarm_info).await {
                     warn!("Failed to create alarm: {:?}", e);
                 }
             }
         }
 
-        let provider = Self::create_provider()
-            .await
-            .map(|client| Rc::new(RefCell::new(client)));
+        let provider = Self::create_provider().await.map(|client| Arc::new(client));
 
         let extension = Self {
-            state: Mutex::new(state),
+            state: Arc::new(Mutex::new(state)),
             provider: provider.ok(),
         };
 
@@ -152,7 +150,7 @@ impl Extension {
             .await
         {
             Ok(client) => {
-                self.provider = Some(Rc::new(RefCell::new(client)));
+                self.provider = Some(Arc::new(client));
                 self.state.lock().await.set_frame_connected(true);
                 debug!("Provider initialized successfully");
             }

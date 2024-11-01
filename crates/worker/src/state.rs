@@ -1,10 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use chrome_sys::port;
 use ferris_primitives::FrameState;
+use futures::lock::Mutex;
 use serde_wasm_bindgen::to_value;
 use tracing::{debug, trace};
-use wasm_bindgen::{prelude::Closure, JsValue};
+use wasm_bindgen::JsValue;
 
 use crate::{subscription::Subscription, Extension};
 
@@ -20,8 +21,6 @@ pub(crate) struct ExtensionState {
     pub tab_origins: HashMap<u32, String>,
     /// The current state of the frame
     pub frame_state: FrameState,
-    // Closure to handle port disconnect events
-    pub on_disconnect_closure: Option<Closure<dyn Fn(JsValue)>>,
 }
 
 impl ExtensionState {
@@ -53,11 +52,8 @@ impl ExtensionState {
 }
 
 // Cleanup subscriptions when a tab is closed or navigated away
-pub async fn tab_unsubscribe(
-    extension: Rc<RefCell<Extension>>,
-    tab_id: u32,
-) -> Result<(), JsValue> {
-    let extension = extension.borrow_mut();
+pub async fn tab_unsubscribe(extension: Arc<Mutex<Extension>>, tab_id: u32) -> Result<(), JsValue> {
+    let extension = extension.lock().await;
     let mut state = extension.state.lock().await;
 
     let subscriptions_to_unsubscribe: Vec<_> = state

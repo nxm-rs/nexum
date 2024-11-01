@@ -1,7 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use chrome_sys::{port, tabs::send_message_to_tab};
 use ferris_primitives::{EthPayload, MessagePayload};
+use futures::lock::Mutex;
 use js_sys::{Function, Reflect};
 use jsonrpsee::{
     core::client::{ClientT, Error as JsonRpcError},
@@ -16,7 +17,7 @@ use wasm_bindgen_futures::spawn_local;
 use crate::{Extension, EXTENSION_PORT_NAME};
 
 // To be used with the `chrome.runtime.onConnect` event
-pub async fn runtime_on_connect(extension: Rc<RefCell<Extension>>, js_port: JsValue) {
+pub async fn runtime_on_connect(extension: Arc<Mutex<Extension>>, js_port: JsValue) {
     // Retrieve port name, logging on error
     trace!("Received connection: {:?}", js_port);
 
@@ -30,7 +31,7 @@ pub async fn runtime_on_connect(extension: Rc<RefCell<Extension>>, js_port: JsVa
     let extension_clone = extension.clone();
     if port.name == EXTENSION_PORT_NAME {
         trace!("Connection is for frame_connect");
-        let extension = extension.borrow_mut();
+        let extension = extension.lock().await;
         let mut state = extension.state.lock().await;
         state.settings_panel = Some(js_port.clone());
         state.update_settings_panel();
@@ -41,7 +42,7 @@ pub async fn runtime_on_connect(extension: Rc<RefCell<Extension>>, js_port: JsVa
 }
 
 // Function to set up the on_disconnect handler
-fn port_on_disconnect(extension: Rc<RefCell<Extension>>, port: JsValue) {
+fn port_on_disconnect(extension: Arc<Mutex<Extension>>, port: JsValue) {
     // Create a placeholder for on_disconnect, initially set to None
     let on_disconnect: Rc<RefCell<Option<Closure<dyn Fn(JsValue)>>>> = Rc::new(RefCell::new(None));
 
@@ -52,14 +53,14 @@ fn port_on_disconnect(extension: Rc<RefCell<Extension>>, port: JsValue) {
     let on_disconnect_closure = Closure::wrap(Box::new(move |_: JsValue| {
         let port_inner = port_clone.clone();
         let on_disconnect_inner = on_disconnect_clone.clone();
-        let extension_inner = Rc::clone(&extension);
+        let extension_inner = extension.clone();
 
         // Spawn a task to handle disconnection asynchronously
         spawn_local(async move {
             info!("Port disconnected");
 
             // Access the singleton extension instance
-            let extension_inner = extension_inner.borrow_mut();
+            let extension_inner = extension_inner.lock().await;
             let mut state = extension_inner.state.lock().await;
             if state.settings_panel == Some(port_inner.clone()) {
                 debug!("Resetting settings_panel state");
@@ -103,7 +104,7 @@ fn port_on_disconnect(extension: Rc<RefCell<Extension>>, port: JsValue) {
 }
 
 // To be used with the `chrome.runtime.onMessage` event
-pub async fn runtime_on_message(provider: Rc<RefCell<Client>>, message: JsValue, sender: JsValue) {
+pub async fn runtime_on_message(provider: Arc<Client>, message: JsValue, sender: JsValue) {
     trace!("Received message: {:?} from {:?}", message, sender);
 
     let payload = match MessagePayload::from_js_value(&message) {
@@ -129,7 +130,6 @@ pub async fn runtime_on_message(provider: Rc<RefCell<Client>>, message: JsValue,
         }
         MessagePayload::JsonRequest(p) => {
             let eth_payload = match provider
-                .borrow()
                 .request::<serde_json::Value, _>(
                     &p.method.clone().unwrap_or_default(),
                     p.params.clone().unwrap_or_default(),
