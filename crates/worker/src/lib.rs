@@ -8,7 +8,7 @@ use events::send_event;
 use ferris_primitives::{EmbeddedAction, EmbeddedActionPayload, EthPayload, MessagePayload};
 use js_sys::Reflect;
 use jsonrpsee::{
-    core::client::ClientT,
+    core::client::{ClientT, Error as JsonRpcError},
     wasm_client::{Client, WasmClientBuilder},
 };
 use once_cell::unsync::OnceCell;
@@ -24,6 +24,7 @@ use tracing::{debug, error, info, trace, warn};
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
+
 extern crate console_error_panic_hook;
 
 mod events;
@@ -184,7 +185,6 @@ impl Extension {
             .await
         {
             Ok(client) => {
-                // get_extension().borrow_mut().provider = Some(client);
                 self.provider = Some(client);
                 self.state.set_frame_connected(true);
                 debug!("Provider initialised successfully");
@@ -205,7 +205,7 @@ impl Extension {
     // Event handlers
 
     // To be used with the `chrome.runtime.onConnect` event
-    pub async fn runtime_on_connect(&self, js_port: JsValue) {
+    pub async fn runtime_on_connect(&mut self, js_port: JsValue) {
         // Retrieve port name, logging on error
         trace!("Received connection: {:?}", js_port);
 
@@ -218,7 +218,7 @@ impl Extension {
 
         if port.name == EXTENSION_PORT_NAME {
             trace!("Connection is for frame_connect");
-            get_extension().borrow_mut().state.settings_panel = Some(js_port.clone());
+            self.state.settings_panel = Some(js_port.clone());
             self.state.update_settings_panel();
 
             // Add onDisconnect listener
@@ -265,33 +265,50 @@ impl Extension {
             MessagePayload::JsonRequest(p) => {
                 // Make an upstream request
                 if let Some(provider) = &self.provider {
-                    let response: Result<serde_json::Value, _> = provider
-                        .request(
-                            &p.method.clone().unwrap_or_default(),
-                            p.params.clone().unwrap_or_default(),
-                        )
-                        .await;
-
-                    trace!("Received response: {:?}", response);
-
-                    // If the response is successful, populate `result` in EthPayload,
-                    // otherwise populate `error`
-                    let eth_payload = match response {
-                        Ok(result) => EthPayload {
-                            base: p.base,
-                            method: p.method.clone(),
-                            params: p.params.clone(),
-                            result: Some(result),
-                            error: None,
-                        },
-                        Err(e) => {
+                    let eth_payload = match provider.request::<serde_json::Value, _>(&p.method.clone().unwrap_or_default(), p.params.clone().unwrap_or_default()).await {
+                        Ok(response) => {
+                            // Successful response
                             EthPayload {
-                            base: p.base,
-                            method: p.method.clone(),
-                            params: p.params.clone(),
-                            result: None,
-                            error: None,
-                        }},
+                                base: p.base,
+                                method: p.method,
+                                params: p.params,
+                                result: Some(response),
+                                error: None,
+                            }
+                        }
+                        Err(JsonRpcError::Call(call_error)) => {
+                            // Call-specific error (JSON-RPC error object)
+                            trace!("Call error: {:?}", call_error);
+                            EthPayload {
+                                base: p.base,
+                                method: p.method,
+                                params: p.params,
+                                result: None,
+                                error: Some(serde_json::Value::String(serde_json::to_string(&call_error).unwrap())),
+                            }
+                        }
+                        Err(JsonRpcError::Transport(transport_error)) => {
+                            // Transport-related error (network or HTTP issue)
+                            trace!("Transport error: {:?}", transport_error);
+                            EthPayload {
+                                base: p.base,
+                                method: p.method,
+                                params: p.params,
+                                result: None,
+                                error: Some(serde_json::Value::String(serde_json::to_string(&transport_error.to_string()).unwrap())),
+                            }
+                        }
+                        Err(err) => {
+                            // Other types of errors (e.g., Parse errors, Internal errors)
+                            trace!("Other error: {:?}", err);
+                            EthPayload {
+                                base: p.base,
+                                method: p.method,
+                                params: p.params,
+                                result: None,
+                                error: Some(serde_json::Value::String(serde_json::to_string(&err.to_string()).unwrap())),
+                            }
+                        }
                     };
 
                     // Convert `eth_payload` to JSON to send back
@@ -331,7 +348,7 @@ impl Extension {
     }
 
     // Handler for `chrome.tabs.onUpdated` event
-    pub fn tabs_on_updated(&self, tab_id: JsValue, change_info: JsValue) {
+    pub fn tabs_on_updated(&mut self, tab_id: JsValue, change_info: JsValue) {
         trace!("Received tab update event: {:?}", change_info);
         let change_info: tabs::ChangeInfo = from_value(change_info).unwrap();
         let tab_id: u32 = tab_id.as_f64().unwrap() as u32;
@@ -342,7 +359,7 @@ impl Extension {
         if let Some(url) = change_info.url {
             let origin = origin_from_url(Some(url.clone()));
             debug!(tab_id, ?origin, "Updated tab origin");
-            get_extension().borrow_mut().state.tab_origins.insert(tab_id, origin);
+            self.state.tab_origins.insert(tab_id, origin);
 
             // Attempt to unsubscribe the tab and log if it fails
             if let Err(e) = self.state.tab_unsubscribe(tab_id) {
@@ -354,7 +371,7 @@ impl Extension {
     }
 
     // Handler for `chrome.tabs.onActivated` event
-    pub async fn tabs_on_activated(&self, active_info: JsValue) {
+    pub async fn tabs_on_activated(&mut self, active_info: JsValue) {
         let active_info: tabs::ActiveInfo = from_value(active_info).unwrap();
 
         let tab = match tabs::get(active_info.tab_id).await {
@@ -366,7 +383,7 @@ impl Extension {
         };
 
         // Update the active tab ID
-        get_extension().borrow_mut().state.active_tab_id = Some(active_info.tab_id);
+        self.state.active_tab_id = Some(active_info.tab_id);
         debug!(active_tab_id = ?self.state.active_tab_id, "Updated active tab ID");
 
         // Get and validate tab origin

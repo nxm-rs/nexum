@@ -26,7 +26,7 @@ pub(crate) fn setup_listeners() {
         trace!("runtime::on_connect_add_listener: {:?}", port);
         spawn_local(async move {
             let ext_rc = get_extension();
-            ext_rc.borrow().runtime_on_connect(port).await;
+            ext_rc.borrow_mut().runtime_on_connect(port).await;
         });
     }) as Box<dyn FnMut(JsValue)>);
     runtime::on_connect_add_listener(closure.as_ref().unchecked_ref());
@@ -53,7 +53,7 @@ pub(crate) fn setup_listeners() {
                 tab
             );
             let ext = get_extension();
-            ext.borrow().tabs_on_updated(tab_id, change_info);
+            ext.borrow_mut().tabs_on_updated(tab_id, change_info);
         },
     ) as Box<dyn FnMut(JsValue, JsValue, JsValue)>);
     tabs::on_updated_add_listener(closure.as_ref().unchecked_ref());
@@ -64,7 +64,7 @@ pub(crate) fn setup_listeners() {
         trace!("tabs::on_activated_add_listener: {:?}", active_info);
         spawn_local(async move {
             let ext_rc = get_extension();
-            ext_rc.borrow().tabs_on_activated(active_info).await;
+            ext_rc.borrow_mut().tabs_on_activated(active_info).await;
         });
     }) as Box<dyn FnMut(JsValue)>);
     tabs::on_activated_add_listener(closure.as_ref().unchecked_ref());
