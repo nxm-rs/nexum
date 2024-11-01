@@ -1,3 +1,6 @@
+#![feature(async_closure)]
+use std::{cell::RefCell, rc::Rc};
+
 use chrome_sys::{
     action::{self, IconPath, PopupDetails, TabIconDetails},
     alarms::{self},
@@ -6,27 +9,25 @@ use chrome_sys::{
 };
 use events::send_event;
 use ferris_primitives::{EmbeddedAction, EmbeddedActionPayload, EthPayload, MessagePayload};
-use js_sys::Reflect;
+use futures::lock::Mutex;
+use js_sys::{Function, Reflect};
 use jsonrpsee::{
     core::client::{ClientT, Error as JsonRpcError},
     wasm_client::{Client, WasmClientBuilder},
 };
-use once_cell::unsync::OnceCell;
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_wasm_bindgen::from_value;
 use state::ExtensionState;
-use std::{cell::RefCell, rc::Rc};
-use std::{
-    ops::{Deref, DerefMut},
-    panic,
-};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, info, trace, warn};
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 extern crate console_error_panic_hook;
 
+mod singleton;
+use singleton::Singleton;
 mod events;
 mod state;
 mod subscription;
@@ -34,37 +35,20 @@ mod subscription;
 const EXTENSION_PORT_NAME: &str = "frame_connect";
 const CLIENT_STATUS_ALARM_KEY: &str = "check-client-status";
 
-// Define a wrapper type around `OnceCell<Rc<RefCell<Extension>>>`
-pub struct SyncOnceCell(OnceCell<Rc<RefCell<Extension>>>);
+// Type aliases for easier use
+type ExtensionSingleton = Singleton<Extension>;
+type ProviderSingleton = Singleton<Client>;
 
-// Implement `Deref` and `DerefMut` for convenient access to the inner `OnceCell`
-impl Deref for SyncOnceCell {
-    type Target = OnceCell<Rc<RefCell<Extension>>>;
+// Use Lazy to initialize the Singleton statics
+pub static INSTANCE: Lazy<ExtensionSingleton> = Lazy::new(ExtensionSingleton::new);
+pub static PROVIDER: Lazy<ProviderSingleton> = Lazy::new(ProviderSingleton::new);
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for SyncOnceCell {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-// Implement `Sync` unsafely for `SyncOnceCell`, as we're in a single-threaded WASM context
-unsafe impl Sync for SyncOnceCell {}
-
-// Define the singleton instance using the new wrapper type
-static INSTANCE: SyncOnceCell = SyncOnceCell(OnceCell::new());
-
-// Initializes the singleton instance asynchronously
 #[wasm_bindgen]
 pub async fn initialize_extension() -> Result<JsValue, JsValue> {
     // Set up a panic hook to log errors
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    // Initialise tracing for logging to the console
+    // Initialize tracing for logging to the console
     tracing_wasm::set_as_global_default_with_config(
         tracing_wasm::WASMLayerConfigBuilder::new()
             .set_max_level(tracing::Level::TRACE)
@@ -73,39 +57,28 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 
     trace!("Starting extension initialization");
 
-    // Check if INSTANCE is already initialized
-    if INSTANCE.get().is_some() {
-        info!("Extension already initialized");
-        return Err(JsValue::null());
-    }
+    // Initialize PROVIDER if it hasn't been set
+    PROVIDER.initialize(None).map_err(|_| {
+        info!("Provider already initialized");
+        JsValue::null()
+    })?;
 
-    // Initialize INSTANCE with async extension setup using async new()
+    // Initialize INSTANCE if it hasn't been set
     let extension = Extension::new().await;
-    INSTANCE
-        .set(Rc::new(RefCell::new(extension)))
-        .map_err(|_| {
-            error!("Failed to set singleton instance");
-            JsValue::null()
-        })?;
+    INSTANCE.initialize(Some(extension)).map_err(|_| {
+        info!("Extension already initialized");
+        JsValue::null()
+    })?;
 
     trace!("Setting up event listeners");
     events::setup_listeners();
-
-    trace!("Initializing on-disconnect closure");
-    ExtensionState::init_on_disconnect_closure();
 
     info!("Extension initialized successfully");
     Ok(true.into())
 }
 
-// Function to retrieve the singleton instance
-pub fn get_extension() -> Rc<RefCell<Extension>> {
-    INSTANCE.get().expect("Extension not initialized").clone()
-}
-
 pub struct Extension {
-    state: ExtensionState,
-    provider: Option<Client>,
+    state: Mutex<ExtensionState>,
 }
 
 impl Extension {
@@ -169,35 +142,45 @@ impl Extension {
             }
         }
 
-        let mut extension = Self {
-            state,
-            provider: None,
+        let extension = Self {
+            state: Mutex::new(state),
         };
 
+        // Initialise the provider
         extension.init_provider().await;
 
         extension
     }
 
-    async fn init_provider(&mut self) {
+    async fn init_provider(&self) {
         match WasmClientBuilder::default()
             .build("ws://127.0.0.1:1248")
             .await
         {
             Ok(client) => {
-                self.provider = Some(client);
-                self.state.set_frame_connected(true);
-                debug!("Provider initialised successfully");
+                // Attempt to initialize PROVIDER with Some(client)
+                if PROVIDER.initialize(Some(client)).is_ok() {
+                    self.state.lock().await.set_frame_connected(true);
+                    debug!("Provider initialized successfully");
+                } else {
+                    warn!("Provider is already initialized");
+                }
             }
-            Err(e) => warn!(error = ?e, "Failed to initialise JSON-RPC client"),
+            Err(e) => {
+                // If building the client fails, initialize PROVIDER with None
+                let _ = PROVIDER.initialize(None);
+                warn!(error = ?e, "Failed to initialize JSON-RPC client");
+            }
         }
 
         send_event("connect", None, tabs::Query::default()).await;
     }
 
-    fn destroy_provider(&mut self) {
-        if self.provider.take().is_some() {
-            self.state.set_frame_connected(false);
+    async fn destroy_provider(&self) {
+        // Access PROVIDER and take the inner value if it is `Some`
+        let mut provider_ref = PROVIDER.get_mut(); // Borrow mutably to access Option<Client>
+        if provider_ref.take().is_some() {
+            self.state.lock().await.set_frame_connected(false);
             debug!("Provider destroyed");
         }
     }
@@ -218,27 +201,84 @@ impl Extension {
 
         if port.name == EXTENSION_PORT_NAME {
             trace!("Connection is for frame_connect");
-            self.state.settings_panel = Some(js_port.clone());
-            self.state.update_settings_panel();
+            self.state.lock().await.settings_panel = Some(js_port.clone());
+            self.state.lock().await.update_settings_panel();
 
             // Add onDisconnect listener
-            if port::port_add_on_disconnect_listener(
-                js_port,
-                self.state
-                    .on_disconnect_closure
-                    .as_ref()
-                    .map(|c| c.as_ref().unchecked_ref())
-                    .expect("on_disconnect_closure missing"),
-            )
-            .is_err()
-            {
-                tracing::error!("Failed to add onDisconnect listener");
-            }
+            self.port_on_disconnect(js_port.clone());
         }
     }
 
+    // Function to set up the on_disconnect handler
+    fn port_on_disconnect(&self, port: JsValue) {
+        // Create a placeholder for on_disconnect, initially set to None
+        let on_disconnect: Rc<RefCell<Option<Closure<dyn Fn(JsValue)>>>> =
+            Rc::new(RefCell::new(None));
+
+        // Clone references to port and on_disconnect to use in the closure
+        let port_clone = port.clone();
+        let on_disconnect_clone = Rc::clone(&on_disconnect);
+
+        let on_disconnect_closure = Closure::wrap(Box::new(move |_: JsValue| {
+            let port_clone_inner = port_clone.clone();
+            let on_disconnect_inner = on_disconnect_clone.clone();
+
+            // Spawn a task to handle disconnection asynchronously
+            spawn_local(async move {
+                info!("Port disconnected");
+
+                // Access the singleton extension instance
+                let mut ext_ref = INSTANCE.get_mut(); // Directly borrow the Option<Extension> mutably
+                if let Some(extension) = ext_ref.as_mut() {
+                    // Lock the state to check if the settings_panel matches the disconnected port
+                    let mut state = extension.state.lock().await;
+                    if state.settings_panel == Some(port_clone_inner.clone()) {
+                        debug!("Resetting settings_panel state");
+                        state.settings_panel = None;
+                        state.update_settings_panel();
+                    }
+                }
+
+                // Remove the on_disconnect listener using the original closure
+                if let Some(ref closure) = *on_disconnect_inner.borrow() {
+                    if port::remove_on_disconnect_listener(
+                        port_clone_inner.clone(),
+                        closure.as_ref().unchecked_ref::<Function>(),
+                    )
+                    .is_err()
+                    {
+                        warn!(
+                            "Failed to remove onDisconnect listener for port: {:?}",
+                            port_clone_inner
+                        );
+                    } else {
+                        info!(
+                            "Removed onDisconnect listener for port: {:?}",
+                            port_clone_inner
+                        );
+                    }
+                }
+            });
+        }) as Box<dyn Fn(JsValue)>);
+
+        // Populate the on_disconnect RefCell with the actual closure
+        *on_disconnect.borrow_mut() = Some(on_disconnect_closure);
+
+        // Attach the on_disconnect handler to the port
+        if let Some(ref closure) = *on_disconnect.borrow() {
+            if let Err(e) =
+                port::add_on_disconnect_listener(port.clone(), closure.as_ref().unchecked_ref())
+            {
+                warn!("Failed to add onDisconnect listener: {:?}", e);
+            }
+        }
+
+        // Keep the Rc alive
+        let _ = Rc::clone(&on_disconnect);
+    }
+
     // To be used with the `chrome.runtime.onMessage` event
-    pub async fn runtime_on_message(&self, message: JsValue, sender: JsValue) {
+    pub async fn runtime_on_message(message: JsValue, sender: JsValue) {
         trace!("Received message: {:?} from {:?}", message, sender);
 
         let payload = match MessagePayload::from_js_value(&message) {
@@ -264,8 +304,16 @@ impl Extension {
             }
             MessagePayload::JsonRequest(p) => {
                 // Make an upstream request
-                if let Some(provider) = &self.provider {
-                    let eth_payload = match provider.request::<serde_json::Value, _>(&p.method.clone().unwrap_or_default(), p.params.clone().unwrap_or_default()).await {
+                let provider = PROVIDER.get();
+                // Check if the provider has been set
+                if let Some(provider) = provider.as_ref() {
+                    let eth_payload = match provider
+                        .request::<serde_json::Value, _>(
+                            &p.method.clone().unwrap_or_default(),
+                            p.params.clone().unwrap_or_default(),
+                        )
+                        .await
+                    {
                         Ok(response) => {
                             // Successful response
                             EthPayload {
@@ -284,7 +332,9 @@ impl Extension {
                                 method: p.method,
                                 params: p.params,
                                 result: None,
-                                error: Some(serde_json::Value::String(serde_json::to_string(&call_error).unwrap())),
+                                error: Some(serde_json::Value::String(
+                                    serde_json::to_string(&call_error).unwrap(),
+                                )),
                             }
                         }
                         Err(JsonRpcError::Transport(transport_error)) => {
@@ -295,7 +345,9 @@ impl Extension {
                                 method: p.method,
                                 params: p.params,
                                 result: None,
-                                error: Some(serde_json::Value::String(serde_json::to_string(&transport_error.to_string()).unwrap())),
+                                error: Some(serde_json::Value::String(
+                                    serde_json::to_string(&transport_error.to_string()).unwrap(),
+                                )),
                             }
                         }
                         Err(err) => {
@@ -306,7 +358,9 @@ impl Extension {
                                 method: p.method,
                                 params: p.params,
                                 result: None,
-                                error: Some(serde_json::Value::String(serde_json::to_string(&err.to_string()).unwrap())),
+                                error: Some(serde_json::Value::String(
+                                    serde_json::to_string(&err.to_string()).unwrap(),
+                                )),
                             }
                         }
                     };
@@ -334,21 +388,26 @@ impl Extension {
     // To be used with the `chrome.idle.onStateChanged` event
     pub async fn idle_on_state_changed(&mut self, state: JsValue) {
         if state == "active" {
-            self.destroy_provider();
+            self.destroy_provider().await;
             self.init_provider().await;
         }
     }
 
     // To be used with the `chrome.tabs.onRemoved` event
-    pub fn tabs_on_removed(&self, tab_id: u32) {
-        get_extension().borrow_mut().state.tab_origins.remove(&tab_id);
-        get_extension().borrow_mut().state.tab_unsubscribe(tab_id).unwrap_or_else(|e| {
-            warn!("Failed to unsubscribe tab {}: {:?}", tab_id, e);
-        });
+    pub async fn tabs_on_removed(&self, tab_id: u32) {
+        self.state.lock().await.tab_origins.remove(&tab_id);
+        self.state
+            .lock()
+            .await
+            .tab_unsubscribe(tab_id)
+            .await
+            .unwrap_or_else(|e| {
+                warn!("Failed to unsubscribe tab {}: {:?}", tab_id, e);
+            });
     }
 
     // Handler for `chrome.tabs.onUpdated` event
-    pub fn tabs_on_updated(&mut self, tab_id: JsValue, change_info: JsValue) {
+    pub async fn tabs_on_updated(&mut self, tab_id: JsValue, change_info: JsValue) {
         trace!("Received tab update event: {:?}", change_info);
         let change_info: tabs::ChangeInfo = from_value(change_info).unwrap();
         let tab_id: u32 = tab_id.as_f64().unwrap() as u32;
@@ -359,10 +418,10 @@ impl Extension {
         if let Some(url) = change_info.url {
             let origin = origin_from_url(Some(url.clone()));
             debug!(tab_id, ?origin, "Updated tab origin");
-            self.state.tab_origins.insert(tab_id, origin);
+            self.state.lock().await.tab_origins.insert(tab_id, origin);
 
             // Attempt to unsubscribe the tab and log if it fails
-            if let Err(e) = self.state.tab_unsubscribe(tab_id) {
+            if let Err(e) = self.state.lock().await.tab_unsubscribe(tab_id).await {
                 warn!(tab_id, error = ?e, "Failed to unsubscribe tab");
             }
         } else {
@@ -383,8 +442,8 @@ impl Extension {
         };
 
         // Update the active tab ID
-        self.state.active_tab_id = Some(active_info.tab_id);
-        debug!(active_tab_id = ?self.state.active_tab_id, "Updated active tab ID");
+        self.state.lock().await.active_tab_id = Some(active_info.tab_id);
+        debug!(active_tab_id = ?self.state.lock().await.active_tab_id, "Updated active tab ID");
 
         // Get and validate tab origin
         if tab.valid() {
@@ -416,10 +475,10 @@ impl Extension {
         }
     }
 
-    fn set_chains(&mut self, chains: JsValue) -> Result<(), JsValue> {
+    async fn set_chains(&mut self, chains: JsValue) -> Result<(), JsValue> {
         let chains_vec: Vec<String> = serde_wasm_bindgen::from_value(chains)?;
 
-        self.state.set_chains(chains_vec);
+        self.state.lock().await.set_chains(chains_vec);
         Ok(())
     }
 }

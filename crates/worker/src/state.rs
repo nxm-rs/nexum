@@ -2,12 +2,11 @@ use std::collections::HashMap;
 
 use chrome_sys::port;
 use ferris_primitives::FrameState;
-use js_sys::Function;
 use serde_wasm_bindgen::to_value;
-use tracing::{debug, trace, warn};
-use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
+use tracing::{debug, trace};
+use wasm_bindgen::{prelude::Closure, JsValue};
 
-use crate::{get_extension, subscription::Subscription};
+use crate::{subscription::Subscription, INSTANCE};
 
 #[derive(Default)]
 pub(crate) struct ExtensionState {
@@ -52,53 +51,8 @@ impl ExtensionState {
         self.update_settings_panel();
     }
 
-    pub fn init_on_disconnect_closure() {
-        // Check if on_disconnect_closure is already set
-        let ext = get_extension();
-        if ext.borrow().state.on_disconnect_closure.is_none() {
-            debug!("Initializing on_disconnect_closure");
-
-            let closure = Closure::wrap(Box::new(|port: JsValue| {
-                debug!("on_disconnect_closure triggered");
-
-                let ext = get_extension();
-                let mut ext = ext.borrow_mut();
-
-                // Check if `port` matches `settings_panel`
-                if ext.state.settings_panel == Some(port.clone()) {
-                    debug!("Resetting settings_panel state");
-                    ext.state.settings_panel = None;
-                    ext.state.update_settings_panel();
-                }
-
-                // Remove listener if on_disconnect_closure exists
-                if let Some(closure) = &ext.state.on_disconnect_closure {
-                    if port::remove_on_disconnect_listener(
-                        port.clone(),
-                        closure.as_ref().unchecked_ref::<Function>(),
-                    )
-                    .is_err()
-                    {
-                        warn!(
-                            "Failed to remove on_disconnect_listener for port: {:?}",
-                            port
-                        );
-                    } else {
-                        debug!("Removed on_disconnect_listener for port: {:?}", port);
-                    }
-                }
-            }) as Box<dyn Fn(JsValue)>);
-
-            // Store the closure in the struct for reuse
-            ext.borrow_mut().state.on_disconnect_closure = Some(closure);
-            debug!("on_disconnect_closure initialized and stored");
-        } else {
-            debug!("on_disconnect_closure already initialized; skipping");
-        }
-    }
-
     // Cleanup subscriptions when a tab is closed or navigated away
-    pub fn tab_unsubscribe(&self, tab_id: u32) -> Result<(), JsValue> {
+    pub async fn tab_unsubscribe(&self, tab_id: u32) -> Result<(), JsValue> {
         // Collect all subscriptions that the tab is subscribed to
         let subscriptions_to_unsubscribe: Vec<_> = self
             .subscriptions
@@ -107,14 +61,18 @@ impl ExtensionState {
             .map(|(key, _)| key.clone())
             .collect();
 
-        // Send unsubscribe request for each relevant subscription and remove it
-        for key in subscriptions_to_unsubscribe {
-            // Placeholder for the unsubscribe call, e.g., `send_unsubscribe(key)`
-            // You could also await an async unsubscribe function if needed.
-            trace!("Unsubscribing: {:?}", key);
-            get_extension().borrow_mut().state.subscriptions.remove(&key);
+        let mut ext_ref = INSTANCE.get_mut(); // Directly borrow the Option<Extension> mutably
+        if let Some(extension) = ext_ref.as_mut() {
+            // Lock the state to check if the settings_panel matches the disconnected port
+            let mut state = extension.state.lock().await;
+            // Send unsubscribe request for each relevant subscription and remove it
+            for key in subscriptions_to_unsubscribe {
+                // Placeholder for the unsubscribe call, e.g., `send_unsubscribe(key)`
+                // You could also await an async unsubscribe function if needed.
+                trace!("Unsubscribing: {:?}", key);
+                state.subscriptions.remove(&key);
+            }
         }
-
         // Simply drop all pending payloads as the remote hasn't responded and we just ignore them
         // TODO: How to drop all requests that are inflight if using a promise model
 

@@ -1,4 +1,4 @@
-use crate::get_extension;
+use crate::{Extension, INSTANCE};
 use chrome_sys::{alarms, idle, runtime, tabs};
 use ferris_primitives::{EthEventPayload, MessagePayload};
 use serde_wasm_bindgen::from_value;
@@ -11,11 +11,7 @@ pub(crate) fn setup_listeners() {
     let closure = Closure::wrap(Box::new(move |payload: JsValue, sender: JsValue| {
         trace!("runtime::on_message_add_listener: {:?}", payload);
         spawn_local(async move {
-            let ext_rc = get_extension();
-            ext_rc
-                .borrow()
-                .runtime_on_message(payload, sender)
-                .await;
+            Extension::runtime_on_message(payload, sender).await;
         });
     }) as Box<dyn FnMut(JsValue, JsValue)>);
     runtime::on_message_add_listener(closure.as_ref().unchecked_ref());
@@ -25,8 +21,10 @@ pub(crate) fn setup_listeners() {
     let closure = Closure::wrap(Box::new(move |port: JsValue| {
         trace!("runtime::on_connect_add_listener: {:?}", port);
         spawn_local(async move {
-            let ext_rc = get_extension();
-            ext_rc.borrow_mut().runtime_on_connect(port).await;
+            let mut ext_rc = INSTANCE.get_mut();
+            if let Some(extension) = ext_rc.as_mut() {
+                extension.runtime_on_connect(port).await;
+            }
         });
     }) as Box<dyn FnMut(JsValue)>);
     runtime::on_connect_add_listener(closure.as_ref().unchecked_ref());
@@ -36,8 +34,10 @@ pub(crate) fn setup_listeners() {
     let closure = Closure::wrap(Box::new(move |state: JsValue| {
         trace!("idle::on_state_changed_add_listener: {:?}", state);
         spawn_local(async move {
-            let ext_rc = get_extension();
-            ext_rc.borrow_mut().idle_on_state_changed(state).await;
+            let mut ext_rc = INSTANCE.get_mut();
+            if let Some(extension) = ext_rc.as_mut() {
+                extension.idle_on_state_changed(state).await;
+            }
         });
     }) as Box<dyn FnMut(JsValue)>);
     idle::on_state_changed_add_listener(closure.as_ref().unchecked_ref());
@@ -52,8 +52,10 @@ pub(crate) fn setup_listeners() {
                 change_info,
                 tab
             );
-            let ext = get_extension();
-            ext.borrow_mut().tabs_on_updated(tab_id, change_info);
+            let mut ext = INSTANCE.get_mut();
+            if let Some(extension) = ext.as_mut() {
+                extension.tabs_on_updated(tab_id, change_info);
+            }
         },
     ) as Box<dyn FnMut(JsValue, JsValue, JsValue)>);
     tabs::on_updated_add_listener(closure.as_ref().unchecked_ref());
@@ -63,8 +65,10 @@ pub(crate) fn setup_listeners() {
     let closure = Closure::wrap(Box::new(move |active_info: JsValue| {
         trace!("tabs::on_activated_add_listener: {:?}", active_info);
         spawn_local(async move {
-            let ext_rc = get_extension();
-            ext_rc.borrow_mut().tabs_on_activated(active_info).await;
+            let mut ext_rc = INSTANCE.get_mut();
+            if let Some(extension) = ext_rc.as_mut() {
+                extension.tabs_on_activated(active_info).await;
+            }
         });
     }) as Box<dyn FnMut(JsValue)>);
     tabs::on_activated_add_listener(closure.as_ref().unchecked_ref());
@@ -73,8 +77,10 @@ pub(crate) fn setup_listeners() {
     // Alarms `on_alarm` event
     let closure = Closure::wrap(Box::new(move |alarm: JsValue| {
         trace!("alarms::on_alarm_add_listener: {:?}", alarm);
-        let ext_rc = get_extension();
-        ext_rc.borrow().alarms_on_alarm(alarm);
+        let ext = INSTANCE.get_mut();
+        if let Some(extension) = ext.as_ref() {
+            extension.alarms_on_alarm(alarm);
+        }
     }) as Box<dyn FnMut(JsValue)>);
     alarms::on_alarm_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
@@ -119,10 +125,7 @@ pub(crate) async fn send_event(
 
     // Filter tabs with valid `id` and `url`, then send the event to each
     spawn_local(async move {
-        for tab in tabs
-            .iter()
-            .filter(|tab| tab.valid())
-        {
+        for tab in tabs.iter().filter(|tab| tab.valid()) {
             let tab_id = tab.id.expect("Tab id should exist after filtering");
 
             if let Err(e) = send_event_to_tab(tab_id, event.to_owned(), args_js.clone()).await {
