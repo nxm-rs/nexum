@@ -1,13 +1,16 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use chrome_sys::port;
 use ferris_primitives::FrameState;
-use futures::lock::Mutex;
 use serde_wasm_bindgen::to_value;
 use tracing::{debug, trace};
 use wasm_bindgen::JsValue;
+use wasm_bindgen_futures::spawn_local;
 
-use crate::{subscription::Subscription, Extension};
+use crate::{
+    subscription::{unsubscribe, Subscription},
+    Extension,
+};
 
 #[derive(Default)]
 pub(crate) struct ExtensionState {
@@ -21,6 +24,13 @@ pub(crate) struct ExtensionState {
     pub tab_origins: HashMap<u32, String>,
     /// The current state of the frame
     pub frame_state: FrameState,
+    /// A vector of buffered upstream requests
+    pub buffered_requests: HashMap<String, BufferedRequest>,
+}
+
+pub(crate) struct BufferedRequest {
+    pub timer: gloo_timers::callback::Timeout,
+    pub future: Pin<Box<dyn Future<Output = ()>>>,
 }
 
 impl ExtensionState {
@@ -36,24 +46,26 @@ impl ExtensionState {
     }
 
     pub fn set_chains(&mut self, chains: Vec<String>) {
+        debug!("Setting available chains: {:?}", chains);
         self.frame_state.available_chains = chains;
         self.update_settings_panel();
     }
 
     pub fn set_current_chain(&mut self, chain_id: u32) {
+        debug!("Setting current chain: {}", chain_id);
         self.frame_state.current_chain = Some(chain_id);
         self.update_settings_panel();
     }
 
     pub fn set_frame_connected(&mut self, connected: bool) {
+        debug!("Setting frame connected: {}", connected);
         self.frame_state.frame_connected = connected;
         self.update_settings_panel();
     }
 }
 
 // Cleanup subscriptions when a tab is closed or navigated away
-pub async fn tab_unsubscribe(extension: Arc<Mutex<Extension>>, tab_id: u32) -> Result<(), JsValue> {
-    let extension = extension.lock().await;
+pub async fn tab_unsubscribe(extension: Arc<Extension>, tab_id: u32) -> Result<(), JsValue> {
     let mut state = extension.state.lock().await;
 
     let subscriptions_to_unsubscribe: Vec<_> = state
@@ -64,14 +76,16 @@ pub async fn tab_unsubscribe(extension: Arc<Mutex<Extension>>, tab_id: u32) -> R
         .collect();
 
     // Send unsubscribe request for each relevant subscription and remove it
-    for key in subscriptions_to_unsubscribe {
-        // TODO: Placeholder for the unsubscribe call, e.g., `send_unsubscribe(key)`
-        // You could also await an async unsubscribe function if needed.
-        trace!("Unsubscribing: {:?}", key);
-        state.subscriptions.remove(&key);
+    for sub_id in subscriptions_to_unsubscribe {
+        let sub_id_clone = sub_id.clone();
+        spawn_local(async move {
+            trace!("Unsubscribing: {:?}", sub_id_clone);
+            if let Err(e) = unsubscribe(sub_id_clone).await {
+                trace!("Failed to unsubscribe: {:?}", e);
+            }
+        });
+        state.subscriptions.remove(&sub_id);
     }
-    // Simply drop all pending payloads as the remote hasn't responded and we just ignore them
-    // TODO: How to drop all requests that are inflight if using a promise model
 
     Ok(())
 }

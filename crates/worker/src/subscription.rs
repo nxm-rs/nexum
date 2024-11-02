@@ -19,6 +19,13 @@ pub(crate) struct Subscription {
     pub type_: SubscriptionType,
 }
 
+pub(crate) async fn unsubscribe(sub_id: String) -> Result<(), JsValue> {
+    warn!("TODO: Unsubscribing from {:?}", sub_id);
+    // Unsubscribe logic here
+
+    Ok(())
+}
+
 pub(crate) fn sub_type(params: &JsValue) -> SubscriptionType {
     match serde_wasm_bindgen::from_value::<Value>(params.clone()) {
         Ok(Value::Array(params_vec)) => {

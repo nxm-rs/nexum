@@ -1,25 +1,22 @@
 #![feature(async_closure)]
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
-use chrome_sys::{
-    action::{self, IconPath, PopupDetails, TabIconDetails},
-    alarms::{self},
-    tabs::{self, Query},
-};
-use events::{send_event, setup_listeners};
+use builder::ExtensionBuilder;
+use events::setup_listeners;
 use futures::lock::Mutex;
 use js_sys::Reflect;
-use jsonrpsee::wasm_client::{Client, WasmClientBuilder};
-use serde_wasm_bindgen::from_value;
+use provider::{create_provider, monitor_provider, ProviderType};
 use state::ExtensionState;
-use tracing::{debug, info, trace, warn};
+use tracing::{info, trace};
 use url::Url;
 use wasm_bindgen::prelude::*;
 
 extern crate console_error_panic_hook;
 
+mod builder;
 mod events;
+mod provider;
 mod state;
 mod subscription;
 
@@ -40,11 +37,19 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 
     trace!("Starting extension initialization");
 
-    let extension = Arc::new(Mutex::new(Extension::new().await));
-    let provider = extension.lock().await.provider.clone();
+    let provider = create_provider()
+        .await
+        .map(|client| Arc::new(RwLock::new(Some(client))))?;
+    let extension = Arc::new(
+        Extension::builder()
+            .with_provider(provider.clone())
+            .build()
+            .await,
+    );
 
     trace!("Setting up event listeners");
-    setup_listeners(extension.clone(), provider.unwrap().clone());
+    setup_listeners(extension.clone(), provider.clone());
+    monitor_provider(provider, extension);
 
     info!("Extension initialized successfully");
     Ok(true.into())
@@ -52,130 +57,12 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 
 pub struct Extension {
     state: Arc<Mutex<ExtensionState>>,
-    pub provider: Option<Arc<Client>>,
+    provider: Option<ProviderType>,
 }
 
 impl Extension {
-    async fn new() -> Self {
-        // Query for all existing tabs
-        let tabs_js = tabs::query(Query::default())
-            .await
-            .unwrap_or_else(|_| JsValue::undefined());
-
-        // Convert tabs to a Vec<TabInfo>
-        let tabs: Vec<tabs::Info> = from_value(tabs_js).unwrap_or_default();
-
-        // Create a HashMap to store tab origins
-        let tab_origins = tabs
-            .into_iter()
-            .filter_map(|tab| {
-                // Check if both `id` and `url` are present
-                if let (Some(id), Some(url)) = (tab.id, tab.url) {
-                    Some((id, origin_from_url(Some(url))))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // Lock the state to update the tab origins
-        let state = ExtensionState {
-            tab_origins,
-            ..Default::default()
-        };
-
-        // Actions
-
-        action::set_icon(TabIconDetails {
-            path: Some(IconPath::Single("icons/icon96moon.png".to_string())),
-            ..Default::default()
-        });
-
-        action::set_popup(PopupDetails {
-            popup: "index.html".to_string(),
-            ..Default::default()
-        });
-
-        // Event listeners
-
-        match alarms::get(CLIENT_STATUS_ALARM_KEY).await {
-            Ok(Some(_)) => {}
-            Ok(None) | Err(_) => {
-                let alarm_info = alarms::AlarmCreateInfo {
-                    delay_in_minutes: Some(0.0),
-                    period_in_minutes: Some(0.5),
-                    ..Default::default()
-                };
-
-                info!("Creating alarm: {:?}", alarm_info);
-
-                if let Err(e) = alarms::create_alarm(CLIENT_STATUS_ALARM_KEY, alarm_info).await {
-                    warn!("Failed to create alarm: {:?}", e);
-                }
-            }
-        }
-
-        let provider = Self::create_provider().await.map(|client| Arc::new(client));
-
-        let extension = Self {
-            state: Arc::new(Mutex::new(state)),
-            provider: provider.ok(),
-        };
-
-        extension
-    }
-
-    async fn create_provider() -> Result<Client, JsValue> {
-        let provider = WasmClientBuilder::default()
-            .build("ws://127.0.0.1:1248")
-            .await;
-
-        match provider {
-            Ok(client) => Ok(client),
-            Err(e) => Err(JsValue::from_str(&format!(
-                "Failed to create provider: {:?}",
-                e
-            ))),
-        }
-    }
-
-    async fn init_provider(&mut self) {
-        if self.provider.is_some() {
-            warn!("Provider already initialized");
-            return;
-        }
-
-        match WasmClientBuilder::default()
-            .build("ws://127.0.0.1:1248")
-            .await
-        {
-            Ok(client) => {
-                self.provider = Some(Arc::new(client));
-                self.state.lock().await.set_frame_connected(true);
-                debug!("Provider initialized successfully");
-            }
-            Err(e) => {
-                // If building the client fails, initialize PROVIDER with None
-                self.provider = None;
-                warn!(error = ?e, "Failed to initialize JSON-RPC client");
-            }
-        }
-
-        send_event("connect", None, tabs::Query::default()).await;
-    }
-
-    async fn destroy_provider(&mut self) {
-        if self.provider.take().is_some() {
-            self.state.lock().await.set_frame_connected(false);
-            debug!("Provider destroyed");
-        }
-    }
-
-    async fn set_chains(&mut self, chains: JsValue) -> Result<(), JsValue> {
-        let chains_vec: Vec<String> = serde_wasm_bindgen::from_value(chains)?;
-
-        self.state.lock().await.set_chains(chains_vec);
-        Ok(())
+    fn builder() -> ExtensionBuilder {
+        ExtensionBuilder::new()
     }
 }
 

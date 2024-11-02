@@ -1,7 +1,7 @@
 use js_sys::{Function, Promise};
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
-use tracing::{error, info, trace, warn};
+use tracing::{error, info, warn};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
@@ -61,7 +61,10 @@ pub async fn get(name: &str) -> Result<Option<AlarmInfo>, JsValue> {
                     }
                     Err(err) => {
                         error!("Failed to parse response for alarm '{}': {:?}", name, err);
-                        Err(JsValue::from_str(&format!("Failed to parse response: {:?}", err)))
+                        Err(JsValue::from_str(&format!(
+                            "Failed to parse response: {:?}",
+                            err
+                        )))
                     }
                 }
             }

@@ -155,17 +155,20 @@ pub async fn get(tab_id: u32) -> Result<Info, JsValue> {
 
 // Wrapper for addTabRemovedListener
 pub fn on_removed_add_listener(callback: &Function) -> Result<(), JsValue> {
-    Ok(addTabRemovedListener(callback))
+    addTabRemovedListener(callback);
+    Ok(())
 }
 
 // Wrapper for addTabUpdatedListener without generics
 pub fn on_updated_add_listener(callback: &Function) -> Result<(), JsValue> {
-    Ok(addTabUpdatedListener(callback))
+    addTabUpdatedListener(callback);
+    Ok(())
 }
 
 // Wrapper for addTabActivatedListener without generics
 pub fn on_activated_add_listener(callback: &Function) -> Result<(), JsValue> {
-    Ok(addTabActivatedListener(callback))
+    addTabActivatedListener(callback);
+    Ok(())
 }
 
 #[cfg(test)]

@@ -21,6 +21,8 @@ tracing.workspace = true
 tracing-wasm.workspace = true
 url.workspace = true
 jsonrpsee.workspace = true
+uuid.workspace = true
+gloo-timers.workspace = true
 console_error_panic_hook = "0.1.7"
 
 [lib]

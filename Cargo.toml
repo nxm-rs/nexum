@@ -37,6 +37,8 @@ tracing-wasm = "0.2.1"
 wasm-bindgen-futures = "0.4.45"
 jsonrpsee = { version = "0.24.7", features = ["wasm-client", "jsonrpsee-core", "jsonrpsee-types", "client-core", "client-web-transport" ] }
 url = "2.5.2"
+uuid = { version = "1", features = ["v4", "js"] }
+gloo-timers = { version = "0.3.0", features = ["futures"] }
 
 chrome-sys = { path = "crates/chrome-sys" }
 worker = { path = "crates/worker" }

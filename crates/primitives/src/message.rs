@@ -13,7 +13,7 @@ pub struct MessagePayloadBase {
     jsonrpc: String,
     id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    frame_origin: Option<String>, // '__frameOrigin' in JS
+    origin: Option<String>,
 }
 
 // EthEventPayload with Ethereum-specific event details
@@ -65,7 +65,7 @@ impl EthPayload {
             base: MessagePayloadBase {
                 jsonrpc: "2.0".to_string(),
                 id,
-                frame_origin: None,
+                origin: None,
             },
             method,
             params,
