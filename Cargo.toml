@@ -3,15 +3,15 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.81"
 license = "AGPL-3.0"
-homepage = "https://nullis.xyz/ferris"
-repository = "https://github.com/nullisxyz/ferris-extension"
+homepage = "https://nullis.xyz/nexum"
+repository = "https://github.com/nullisxyz/nexum"
 exclude = [".github/"]
 
 [workspace]
 members = [
     "crates/primitives",
     "crates/primitives-traits",
-    "crates/extension",
+    # "crates/extension",
     "crates/chrome-sys",
     "crates/worker",
     # "crates/tui"
@@ -42,5 +42,5 @@ gloo-timers = { version = "0.3.0", features = ["futures"] }
 
 chrome-sys = { path = "crates/chrome-sys" }
 worker = { path = "crates/worker" }
-ferris-primitives = { path = "crates/primitives" }
-ferris-primitives-traits = { path = "crates/primitives-traits" }
+nexum-primitives = { path = "crates/primitives" }
+nexum-primitives-traits = { path = "crates/primitives-traits" }

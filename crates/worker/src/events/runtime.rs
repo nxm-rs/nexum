@@ -1,7 +1,7 @@
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
 use chrome_sys::{port, tabs::send_message_to_tab};
-use ferris_primitives::{EthPayload, MessagePayload};
+use nexum_primitives::{EthPayload, MessagePayload};
 use gloo_timers::callback::Timeout;
 use js_sys::{Function, Reflect};
 use jsonrpsee::{

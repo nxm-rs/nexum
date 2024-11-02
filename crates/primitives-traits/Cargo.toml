@@ -6,6 +6,6 @@ rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Commonly used traits in Ferris"
+description = "Commonly used traits in Nexum"
 
 [dependencies]

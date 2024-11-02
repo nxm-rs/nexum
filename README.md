@@ -64,6 +64,11 @@ To clone Nexum locally:
 ```sh
 git clone https://github.com/nullisxyz/nexum
 cd nexum
+# Install wasm-pack and wasm-opt if you haven't already
+cargo install wasm-pack wasm-opt
+# To compile the worker crate
+wasm-pack build -t web --release -d ../../dist/pkg crates/worker
+# Now you can open Firefox and load the extension from the dist directory
 ```
 <!-- add test instructions above -->
 

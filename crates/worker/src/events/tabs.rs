@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrome_sys::tabs;
-use ferris_primitives::{EmbeddedAction, EmbeddedActionPayload, MessagePayload};
+use nexum_primitives::{EmbeddedAction, EmbeddedActionPayload, MessagePayload};
 use serde_wasm_bindgen::from_value;
 use tracing::{debug, trace, warn};
 use wasm_bindgen::JsValue;

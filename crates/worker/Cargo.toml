@@ -10,7 +10,7 @@ exclude.workspace = true
 [dependencies]
 js-sys.workspace = true
 chrome-sys.workspace = true
-ferris-primitives.workspace = true
+nexum-primitives.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true
 serde_json.workspace = true

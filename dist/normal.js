@@ -1,0 +1,1 @@
+import"./assets/events-CXH2uRM3.js";function s(){chrome.runtime.onMessage.addListener(async(n,i)=>{const{tab:r,...e}=n,{method:o,params:a}=e;if(e.method==="embedded_action_res"){const[d,t]=a;if(d.type==="getChainId"&&t.chainId)return setCurrentChain(t.chainId)}})}s();

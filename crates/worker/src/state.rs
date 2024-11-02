@@ -1,7 +1,7 @@
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use chrome_sys::port;
-use ferris_primitives::FrameState;
+use nexum_primitives::FrameState;
 use serde_wasm_bindgen::to_value;
 use tracing::{debug, trace};
 use wasm_bindgen::JsValue;

@@ -1,12 +1,12 @@
 [package]
-name = "ferris-primitives"
+name = "nexum-primitives"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
-description = "Commonly used types in Ferris"
+description = "Commonly used types in Nexum"
 
 [dependencies]
 derive_more.workspace = true

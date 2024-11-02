@@ -1,0 +1,50 @@
+{
+	"name": "IronWallet Companion",
+	"version": "0.0.1",
+	"manifest_version": 3,
+	"minimum_chrome_version": "116",
+	"description": "An opinionated, minimally injected connection to IronWallet TUI app (required) on macOS, Windows or Linux.",
+	"homepage_url": "https://github.com/rndlabs/ironwallet",
+	"background": {
+		"service_worker": "service.js",
+		"scripts": ["service.js"],
+		"type": "module"
+	},
+	"action": {
+		"default_title": "IronWallet Companion",
+		"default_icon": {
+			"16": "icons/icon16.png",
+			"48": "icons/icon48.png",
+			"96": "icons/icon96.png"
+		}
+	},
+	"content_scripts": [
+		{
+			"matches": ["file://*/*", "http://*/*", "https://*/*"],
+			"js": ["inject.js"],
+			"run_at": "document_start",
+			"all_frames": true
+		}
+	],
+	"web_accessible_resources": [
+		{
+			"resources": ["frame.js", "assets/*", "pkg/*"],
+			"matches": ["file://*/*", "https://*/*", "http://*/*"]
+		}
+	],
+	"content_security_policy": {
+		"extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+	},
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "{00000000-0000-0000-0000-000000000000}"
+		}
+	},
+	"permissions": ["activeTab", "alarms", "idle", "scripting", "tabs"],
+	"host_permissions": ["https://*/*", "http://*/*"],
+	"icons": {
+		"16": "icons/icon16.png",
+		"48": "icons/icon48.png",
+		"96": "icons/icon96.png"
+	}
+}

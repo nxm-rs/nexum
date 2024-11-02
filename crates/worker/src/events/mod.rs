@@ -10,7 +10,7 @@ mod tabs;
 use tabs::*;
 
 use crate::{provider::ProviderType, Extension};
-use ferris_primitives::{EthEventPayload, MessagePayload};
+use nexum_primitives::{EthEventPayload, MessagePayload};
 use serde_wasm_bindgen::from_value;
 use tracing::{trace, warn};
 use wasm_bindgen::prelude::*;
