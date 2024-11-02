@@ -1,4 +1,3 @@
-```markdown
 # Nexum
 
 <!--[![CI status](https://github.com/your-org/nexum/workflows/CI/badge.svg)][gh-ci]-->
@@ -18,7 +17,7 @@
 
 ## What is Nexum?
 
-Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly, designed for both web extension environments and terminal interfaces. Originally forked from [frame-extension](https://github.com/frame-labs/frame-extension), Nexum is a fully compliant EIP-1193 provider that brings together secure, fast, and hacker-friendly access to Ethereum.
+Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly, designed for both web extension environments and terminal interfaces. Originally forked from [frame-extension](https://github.com/frame-labs/frame-extension), Nexum is a fully compliant `EIP-1193` provider that brings together secure, fast, and hacker-friendly access to Ethereum.
 
 With Nexum, users can connect to the Ethereum network through a unique setup that combines **WebTransport** with a **terminal-based** user interface wallet. This makes Nexum ideal for developers and hackers seeking a flexible, performant tool for interacting with Ethereum on the web and beyond.
 
@@ -33,7 +32,7 @@ Nexum is built with the following goals:
 
 ## Status
 
-Nexum is currently in active development and intended for those looking to explore fast, EIP-1193 compliant Ethereum access in a dual web/terminal environment. We invite developers and enthusiasts to contribute, test, and provide feedback as we expand Nexum's capabilities.
+Nexum is currently in active development and intended for those looking to explore fast, `EIP-1193` compliant Ethereum access in a dual web/terminal environment. We invite developers and enthusiasts to contribute, test, and provide feedback as we expand Nexum's capabilities.
 
 ## For Users
 
@@ -87,6 +86,3 @@ Nexum's web extension was originally forked from [`frame-extension`](https://git
 ## License
 
 Nexum is licensed under the GPL-3.0 license. See [`LICENSE`](./LICENSE) for more information.
-
-[tg-url]: https://t.me/nexum_dev
-```
