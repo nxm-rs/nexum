@@ -8,6 +8,7 @@ homepage.workspace = true
 exclude.workspace = true
 
 [dependencies]
+async-lock.workspace = true
 js-sys.workspace = true
 chrome-sys.workspace = true
 nexum-primitives.workspace = true

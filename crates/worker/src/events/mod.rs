@@ -9,31 +9,25 @@ use runtime::*;
 mod tabs;
 use tabs::*;
 
-use crate::{provider::ProviderType, Extension};
+use crate::Extension;
 use nexum_primitives::{EthEventPayload, MessagePayload};
 use serde_wasm_bindgen::from_value;
 use tracing::{trace, warn};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
-pub(crate) fn setup_listeners(
-    extension: Arc<Extension>,
-    provider: ProviderType,
-) -> Result<(), JsValue> {
+pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> {
     // Clone the Arc references once at the start
     let extension_clone = extension.clone();
-    let provider_clone = provider.clone();
 
     // Runtime `on_message` event
     let closure = {
-        let provider = provider_clone.clone();
         let extension = extension_clone.clone();
         Closure::wrap(Box::new(move |payload: JsValue, sender: JsValue| {
-            let provider = provider.clone();
             let extension = extension.clone();
             trace!("runtime::on_message_add_listener: {:?}", payload);
             spawn_local(async move {
-                runtime_on_message(extension, provider, payload, sender).await;
+                runtime_on_message(extension, payload, sender).await;
             });
         }) as Box<dyn FnMut(JsValue, JsValue)>)
     };
@@ -120,12 +114,12 @@ pub(crate) fn setup_listeners(
     // Alarms `on_alarm` event
     let closure = {
         trace!("Setting up alarms event listener");
-        let provider = provider_clone.clone();
+        let extension = extension_clone.clone();
         Closure::wrap(Box::new(move |alarm: JsValue| {
-            let provider = provider.clone();
+            let extension = extension.clone();
             trace!("alarms::on_alarm_add_listener: {:?}", alarm);
             spawn_local(async move {
-                on_alarm(provider, alarm).await;
+                on_alarm(extension, alarm).await;
             });
         }) as Box<dyn FnMut(JsValue)>)
     };

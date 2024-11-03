@@ -10,34 +10,34 @@ use serde_wasm_bindgen::from_value;
 use tracing::{info, warn};
 use wasm_bindgen::JsValue;
 
-use crate::{
-    origin_from_url, state::ExtensionState, Extension, ProviderType, CLIENT_STATUS_ALARM_KEY,
-};
+use crate::{origin_from_url, state::ExtensionState, Extension, Provider, CLIENT_STATUS_ALARM_KEY};
 
 pub struct ExtensionBuilder {
-    provider: Option<ProviderType>,
+    state: Option<Arc<Mutex<ExtensionState>>>,
+    provider: Option<Arc<Provider>>,
 }
 
 impl ExtensionBuilder {
     pub fn new() -> Self {
-        Self { provider: None }
+        Self {
+            state: None,
+            provider: None,
+        }
     }
 
-    pub fn with_provider(mut self, provider: ProviderType) -> Self {
+    /// Adds a `Provider` to the builder
+    pub fn with_provider(mut self, provider: Arc<Provider>) -> Self {
         self.provider = Some(provider);
         self
     }
 
-    pub async fn build(self) -> Extension {
-        // Query for all existing tabs
+    /// Builds the `Extension` instance with configured `Provider` and `ExtensionState`
+    pub async fn build(mut self) -> Result<Arc<Extension>, JsValue> {
+        // Initialize ExtensionState
         let tabs_js = tabs::query(Query::default())
             .await
             .unwrap_or_else(|_| JsValue::undefined());
-
-        // Convert tabs to a Vec<TabInfo>
         let tabs: Vec<tabs::Info> = from_value(tabs_js).unwrap_or_default();
-
-        // Create a HashMap to store tab origins
         let tab_origins = tabs
             .into_iter()
             .filter_map(|tab| {
@@ -49,24 +49,24 @@ impl ExtensionBuilder {
             })
             .collect();
 
-        // Initialize the ExtensionState
+        // Create the state with initial tab origins
         let state = ExtensionState {
             tab_origins,
             ..Default::default()
         };
+        self.state = Some(Arc::new(Mutex::new(state)));
 
         // Set icon and popup actions
         let _ = action::set_icon(TabIconDetails {
             path: Some(IconPath::Single("icons/icon96moon.png".to_string())),
             ..Default::default()
         });
-
         let _ = action::set_popup(PopupDetails {
             popup: "index.html".to_string(),
             ..Default::default()
         });
 
-        // Set up alarm if not already set
+        // Set up the alarm if not already set
         match alarms::get(CLIENT_STATUS_ALARM_KEY).await {
             Ok(Some(_)) => {}
             Ok(None) | Err(_) => {
@@ -84,10 +84,22 @@ impl ExtensionBuilder {
             }
         }
 
-        // Return the constructed Extension
-        Extension {
-            state: Arc::new(Mutex::new(state)),
-            provider: self.provider,
-        }
+        // Create the `Extension` with the state and an uninitialized provider
+        let extension = Arc::new(Extension {
+            state: self.state.clone().unwrap(),
+            provider: None,
+        });
+
+        // Initialize the provider with a reference to the extension and set it
+        let provider = Provider::new(extension.clone()); // `Provider::new` already returns `Arc<Provider>`
+        provider.init().await;
+
+        // Here, instead of trying to mutate the `Arc`, we recreate it with the provider included
+        let extension_with_provider = Arc::new(Extension {
+            state: extension.state.clone(),
+            provider: Some(provider),
+        });
+
+        Ok(extension_with_provider)
     }
 }

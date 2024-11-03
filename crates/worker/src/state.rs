@@ -37,6 +37,10 @@ pub(crate) struct BufferedRequest {
 }
 
 impl ExtensionState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn update_settings_panel(&self) {
         if let Some(panel) = &self.settings_panel {
             debug!("Updating settings panel with new frame state");

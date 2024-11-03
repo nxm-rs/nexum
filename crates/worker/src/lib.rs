@@ -1,11 +1,11 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use builder::ExtensionBuilder;
 use events::setup_listeners;
 use futures::lock::Mutex;
 use js_sys::Reflect;
 use nexum_primitives::ConnectionState;
-use provider::{create_provider, monitor_provider, ProviderType};
+use provider::Provider;
 use state::ExtensionState;
 use tracing::{info, trace};
 use url::Url;
@@ -36,19 +36,11 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 
     trace!("Starting extension initialization");
 
-    let provider = create_provider()
-        .await
-        .map(|client| Arc::new(RwLock::new(Some(client))))?;
-    let extension = Arc::new(
-        Extension::builder()
-            .with_provider(provider.clone())
-            .build()
-            .await,
-    );
+    // Use the builder pattern to initialize the Extension
+    let extension = Extension::builder().build().await?;
 
     trace!("Setting up event listeners");
-    setup_listeners(extension.clone(), provider.clone());
-    monitor_provider(provider, extension);
+    setup_listeners(extension.clone());
 
     info!("Extension initialized successfully");
     Ok(true.into())
@@ -56,11 +48,11 @@ pub async fn initialize_extension() -> Result<JsValue, JsValue> {
 
 pub struct Extension {
     state: Arc<Mutex<ExtensionState>>,
-    provider: Option<ProviderType>,
+    provider: Option<Arc<Provider>>, // Set to Some after provider initialization
 }
 
 impl Extension {
-    fn builder() -> ExtensionBuilder {
+    pub fn builder() -> ExtensionBuilder {
         ExtensionBuilder::new()
     }
 }

@@ -22,6 +22,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+async-lock = "2.5"
 derive_more = { version = "1.0.0", default-features = false, features = ["display"] }
 wasm-bindgen = { version = "0.2.95", features = ["serde", "serde_json"] }
 serde = { version = "1.0", features = ["derive"] }

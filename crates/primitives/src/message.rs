@@ -13,7 +13,7 @@ pub struct MessagePayloadBase {
     jsonrpc: String,
     id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    origin: Option<String>,
+    pub origin: Option<String>,
 }
 
 // EthEventPayload with Ethereum-specific event details
