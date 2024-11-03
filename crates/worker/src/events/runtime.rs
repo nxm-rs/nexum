@@ -1,13 +1,13 @@
 use std::{cell::RefCell, future::Future, rc::Rc, sync::Arc};
 
 use chrome_sys::{port, tabs::send_message_to_tab};
-use nexum_primitives::{EthPayload, MessagePayload};
 use gloo_timers::callback::Timeout;
 use js_sys::{Function, Reflect};
 use jsonrpsee::{
     core::{client::ClientT, ClientError},
     wasm_client::Client,
 };
+use nexum_primitives::{EthPayload, MessagePayload};
 use serde::Deserialize;
 use serde_json::Value;
 use serde_wasm_bindgen::from_value;

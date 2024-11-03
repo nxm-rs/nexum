@@ -1,7 +1,10 @@
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
-use chrome_sys::port;
-use nexum_primitives::FrameState;
+use chrome_sys::{
+    action::{self, IconPath, TabIconDetails},
+    port,
+};
+use nexum_primitives::{ConnectionState, FrameState};
 use serde_wasm_bindgen::to_value;
 use tracing::{debug, trace};
 use wasm_bindgen::JsValue;
@@ -57,9 +60,13 @@ impl ExtensionState {
         self.update_settings_panel();
     }
 
-    pub fn set_frame_connected(&mut self, connected: bool) {
-        debug!("Setting frame connected: {}", connected);
+    pub fn set_frame_connected(&mut self, connected: ConnectionState) {
+        match connected.is_connected() {
+            true => debug!("Provider connected"),
+            false => debug!("Provider disconnected"),
+        }
         self.frame_state.frame_connected = connected;
+        set_icon_for_connection_state(ConnectionState::Connected);
         self.update_settings_panel();
     }
 }
@@ -88,4 +95,17 @@ pub async fn tab_unsubscribe(extension: Arc<Extension>, tab_id: u32) -> Result<(
     }
 
     Ok(())
+}
+
+/// Helper function to set the icon based on connection status
+fn set_icon_for_connection_state(state: ConnectionState) {
+    let path = match state {
+        ConnectionState::Connected => "icons/icon96good.png",
+        ConnectionState::Disconnected => "icons/icon96moon.png",
+    };
+
+    let _ = action::set_icon(TabIconDetails {
+        path: Some(IconPath::Single(path.to_string())),
+        ..Default::default()
+    });
 }

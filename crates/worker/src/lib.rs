@@ -4,6 +4,7 @@ use builder::ExtensionBuilder;
 use events::setup_listeners;
 use futures::lock::Mutex;
 use js_sys::Reflect;
+use nexum_primitives::ConnectionState;
 use provider::{create_provider, monitor_provider, ProviderType};
 use state::ExtensionState;
 use tracing::{info, trace};

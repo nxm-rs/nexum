@@ -11,47 +11,64 @@ use tracing::{debug, trace, warn};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
-use crate::{events::send_event, Extension};
+use crate::{events::send_event, ConnectionState, Extension};
 
 pub type ProviderType = Arc<RwLock<Option<Client>>>;
+const UPSTREAM_URL: &str = "ws://127.0.0.1:1248";
 
-/// Creates a new JSON-RPC client
-pub(crate) async fn create_provider() -> Result<Client, JsValue> {
-    let provider = WasmClientBuilder::default()
+/// Helper function to create a new JSON-RPC client
+pub async fn create_provider() -> Result<Client, JsValue> {
+    WasmClientBuilder::default()
         .request_timeout(Duration::from_secs(60))
-        .build("ws://127.0.0.1:1248")
-        .await;
+        .build(UPSTREAM_URL)
+        .await
+        .map_err(|e| JsValue::from_str(&format!("Failed to create provider: {:?}", e)))
+}
 
-    match provider {
-        Ok(client) => Ok(client),
-        Err(e) => Err(JsValue::from_str(&format!(
-            "Failed to create provider: {:?}",
-            e
-        ))),
+/// Helper function to access the client if connected
+fn with_connected_client<F>(provider: &ProviderType, action: F)
+where
+    F: FnOnce(&Client),
+{
+    if let Ok(provider_guard) = provider.read() {
+        if let Some(client) = provider_guard.as_ref() {
+            if client.is_connected() {
+                action(client);
+            }
+        }
     }
 }
 
-/// Executes logic needed when the provider connects
+/// Helper function to update provider with write lock
+fn with_write_lock<F>(provider: &Option<ProviderType>, action: F)
+where
+    F: FnOnce(&mut Option<Client>),
+{
+    if let Some(provider) = provider {
+        if let Ok(mut provider_guard) = provider.write() {
+            action(&mut *provider_guard);
+        }
+    }
+}
+
+/// Executes logic when the provider connects
 async fn on_connect(extension: Arc<Extension>) {
-    let mut state = extension.state.lock().await;
-    state.set_frame_connected(true);
-    debug!("Provider connected");
+    {
+        let mut state = extension.state.lock().await;
+        state.set_frame_connected(ConnectionState::Connected);
+    }
 
-    // Emit the "connect" event
-    drop(state); // Release lock on state before sending events
     send_event("connect", None, tabs::Query::default()).await;
-
-    // Send buffered RPC requests
     send_buffered_requests(extension).await;
 }
 
-/// Executes logic needed when the provider disconnects
+/// Executes logic when the provider disconnects
 async fn on_disconnect(extension: Arc<Extension>) {
-    let mut state = extension.state.lock().await;
-    state.set_frame_connected(false);
-    debug!("Provider disconnected");
+    {
+        let mut state = extension.state.lock().await;
+        state.set_frame_connected(ConnectionState::Disconnected);
+    }
 
-    // Emit the "disconnect" event
     send_event("disconnect", None, tabs::Query::default()).await;
 }
 
@@ -66,38 +83,23 @@ async fn send_buffered_requests(extension: Arc<Extension>) {
 
 /// Initializes the provider and starts monitoring its connection status
 pub(crate) async fn init_provider(extension: Arc<Extension>) {
-    // Early check: Read lock on provider to check if it's already initialized and connected
-    if let Some(provider) = extension.provider.as_ref() {
-        if let Ok(provider_guard) = provider.read() {
-            if let Some(client) = provider_guard.as_ref() {
-                if client.is_connected() {
-                    warn!("Provider already initialized and connected");
-                    return;
-                }
-            }
-        }
+    if let Some(provider) = &extension.provider {
+        with_connected_client(provider, |_| {
+            warn!("Provider already initialized and connected");
+        });
     }
 
-    // Attempt to initialize the provider
     match create_provider().await {
         Ok(client) => {
-            // Write lock to update provider after successful connection
-            if let Some(provider) = extension.provider.as_ref() {
-                if let Ok(mut provider_guard) = provider.write() {
-                    *provider_guard = Some(client);
-                }
-            }
-
-            // Execute the on-connect logic
+            with_write_lock(&extension.provider, |provider_guard| {
+                *provider_guard = Some(client);
+            });
             on_connect(extension.clone()).await;
         }
         Err(e) => {
-            // If building the client fails, set provider to None
-            if let Some(provider) = extension.provider.as_ref() {
-                if let Ok(mut provider_guard) = provider.write() {
-                    *provider_guard = None;
-                }
-            }
+            with_write_lock(&extension.provider, |provider_guard| {
+                *provider_guard = None;
+            });
             warn!(error = ?e, "Failed to initialize JSON-RPC client");
         }
     }
@@ -105,83 +107,59 @@ pub(crate) async fn init_provider(extension: Arc<Extension>) {
 
 /// Destroys the provider connection
 pub(crate) async fn destroy_provider(extension: Arc<Extension>) {
-    // Write lock to remove the provider if it exists
-    if let Some(provider) = extension.provider.as_ref() {
-        if let Ok(mut provider_guard) = provider.write() {
-            if provider_guard.take().is_some() {
-                debug!("Provider destroyed");
-            }
+    with_write_lock(&extension.provider, |provider_guard| {
+        if provider_guard.take().is_some() {
+            debug!("Provider destroyed");
         }
-    }
-
-    // Execute the on-disconnect logic
+    });
     on_disconnect(extension).await;
 }
 
 /// Monitors the provider's connection status, emitting disconnect and reconnect events as needed
 pub(crate) fn monitor_provider(provider: ProviderType, extension: Arc<Extension>) {
-    // Tracking whether the provider is disconnected and waiting for reconnection
     let disconnected = Arc::new(RwLock::new(false));
     let reconnecting = Arc::new(RwLock::new(false));
 
-    let monitor_interval = IntervalStream::new(5000);
-    let disconnected_clone = disconnected.clone();
-    let reconnecting_clone = reconnecting.clone();
-    let provider_clone = provider.clone();
-    let extension_clone = extension.clone();
-
     spawn_local(async move {
-        let mut interval = monitor_interval.fuse();
-        while let Some(_) = interval.next().await {
+        let mut interval = IntervalStream::new(5000).fuse();
+        while interval.next().await.is_some() {
             let is_disconnected = *disconnected.read().unwrap();
             let is_reconnecting = *reconnecting.read().unwrap();
 
-            if let Ok(provider_guard) = provider.read() {
-                if let Some(client) = provider_guard.as_ref() {
-                    if client.is_connected() {
-                        // Reset disconnected flag if connected
-                        if is_disconnected {
-                            *disconnected.write().unwrap() = false;
-                        }
-                        trace!("Monitor: Provider is connected");
-                        continue;
-                    }
-                }
+            with_connected_client(&provider, |_| {
+                *disconnected.write().unwrap() = false;
+                trace!("Monitor: Provider is connected");
+            });
+
+            // If the provider is connected, skip the rest of the loop iteration.
+            if !*disconnected.read().unwrap() {
+                continue;
             }
 
-            // If disconnected and not reconnecting, emit disconnect event and start reconnection
             if !is_disconnected && !is_reconnecting {
-                *disconnected_clone.write().unwrap() = true;
+                *disconnected.write().unwrap() = true;
                 debug!("Provider disconnected");
-
-                // Execute the on-disconnect logic
-                on_disconnect(extension_clone.clone()).await;
+                on_disconnect(extension.clone()).await;
             }
 
-            // If already reconnecting, skip further reconnection attempts
             if is_reconnecting {
                 continue;
             }
 
-            // Set reconnecting flag and attempt to reconnect
-            *reconnecting_clone.write().unwrap() = true;
+            *reconnecting.write().unwrap() = true;
             debug!("Attempting to reconnect provider...");
 
             match create_provider().await {
                 Ok(client) => {
-                    if let Ok(mut provider_guard) = provider_clone.write() {
+                    with_write_lock(&Some(provider.clone()), |provider_guard| {
                         *provider_guard = Some(client);
-                    }
-
-                    // Execute the on-connect logic
-                    on_connect(extension_clone.clone()).await;
-
-                    // Reset reconnecting flag
-                    *reconnecting_clone.write().unwrap() = false;
+                    });
+                    on_connect(extension.clone()).await;
+                    *reconnecting.write().unwrap() = false;
                 }
                 Err(e) => {
                     warn!(error = ?e, "Reconnection attempt failed");
-                    *reconnecting_clone.write().unwrap() = false; // Reset reconnecting on failure
+                    *reconnecting.write().unwrap() = false;
                 }
             }
         }

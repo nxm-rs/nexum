@@ -123,41 +123,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferris-primitives"
-version = "0.1.0"
-dependencies = [
- "derive_more",
- "gloo-utils",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "tracing",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "web-sys",
-]
-
-[[package]]
-name = "ferris-wallet"
-version = "0.1.0"
-dependencies = [
- "chrome-sys",
- "gloo-utils",
- "js-sys",
- "jsonrpsee",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "tracing",
- "tracing-wasm",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,6 +459,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2d80299ef12ff69b16a84bb182e3b9df68b5a91574d3d4fa6e41b65deec4df1"
 dependencies = [
  "adler2",
+]
+
+[[package]]
+name = "nexum-primitives"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "gloo-utils",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
 ]
 
 [[package]]
@@ -1065,11 +1047,11 @@ version = "0.1.0"
 dependencies = [
  "chrome-sys",
  "console_error_panic_hook",
- "ferris-primitives",
  "futures",
  "gloo-timers 0.3.0",
  "js-sys",
  "jsonrpsee",
+ "nexum-primitives",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
