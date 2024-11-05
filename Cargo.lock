@@ -59,6 +59,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -350,6 +356,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "injected"
+version = "0.1.0"
+dependencies = [
+ "async-lock",
+ "base64",
+ "console_error_panic_hook",
+ "futures",
+ "gloo-timers 0.3.0",
+ "gloo-utils",
+ "js-sys",
+ "nexum-primitives",
+ "serde",
+ "serde-wasm-bindgen",
+ "tracing",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-tracing",
+ "web-sys",
+]
+
+[[package]]
+name = "injector"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "js-sys",
+ "nexum-primitives",
+ "tracing",
+ "wasm-bindgen",
+ "wasm-tracing",
+ "web-sys",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -477,6 +518,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nexum"
+version = "0.0.0"
+
+[[package]]
 name = "nexum-primitives"
 version = "0.1.0"
 dependencies = [
@@ -486,7 +531,6 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -795,17 +839,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-wasm"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4575c663a174420fa2d78f4108ff68f65bf2fbb7dd89f33749b6e826b3626e07"
-dependencies = [
- "tracing",
- "tracing-subscriber",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "unicode-bidi"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -965,6 +998,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-tracing"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdc25eceb983ff5a063ec348bd7b309e7ae5605ca4e306af81a5d14d8bbed2c1"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "web-sys"
 version = "0.3.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1065,6 +1109,7 @@ dependencies = [
  "console_error_panic_hook",
  "futures",
  "gloo-timers 0.3.0",
+ "gloo-utils",
  "js-sys",
  "jsonrpsee",
  "nexum-primitives",
@@ -1072,9 +1117,8 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "tracing",
- "tracing-wasm",
  "url",
- "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-tracing",
 ]

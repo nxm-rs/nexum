@@ -24,15 +24,12 @@ const CLIENT_STATUS_ALARM_KEY: &str = "check-client-status";
 
 #[wasm_bindgen]
 pub async fn initialize_extension() -> Result<JsValue, JsValue> {
-    // Set up a panic hook to log errors
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    // print pretty errors in wasm https://github.com/rustwasm/console_error_panic_hook
+    // This is not needed for tracing_wasm to work, but it is a common tool for getting proper error line numbers for panics.
+    console_error_panic_hook::set_once();
 
-    // Initialize tracing for logging to the console
-    tracing_wasm::set_as_global_default_with_config(
-        tracing_wasm::WASMLayerConfigBuilder::new()
-            .set_max_level(tracing::Level::TRACE)
-            .build(),
-    );
+    // Add this line:
+    wasm_tracing::set_as_global_default();
 
     trace!("Starting extension initialization");
 

@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
 use chrome_sys::tabs;
-use nexum_primitives::{EmbeddedAction, EmbeddedActionPayload, MessagePayload};
 use serde_wasm_bindgen::from_value;
 use tracing::{debug, trace, warn};
 use wasm_bindgen::JsValue;
-use wasm_bindgen_futures::spawn_local;
 
 use crate::{origin_from_url, state::tab_unsubscribe, Extension};
 
@@ -72,21 +70,21 @@ pub async fn tabs_on_activated(extension: Arc<Extension>, active_info: JsValue) 
     debug!(active_tab_id = ?state.active_tab_id, "Updated active tab ID");
 
     // Get and validate tab origin
-    if tab.valid() {
-        let message = MessagePayload::EmbeddedAction(EmbeddedActionPayload::new(
-            EmbeddedAction::new("getChainId".to_string(), JsValue::NULL),
-        ));
+    // if tab.valid() {
+    //     let message = MessagePayload::EmbeddedAction(EmbeddedActionPayload::new(
+    //         EmbeddedAction::new("getChainId".to_string(), JsValue::NULL),
+    //     ));
 
-        spawn_local(async move {
-            if let Err(e) = tabs::send_message_to_tab(tab.id.unwrap(), message.to_js_value()).await
-            {
-                warn!(
-                    "Failed to send message to tab {}: {:?}",
-                    active_info.tab_id, e
-                );
-            }
-        });
-    } else {
-        debug!("Filtering tab as invalid: {:?}", tab);
-    }
+    //     spawn_local(async move {
+    //         if let Err(e) = tabs::send_message_to_tab(tab.id.unwrap(), message.to_js_value()).await
+    //         {
+    //             warn!(
+    //                 "Failed to send message to tab {}: {:?}",
+    //                 active_info.tab_id, e
+    //             );
+    //         }
+    //     });
+    // } else {
+    //     debug!("Filtering tab as invalid: {:?}", tab);
+    // }
 }

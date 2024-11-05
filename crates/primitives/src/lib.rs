@@ -1,5 +1,5 @@
 mod frame;
-mod message;
+mod protocol;
 
 pub use frame::*;
-pub use message::*;
+pub use protocol::*;

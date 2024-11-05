@@ -5,12 +5,13 @@ use alarm::*;
 mod idle;
 use idle::*;
 mod runtime;
+use gloo_utils::format::JsValueSerdeExt;
+use nexum_primitives::{EthEvent, MessageType, ProtocolMessage};
 use runtime::*;
 mod tabs;
 use tabs::*;
 
 use crate::Extension;
-use nexum_primitives::{EthEventPayload, MessagePayload};
 use serde_wasm_bindgen::from_value;
 use tracing::{trace, warn};
 use wasm_bindgen::prelude::*;
@@ -131,18 +132,17 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
 
 // Send an event to a specific tab
 async fn send_event_to_tab(tab_id: u32, event: String, args: JsValue) -> Result<(), JsValue> {
-    let event = MessagePayload::EthEvent(EthEventPayload::new(event, args));
-    chrome_sys::tabs::send_message_to_tab(tab_id, event.to_js_value())
-        .await
-        .map_err(|e| {
-            warn!(
-                "Error sending event \"{}\" to tab {}: {:?}",
-                event, tab_id, e
-            );
-            JsValue::from_str("Error sending message to tab")
-        })?;
-
-    Ok(())
+    trace!(tab_id, event, "Sending event to tab");
+    // Attempt to send the message to the tab
+    chrome_sys::tabs::send_message_to_tab(
+        tab_id,
+        JsValue::from(ProtocolMessage::new(MessageType::EthEvent(EthEvent {
+            event: event.to_string(),
+            args: from_value(args)?,
+        }))),
+    )
+    .await
+    .map(|_| ())
 }
 
 // Generalized `send_event` function to handle any array type for args
@@ -162,7 +162,9 @@ pub(crate) async fn send_event(
 
     // Convert to Vec<tabs::Info> and default to an empty array on error
     let tabs: Vec<chrome_sys::tabs::Info> = from_value(tabs_js).unwrap_or_default();
-    let args_js = args.unwrap_or_else(JsValue::undefined);
+    // Define args_js as the provided JsValue or an empty array if None, and make sure to include type annotations
+    let args_js =
+        args.unwrap_or_else(|| JsValue::from_serde::<&[serde_json::Value; 0]>(&&[]).unwrap());
 
     trace!(event, tab_count = tabs.len(), "Sending event to tabs");
 

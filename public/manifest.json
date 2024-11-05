@@ -6,8 +6,8 @@
 	"description": "An opinionated, minimally injected connection to IronWallet TUI app (required) on macOS, Windows or Linux.",
 	"homepage_url": "https://github.com/rndlabs/ironwallet",
 	"background": {
-		"service_worker": "service.js",
-		"scripts": ["service.js"],
+		"service_worker": "worker.js",
+		"scripts": ["worker.js"],
 		"type": "module"
 	},
 	"action": {
@@ -28,7 +28,7 @@
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["frame.js", "assets/*", "pkg/*"],
+			"resources": ["injected.js", "assets/*", "worker/*", "injected/*", "injector/*"],
 			"matches": ["file://*/*", "https://*/*", "http://*/*"]
 		}
 	],

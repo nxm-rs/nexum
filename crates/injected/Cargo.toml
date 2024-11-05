@@ -1,5 +1,5 @@
 [package]
-name = "worker"
+name = "injected"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,19 +17,20 @@ opt-level = "z"
 
 [dependencies]
 async-lock.workspace = true
-js-sys.workspace = true
-chrome-sys.workspace = true
-nexum-primitives.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true
-serde_json.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
-futures.workspace = true
+js-sys.workspace = true
+web-sys.workspace = true
 gloo-utils.workspace = true
+gloo-timers.workspace = true
+uuid.workspace = true
+futures.workspace = true
 tracing.workspace = true
 wasm-tracing.workspace = true
 console_error_panic_hook.workspace = true
-url.workspace = true
-jsonrpsee.workspace = true
-gloo-timers.workspace = true
+nexum-primitives.workspace = true
+
+[build-dependencies]
+base64 = "0.22.1"
