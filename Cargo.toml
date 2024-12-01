@@ -1,29 +1,23 @@
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.84"
 license = "AGPL-3.0"
 homepage = "https://nullis.xyz/nexum"
 repository = "https://github.com/nullisxyz/nexum"
 exclude = [".github/"]
 
-[package]
-name = "nexum"
-build = "build.rs"
-
-[lib]
-path = "src/lib.rs" # Dummy path for a lib target; could be any empty or placeholder file.
-
 [workspace]
 members = [
-    "crates/primitives",
-    "crates/primitives-traits",
-    "crates/chrome-sys",
-    "crates/worker",
-    "crates/injected",
-    "crates/injector",
-    # "crates/tui"
+    "bin/rpc/",
+    "crates/primitives/",
+    "crates/extension/chrome-sys/",
+    "crates/extension/worker/",
+    "crates/extension/injected/",
+    "crates/extension/injector/",
+    "crates/extension/browser-ui/",
 ]
+default-members = ["bin/rpc"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -38,10 +32,12 @@ serde_json = "1.0"
 gloo-utils = "0.2.0"
 js-sys = "0.3.72"
 futures = "0.3"
-web-sys = { version = "0.3.72", features = ["Window", "WebSocket", "console", "MessageEvent", "Event", "EventListener", "Element", "HtmlHeadElement", "HtmlScriptElement", "CustomEvent", "CustomEventInit"] }
+web-sys = { version = "0.3.72", features = ["Window", "WebSocket", "console", "MessageEvent", "Event", "EventListener", "Element", "HtmlHeadElement", "HtmlScriptElement", "CustomEvent", "CustomEventInit", "Storage"] }
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen-test = "0.3"
 tracing = "0.1.40"
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "serde"] }
 wasm-tracing = "0.2.1"
 wasm-bindgen-futures = "0.4.45"
 jsonrpsee = { version = "0.24.7", features = ["wasm-client", "jsonrpsee-core", "jsonrpsee-types", "client-core", "client-web-transport" ] }
@@ -49,11 +45,12 @@ url = "2.5.2"
 uuid = { version = "1", features = ["v4", "js"] }
 gloo-timers = { version = "0.3.0", features = ["futures"] }
 
-chrome-sys = { path = "crates/chrome-sys" }
-worker = { path = "crates/worker" }
-injected = { path = "crates/injected" }
-injector = { path = "crates/injector"}
-nexum-primitives = { path = "crates/primitives" }
-nexum-primitives-traits = { path = "crates/primitives-traits" }
-
 console_error_panic_hook = "0.1.7"
+
+alloy-chains = { version = "0.1.47", features = ["serde"] }
+
+chrome-sys = { path = "crates/extension/chrome-sys" }
+worker = { path = "crates/extension/worker" }
+injected = { path = "crates/extension/injected" }
+injector = { path = "crates/extension/injector"}
+nexum-primitives = { path = "crates/primitives" }

@@ -1,0 +1,106 @@
+body,
+html {
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	font-family: 'MainFont';
+}
+
+::-webkit-scrollbar {
+	width: 0;
+	background: transparent;
+}
+
+html {
+	--mm: rgba(230, 138, 60, 1);
+	--outerspace01: rgba(214, 214, 217, 0.1);
+	--outerspace02: rgba(217, 217, 222, 0.2);
+	--outerspace03: rgba(220, 220, 227, 0.3);
+	--outerspace04: rgba(223, 223, 237, 0.4);
+	--outerspace05: rgba(226, 226, 240, 0.5);
+	--outerspace06: rgba(229, 229, 243, 0.6);
+	--outerspace07: rgba(232, 232, 246, 0.7);
+	--outerspace08: rgba(235, 235, 249, 0.8);
+	--outerspace09: rgba(238, 238, 252, 0.9);
+	--outerspace: rgba(248, 255, 255, 1);
+	--ghostX09: rgba(8, 4, 10, 0.9);
+	--ghostX04: rgba(8, 4, 10, 0.4);
+	--ghostX: rgba(8, 4, 10, 1);
+	--ghostY: rgba(13, 9, 15, 1);
+	--ghostZ0: rgba(18, 14, 20, 0);
+	--ghostZ05: rgba(18, 14, 20, 0.5);
+	--ghostZ08: rgba(18, 14, 20, 0.8);
+	--ghostZ: rgba(18, 14, 20, 1);
+	--ghostAZ: rgba(22, 18, 24, 1);
+	--ghostA05: rgba(26, 22, 28, 0.5);
+	--ghostA: rgba(26, 22, 28, 1);
+	--ghostB0: rgba(29, 25, 33, 0);
+	--ghostB05: rgba(29, 25, 33, 0.2);
+	--ghostB: rgba(29, 25, 33, 1);
+	--ghostC0: rgba(33, 29, 38, 0);
+	--ghostC: rgba(33, 29, 38, 1);
+	--ghostD: rgba(37, 33, 43, 1);
+	--moon: rgba(255, 165, 155, 1);
+	--moonOver: rgba(135, 25, 0, 1);
+	--overlayA: rgba(80, 0, 100, 0.03);
+	--overlayB: rgba(30, 180, 180, 0.03);
+	--outerspaceLight: #29393a;
+	--outerspacePulse: #395153;
+	--outerspacePhase: rgba(30, 65, 70, 1);
+	--outerspaceShader: rgb(16, 36, 38);
+	--outerspaceDark: #0b1819;
+	--spacewhite: rgba(38, 42, 50, 1);
+	--hardware: rgba(110, 230, 255, 1);
+	--hardware2: rgba(190, 220, 255, 1);
+	--smart: rgba(150, 255, 210, 1);
+	--smart04: rgba(150, 255, 210, 0.4);
+	--smart02: rgba(150, 255, 210, 0.2);
+	--smartShade: rgba(100, 205, 150, 1);
+	--hot: rgba(255, 150, 150, 1);
+	--shader: rgba(16, 44, 60, 0.7);
+	--phase: rgba(18, 45, 56, 1);
+	--phaseLight: rgba(28, 60, 76, 1);
+	--phaseShade: rgba(8, 20, 26, 1);
+	--goodHighlighter: rgb(150, 255, 235);
+	--goodHighlight: rgb(120, 255, 235);
+	--goodLight: rgb(0, 220, 200);
+	--goodOver: rgba(0, 90, 100, 1);
+	--good: rgb(0, 210, 190);
+	--goodUp: rgb(120, 230, 200);
+	--goodShade: rgb(0, 190, 160);
+	--good0: rgba(0, 210, 180, 0);
+	--good01: rgba(0, 210, 180, 0.1);
+	--good02: rgba(0, 210, 180, 0.2);
+	--good03: rgba(0, 210, 180, 0.3);
+	--good04: rgba(0, 210, 180, 0.4);
+	--good06: rgba(0, 210, 180, 0.6);
+	--goodDark: rgba(0, 70, 50, 1);
+	--badOver: rgb(140, 00, 50);
+	--bad: rgb(255, 110, 155);
+	--bad0: rgba(255, 110, 155, 0);
+	--bad01: rgba(255, 110, 155, 0.1);
+	--bad04: rgba(255, 110, 155, 0.4);
+	--bad06: rgba(255, 110, 155, 0.6);
+}
+
+body {
+	background: var(--ghostZ);
+	color: white;
+	font-weight: 300;
+	font-size: 14px;
+	width: 480px;
+}
+
+a,
+a:hover,
+a:visited {
+	text-decoration: none;
+}
+
+.mm {
+	color: var(--mm);
+}
+
+.frame {
+	color: var(--good);
+}

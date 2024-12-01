@@ -1,2 +1,6 @@
 /target
 dist
+
+
+# We keep the symbolic link
+!dist/browser-ui

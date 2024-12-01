@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
+use alloy_chains::Chain;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum ConnectionState {
     Connected,
     #[default]
@@ -43,9 +46,9 @@ impl<'de> Deserialize<'de> for ConnectionState {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct FrameState {
     pub frame_connected: ConnectionState,
-    pub available_chains: Vec<String>,
-    pub current_chain: Option<u32>,
+    pub available_chains: HashMap<Chain, ConnectionState>,
+    pub current_chain_in_tab: Option<Chain>,
 }

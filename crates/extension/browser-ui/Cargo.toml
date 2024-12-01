@@ -1,0 +1,41 @@
+[package]
+name = "browser-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+[dependencies]
+leptos = { version = "0.6.15", features = ["csr", "nightly", "tracing"] }
+leptos_meta = { version = "0.6", features = ["csr", "nightly"] }
+leptos_router = { version = "0.6", features = ["csr", "nightly"] }
+stylers = "1.0.0-alpha"
+
+serde.workspace = true
+serde_json.workspace = true
+chrome-sys.workspace = true
+wasm-bindgen.workspace = true
+gloo-utils.workspace = true
+web-sys.workspace = true
+nexum-primitives.workspace = true
+alloy-chains.workspace = true
+gloo-timers.workspace = true
+
+# Logging
+console_error_panic_hook.workspace = true
+tracing.workspace = true
+wasm-tracing.workspace = true
+
+[dev-dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-test = "0.3"
+web-sys = { version = "0.3", features = ["Document", "Window"] }
+
+[build-dependencies]
+stylers = {  version = "1.0.0-alpha" }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

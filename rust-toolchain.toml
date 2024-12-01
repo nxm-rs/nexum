@@ -1,0 +1,4 @@
+[toolchain]
+channel = "nightly"  # Or "nightly" if you require nightly features
+components = ["rustfmt", "clippy"]  # Optional, add components as needed
+targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]

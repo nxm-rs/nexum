@@ -1,0 +1,43 @@
+[package]
+name = "injected"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+
+[lib]
+crate-type = ["cdylib"]
+
+# [profile.release]
+# lto = true
+# opt-level = "z"
+
+# `wasm-opt` is on by default in for the release profile, but it can be
+# disabled by setting it to `false`
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+
+[dependencies]
+async-lock.workspace = true
+serde.workspace = true
+serde-wasm-bindgen.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+web-sys.workspace = true
+gloo-utils.workspace = true
+gloo-timers.workspace = true
+uuid.workspace = true
+futures.workspace = true
+tracing.workspace = true
+wasm-tracing.workspace = true
+console_error_panic_hook.workspace = true
+nexum-primitives.workspace = true
+
+[build-dependencies]
+base64 = "0.22.1"
