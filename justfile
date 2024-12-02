@@ -7,3 +7,4 @@ be:
 	cp -r crates/extension/public/** crates/extension/dist/
 	mkdir -p crates/extension/dist/browser-ui
 	cp -r crates/extension/browser-ui/public/** crates/extension/dist/
+	cp -r crates/extension/browser-ui/dist/* crates/extension/dist/browser-ui/
