@@ -1,5 +1,5 @@
 use stylers::build;
 
 fn main() {
-    build(Some(String::from("dist/main.css")));
+    build(Some(String::from("public/style/main.css")));
 }
