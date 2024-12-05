@@ -8,7 +8,7 @@
         },
         "ghcr.io/devcontainers/features/rust:1": {
             "version": "nightly-2024-11-29",
-            "profile": "complete",
+            "profile": "default",
             "targets": "wasm32-unknown-unknown"
         },
         "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
