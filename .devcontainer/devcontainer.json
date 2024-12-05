@@ -7,7 +7,7 @@
         },
         "ghcr.io/lee-orr/rusty-dev-containers/cargo-binstall:0": {
             "packages": "trunk,leptosfmt,wasm-pack,wasm-opt"
-	},
+        },
         "ghcr.io/nlordell/features/foundry": {}
     },
     "postCreateCommand": "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config libssl-dev clang",
