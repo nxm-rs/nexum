@@ -5,8 +5,8 @@
         "ghcr.io/devcontainers/features/rust:1": {
             "version": "latest"
         },
-	"ghcr.io/lee-orr/rusty-dev-containers/cargo-binstall:0": {
-	    "packages": "trunk,leptosfmt,wasm-pack,wasm-opt"
+        "ghcr.io/lee-orr/rusty-dev-containers/cargo-binstall:0": {
+            "packages": "trunk,leptosfmt,wasm-pack,wasm-opt"
 	},
         "ghcr.io/nlordell/features/foundry": {}
     },
