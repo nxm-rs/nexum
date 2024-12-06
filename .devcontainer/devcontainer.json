@@ -30,7 +30,7 @@
             ]
         }
     },
-    "postCreateCommand": "/usr/local/cargo/bin/rustup component add rust-analyzer && chmod -R g+rwx /usr/local/cargo /usr/local/rustup",
+    "postCreateCommand": "/usr/local/cargo/bin/rustup component add rust-analyzer && sudo chmod -R g+rwx /usr/local/cargo /usr/local/rustup",
     "runArgs": [
         "--network=host"
     ]
