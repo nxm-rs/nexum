@@ -29,6 +29,7 @@
             ]
         }
     },
+    "postCreateCommand": "/usr/local/cargo/bin/rustup component add rust-analyzer",
     "runArgs": [
         "--network=host"
     ]
