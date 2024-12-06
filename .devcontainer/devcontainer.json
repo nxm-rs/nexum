@@ -19,6 +19,7 @@
         },
         "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {},
         "ghcr.io/duduribeiro/devcontainer-features/tmux:1": {},
+        "ghcr.io/devcontainers/features/node:1": {},
         "ghcr.io/nlordell/features/foundry": {}
     },
     "customizations": {
