@@ -1,6 +1,6 @@
 [package]
 name = "chrome-sys"
-descrtiption = "Chrome API bindings for Rust"
+description = "Chrome API bindings for Rust"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
