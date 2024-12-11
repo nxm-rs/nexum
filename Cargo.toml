@@ -16,6 +16,7 @@ members = [
     "crates/extension/injected/",
     "crates/extension/injector/",
     "crates/extension/browser-ui/",
+    "crates/tui/",
 ]
 default-members = ["bin/rpc"]
 
