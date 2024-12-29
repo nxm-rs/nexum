@@ -18,7 +18,7 @@ members = [
     "crates/extension/browser-ui/",
     "crates/tui/",
 ]
-default-members = ["bin/rpc"]
+default-members = ["bin/rpc", "crates/tui"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -49,6 +49,9 @@ gloo-timers = { version = "0.3.0", features = ["futures"] }
 console_error_panic_hook = "0.1.7"
 
 alloy-chains = { version = "0.1.47", features = ["serde"] }
+alloy-signer = { version = "0.8.3" }
+alloy-signer-local = { version = "0.8.3", features = ["keystore"] }
+alloy-primitives = { version = "0.8.3" }
 
 chrome-sys = { path = "crates/extension/chrome-sys" }
 worker = { path = "crates/extension/worker" }

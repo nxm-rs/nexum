@@ -9,6 +9,10 @@ repository.workspace = true
 exclude.workspace = true
 
 [dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
 ratatui = "0.29.0"
 tokio = { version = "1.42.0", features = ["full"] }
 tracing = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-primitives = { workspace = true }
