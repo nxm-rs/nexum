@@ -4549,6 +4549,7 @@ dependencies = [
  "alloy-signer-local",
  "clap",
  "ratatui",
+ "rpc",
  "tokio",
  "tracing",
 ]

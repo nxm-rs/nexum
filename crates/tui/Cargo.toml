@@ -16,3 +16,4 @@ tracing = { workspace = true }
 alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-primitives = { workspace = true }
+rpc = { path = "../../bin/rpc" }
