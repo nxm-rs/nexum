@@ -1,5 +1,8 @@
 use clap::Parser;
-use tui::app::App;
+use tui::{
+    app::App,
+    widgets::prompts::{ConnectionPrompt, PendingPromptsState, Prompt, TransactionRequestPrompt},
+};
 
 #[derive(Parser)]
 struct Args {
@@ -18,7 +21,29 @@ fn main() -> std::io::Result<()> {
 
     let mut terminal = ratatui::init();
     terminal.clear()?;
-    let app_result = App::default().run(terminal, args.keystore_file);
+
+    let app = App {
+        pending_prompts_state: PendingPromptsState {
+            prompts: vec![
+                Prompt::Connection(ConnectionPrompt {
+                    origin: "https://swap.cow.fi".into(),
+                }),
+                Prompt::Connection(ConnectionPrompt {
+                    origin: "https://app.safe.global".into(),
+                }),
+                Prompt::TransactionRequest(TransactionRequestPrompt {
+                    to: Default::default(),
+                    gas_limit: 0,
+                    gas_price: 0,
+                    value: Default::default(),
+                    data: Default::default(),
+                }),
+            ],
+            prompts_list_state: Default::default(),
+        },
+        ..Default::default()
+    };
+    let app_result = app.run(terminal, args.keystore_file);
     ratatui::restore();
     app_result
 }

@@ -1,3 +1,3 @@
 pub mod app;
 mod keys;
-mod widgets;
+pub mod widgets;

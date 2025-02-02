@@ -11,15 +11,18 @@ use ratatui::{
     DefaultTerminal,
 };
 
+use crate::widgets::prompts::{PendingPromptsState, PendingPromptsWidget};
+
 #[derive(Debug)]
 pub struct App {
-    should_exit: bool,
-    rings: RingList,
-    pane: Pane,
-    keystore_file: String,
-    view: View,
-    prompt_input: String,
-    signer: Option<LocalSigner<SigningKey>>,
+    pub should_exit: bool,
+    pub rings: RingList,
+    pub pane: Pane,
+    pub keystore_file: String,
+    pub view: View,
+    pub prompt_input: String,
+    pub signer: Option<LocalSigner<SigningKey>>,
+    pub pending_prompts_state: PendingPromptsState,
 }
 
 #[derive(Debug)]
@@ -78,6 +81,7 @@ impl Default for App {
             view: View::KeystorePassword,
             prompt_input: "".to_string(),
             signer: None,
+            pending_prompts_state: PendingPromptsState::default(),
         }
     }
 }
@@ -131,8 +135,8 @@ impl App {
                 KeyCode::Char('q') | KeyCode::Esc => self.should_exit = true,
                 KeyCode::Char('h') | KeyCode::Left => self.prev_pane(),
                 KeyCode::Char('l') | KeyCode::Right => self.next_pane(),
-                KeyCode::Char('j') | KeyCode::Down => self.next_item(),
-                KeyCode::Char('k') | KeyCode::Up => self.prev_item(),
+                KeyCode::Char('j') | KeyCode::Down => self.next_prompt(),
+                KeyCode::Char('k') | KeyCode::Up => self.prev_prompt(),
                 _ => {}
             },
         }
@@ -186,6 +190,33 @@ impl App {
         }
     }
 
+    fn next_prompt(&mut self) {
+        if let Some(offset) = self.pending_prompts_state.prompts_list_state.selected() {
+            let len = self.pending_prompts_state.prompts.len();
+            if offset == len - 1 {
+                self.pending_prompts_state.prompts_list_state.select_first();
+            } else {
+                self.pending_prompts_state.prompts_list_state.select_next();
+            }
+        } else {
+            self.pending_prompts_state.prompts_list_state.select_first();
+        }
+    }
+
+    fn prev_prompt(&mut self) {
+        if let Some(offset) = self.pending_prompts_state.prompts_list_state.selected() {
+            if offset == 0 {
+                self.pending_prompts_state.prompts_list_state.select_last();
+            } else {
+                self.pending_prompts_state
+                    .prompts_list_state
+                    .select_previous();
+            }
+        } else {
+            self.pending_prompts_state.prompts_list_state.select_last();
+        }
+    }
+
     fn selected_ring(&mut self) -> Option<&mut Ring> {
         if let Some(offset) = self.rings.state.selected() {
             self.rings.items.get_mut(offset)
@@ -201,6 +232,7 @@ impl App {
 
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        buf.reset();
         match self.view {
             View::KeystorePassword => {
                 let block = Block::default()
@@ -241,6 +273,8 @@ impl Widget for &mut App {
                     .borders(Borders::ALL);
                 let inner = block.inner(area);
                 block.render(area, buf);
+                let pending_prompts_widget = PendingPromptsWidget;
+                pending_prompts_widget.render(inner, buf, &mut self.pending_prompts_state);
             }
         }
     }
