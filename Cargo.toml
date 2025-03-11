@@ -60,6 +60,7 @@ dyn-clone = "1"
 
 ## crypto
 cipher = { version = "0.4", default-features = false }
+cbc = { version = "0.1", default-features = false }
 cbc-mac = { version = "0.1", default-features = false }
 des = { version = "0.8", default-features = false }
 zeroize = { version = "1.8", features = ["derive"] }

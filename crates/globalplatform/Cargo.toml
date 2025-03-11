@@ -28,6 +28,7 @@ clap = { workspace = true, features = ["derive"] }
 
 cipher.workspace = true
 des.workspace = true
+cbc.workspace = true
 cbc-mac.workspace = true
 
 dyn-clone.workspace = true

@@ -5,8 +5,11 @@
 //! and cryptogram verification.
 
 use cbc_mac::Mac;
-use cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
-use des::{Des, TdesEde2, TdesEde3, TdesEee3};
+use cipher::{
+    BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit, consts::U16, generic_array::GenericArray,
+    typenum,
+};
+use des::{Des, TdesEee3};
 
 use crate::{Error, Result};
 
@@ -35,72 +38,33 @@ pub const DERIVATION_PURPOSE_RMAC: [u8; 2] = [0x01, 0x02];
 /// # Returns
 ///
 /// The derived key (16 bytes)
-pub fn derive_key(card_key: &[u8], seq: &[u8], purpose: &[u8]) -> Result<[u8; 16]> {
-    if card_key.len() != 16 {
-        return Err(Error::InvalidLength {
-            expected: 16,
-            actual: card_key.len(),
-        });
-    }
-
-    if seq.len() < 2 {
-        return Err(Error::InvalidLength {
-            expected: 2,
-            actual: seq.len(),
-        });
-    }
-
-    if purpose.len() != 2 {
-        return Err(Error::InvalidLength {
-            expected: 2,
-            actual: purpose.len(),
-        });
-    }
-
-    let key24 = resize_key_24(card_key);
+pub fn derive_key(card_key: [u8; 16], seq: [u8; 2], purpose: [u8; 2]) -> Result<[u8; 16]> {
+    // Resize the key to 24 bytes for 3DES (Triple DES)
+    let key24 = resize_key_24(card_key.as_slice());
 
     // Create derivation data
-    let mut derivation = [0u8; 16];
-    derivation[0] = purpose[0];
-    derivation[1] = purpose[1];
-    derivation[2] = seq[0];
-    derivation[3] = seq[1];
+    let mut derivation_data = [0u8; 16];
+    derivation_data[0..2].copy_from_slice(&purpose);
+    derivation_data[2..4].copy_from_slice(&seq);
 
-    // Initialize cipher with the 3DES key
-    let cipher = TdesEee3::new_from_slice(&key24)
-        .map_err(|_| Error::Crypto("Failed to initialize 3DES cipher"))?;
+    // Convert derivation data to blocks
+    let mut blocks = [
+        GenericArray::clone_from_slice(&derivation_data[0..8]),
+        GenericArray::clone_from_slice(&derivation_data[8..16]),
+    ];
 
-    // Encrypt the derivation data in 8-byte blocks with CBC mode
-    let mut ciphertext = [0u8; 16];
-    let mut iv = GenericArray::clone_from_slice(&NULL_BYTES_8);
+    // Create CBC mode encryptor with NULL_BYTES_8 as IV
+    let iv = GenericArray::clone_from_slice(&NULL_BYTES_8);
 
-    for (i, chunk) in derivation.chunks(8).enumerate() {
-        // Create a block with the chunk data
-        let mut block = GenericArray::default();
-        if chunk.len() < 8 {
-            block[..chunk.len()].copy_from_slice(chunk);
-        } else {
-            block.copy_from_slice(chunk);
-        }
+    // Encrypt the blocks in CBC mode
+    let mut encryptor = cbc::Encryptor::<des::TdesEde3>::new(&key24.into(), &iv);
+    encryptor.encrypt_blocks_mut(&mut blocks);
 
-        // XOR with IV (manually implementing CBC)
-        for (a, b) in block.iter_mut().zip(iv.iter()) {
-            *a ^= *b;
-        }
-
-        // Encrypt the block
-        cipher.encrypt_block(&mut block);
-
-        // Store result
-        let dest_range = 8 * i..8 * (i + 1);
-        ciphertext[dest_range].copy_from_slice(&block);
-
-        // Use ciphertext as next IV
-        iv = block;
-    }
-
+    // Combine the encrypted blocks into the result
     let mut result = [0u8; 16];
-    result.copy_from_slice(&ciphertext[0..16]);
+    result[0..8].copy_from_slice(blocks[0].as_slice());
+    result[8..16].copy_from_slice(blocks[1].as_slice());
+
     Ok(result)
 }
 
@@ -420,7 +384,12 @@ mod tests {
         let card_key = hex!("404142434445464748494a4b4c4d4e4f");
         let seq = hex!("0065");
 
-        let enc_key = derive_key(&card_key, &seq, &DERIVATION_PURPOSE_ENC).unwrap();
+        let enc_key = derive_key(
+            card_key.try_into().unwrap(),
+            seq.try_into().unwrap(),
+            DERIVATION_PURPOSE_ENC,
+        )
+        .unwrap();
 
         assert_eq!(enc_key, hex!("85e72aaf47874218a202bf5ef891dd21"));
     }

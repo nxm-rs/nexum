@@ -135,15 +135,23 @@ impl Session {
         let card_cryptogram = &init_response[20..28];
 
         // Derive session keys
-        let session_enc = derive_key(card_keys.enc(), &sequence_counter, &DERIVATION_PURPOSE_ENC)?;
-        let session_mac = derive_key(card_keys.mac(), &sequence_counter, &DERIVATION_PURPOSE_MAC)?;
+        let session_enc = derive_key(
+            card_keys.enc().try_into().unwrap(),
+            sequence_counter,
+            DERIVATION_PURPOSE_ENC,
+        )?;
+        let session_mac = derive_key(
+            card_keys.mac().try_into().unwrap(),
+            sequence_counter,
+            DERIVATION_PURPOSE_MAC,
+        )?;
 
         // Create session with the derived keys
         let session_keys = if let Some(dek) = card_keys.dek() {
             let session_dek = derive_key(
-                dek,
-                &sequence_counter,
-                &crate::crypto::DERIVATION_PURPOSE_DEK,
+                dek.try_into().unwrap(),
+                sequence_counter,
+                crate::crypto::DERIVATION_PURPOSE_DEK,
             )?;
             Keys::new_with_dek(session_enc, session_mac, session_dek)
         } else {
