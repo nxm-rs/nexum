@@ -1,0 +1,42 @@
+[package]
+name = "apdu-globalplatform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "GlobalPlatform implementation for smart card management"
+
+[lints]
+workspace = true
+
+[dependencies]
+apdu-core.workspace = true
+apdu-macros.workspace = true
+apdu-transport-pcsc.workspace = true
+bytes.workspace = true
+hex.workspace = true
+rand.workspace = true
+thiserror = { workspace = true, optional = true }
+zeroize = { workspace = true, optional = true }
+zip.workspace = true
+
+clap = { workspace = true, features = ["derive"] }
+
+cipher.workspace = true
+des.workspace = true
+cbc-mac.workspace = true
+
+dyn-clone.workspace = true
+tracing.workspace = true
+
+[features]
+default = ["std", "zeroize"]
+std = ["thiserror", "apdu-core/std", "cipher/std", "cbc-mac/std", "clap/std"]
+zeroize = ["dep:zeroize", "cipher/zeroize", "des/zeroize", "cipher/zeroize"]
+
+[dev-dependencies]
+hex-literal = "1"

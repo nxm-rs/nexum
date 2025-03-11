@@ -1,0 +1,110 @@
+//! LOAD command for GlobalPlatform
+//!
+//! This command is used to load executable code (CAP files) to the card.
+
+use apdu_macros::apdu_pair;
+
+use crate::constants::{cla, ins, load_p1, status};
+
+apdu_pair! {
+    /// LOAD command for GlobalPlatform
+    pub struct Load {
+        command {
+            cla: cla::GP,
+            ins: ins::LOAD,
+            secure: true,
+
+            builders {
+                /// Create a LOAD command with block data
+                pub fn with_block_data(p1: u8, block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
+                    Self::new(p1, block_number).with_data(data.into())
+                }
+
+                /// Create a LOAD command for more blocks
+                pub fn more_blocks(block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
+                    Self::with_block_data(load_p1::MORE_BLOCKS, block_number, data.into())
+                }
+
+                /// Create a LOAD command for the last block
+                pub fn last_block(block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
+                    Self::with_block_data(load_p1::LAST_BLOCK, block_number, data.into())
+                }
+            }
+        }
+
+        response {
+            variants {
+                /// Success response (9000)
+                #[sw(status::SUCCESS)]
+                Success,
+
+                /// Security condition not satisfied (6982)
+                #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
+                SecurityConditionNotSatisfied,
+
+                /// Wrong data length (6700)
+                #[sw(status::WRONG_LENGTH)]
+                WrongDataLength,
+
+                /// File not found (6A82)
+                #[sw(status::FILE_NOT_FOUND)]
+                FileNotFound,
+
+                /// Other error
+                #[sw(_, _)]
+                OtherError {
+                    sw1: u8,
+                    sw2: u8,
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use apdu_core::ApduCommand;
+    use hex_literal::hex;
+
+    #[test]
+    fn test_load_command() {
+        let block_data = hex!("C4020304");
+        let cmd = LoadCommand::more_blocks(0x01, block_data.to_vec());
+
+        assert_eq!(cmd.class(), cla::GP);
+        assert_eq!(cmd.instruction(), ins::LOAD);
+        assert_eq!(cmd.p1(), load_p1::MORE_BLOCKS);
+        assert_eq!(cmd.p2(), 0x01);
+        assert_eq!(cmd.data(), Some(block_data.as_ref()));
+
+        // Test command serialization
+        let raw = cmd.to_bytes();
+        assert_eq!(raw.as_ref(), hex!("80E8010104C4020304"));
+    }
+
+    #[test]
+    fn test_load_last_block() {
+        let block_data = hex!("C4020304");
+        let cmd = LoadCommand::last_block(0x02, block_data.to_vec());
+
+        assert_eq!(cmd.p1(), load_p1::LAST_BLOCK);
+        assert_eq!(cmd.p2(), 0x02);
+    }
+
+    #[test]
+    fn test_load_response() {
+        // Test successful response
+        let response_data = hex!("9000");
+        let response = LoadResponse::from_bytes(&response_data).unwrap();
+        assert!(matches!(response, LoadResponse::Success));
+
+        // Test error response
+        let response_data = hex!("6982");
+        let response = LoadResponse::from_bytes(&response_data).unwrap();
+        assert!(matches!(
+            response,
+            LoadResponse::SecurityConditionNotSatisfied
+        ));
+    }
+}

@@ -1,0 +1,30 @@
+[package]
+name = "apdu-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "Core traits and types for APDU (Application Protocol Data Unit) operations"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true, optional = true }
+bytes.workspace = true
+dyn-clone.workspace = true
+cfg-if.workspace = true
+tracing = { workspace = true, features = ["attributes"] }
+hex.workspace = true
+
+[features]
+default = ["std"]
+std = ["thiserror"]
+longer_payloads = []
+
+[dev-dependencies]
+hex.workspace = true

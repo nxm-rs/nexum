@@ -1,0 +1,86 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Nullis Contributors"]
+license = "MIT"
+homepage = "https://nullisxyz.github.io/apdu"
+repository = "https://github.com/nullisxyz/apdu"
+keywords = ["apdu", "globalplatform", "smart-card", "cryptography", "iso7816"]
+exclude = ["benches/", "tests/", "crates/**/examples/*"]
+
+[workspace.lints.rust]
+missing-debug-implementations = "warn"
+missing-docs = "warn"
+unreachable-pub = "warn"
+unused-must-use = "deny"
+rust-2018-idioms = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+missing-const-for-fn = "warn"
+use-self = "warn"
+option-if-let-else = "warn"
+redundant-clone = "warn"
+
+[workspace.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[workspace.metadata.rust-analyzer]
+check.all_targets = true
+check.all_features = true
+cargo.features = ["all"]
+
+[workspace.dependencies]
+# apdu crates
+apdu-core = { path = "crates/core" }
+apdu-macros = { path = "crates/macros" }
+apdu-globalplatform = { path = "crates/globalplatform" }
+apdu-transport-pcsc = { path = "crates/pcsc" }
+
+## pcsc
+pcsc = { version = "2.9.0", default-features = false }
+
+## misc
+bytes = { version = "1.9.0", default-features = false }
+thiserror = { version = "2.0", default-features = false }
+once_cell = { version = "1.19", default-features = false, features = ["critical-section"] }
+
+## sync
+parking_lot = { version = "0.12", default-features = false }
+
+# Trait helpers
+auto_impl = "1"
+dyn-clone = "1"
+
+## crypto
+cipher = { version = "0.4", default-features = false }
+cbc-mac = { version = "0.1", default-features = false }
+des = { version = "0.8", default-features = false }
+zeroize = { version = "1.8", features = ["derive"] }
+
+zip = { version = "2.2", default-features = false }
+
+# For tests and examples
+rand = "0.9"
+hex = "0.4.3"
+tokio = { version = "1", default-features = false, features = ["full"] }
+
+## macros
+cfg-if = "1"
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "extra-traits"] }
+heck = "0.5"
+derive_more = { version = "2", default-features = false }
+
+##
+tracing = { version = "0.1", default-features = false }
+
+
+clap = { version = "4.5", default-features = false }
