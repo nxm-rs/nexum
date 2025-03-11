@@ -12,9 +12,9 @@ use std::thread;
 #[cfg(feature = "std")]
 use std::time::Duration;
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::string::String;
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::vec::Vec;
 
 use crate::error::PcscError;

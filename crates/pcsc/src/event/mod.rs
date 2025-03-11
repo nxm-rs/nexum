@@ -4,21 +4,20 @@
 pub mod callback;
 pub use callback::*;
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub mod channel;
 pub use channel::*;
 
 pub mod handler;
 pub use handler::*;
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::string::String;
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
 use alloc::vec::Vec;
 
 /// Events related to card insertion/removal
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub enum CardEvent {
     /// Card was inserted into a reader
     Inserted {
@@ -36,7 +35,7 @@ pub enum CardEvent {
 
 /// Events related to reader connection/disconnection
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub enum ReaderEvent {
     /// Reader was connected to the system
     Added(String),
@@ -46,7 +45,7 @@ pub enum ReaderEvent {
 
 /// Events related to card status changes
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub enum CardStatusEvent {
     /// Card state changed
     StateChanged {
@@ -59,7 +58,7 @@ pub enum CardStatusEvent {
 
 /// Card states
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub enum CardState {
     /// Card is present but not powered
     Present,
@@ -70,7 +69,7 @@ pub enum CardState {
 }
 
 // No-std versions with minimal implementation
-#[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+#[cfg(not(any(feature = "std", feature = "alloc")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CardEvent {
     /// Card inserted (minimal info in no_std)
@@ -79,7 +78,7 @@ pub enum CardEvent {
     Removed,
 }
 
-#[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+#[cfg(not(any(feature = "std", feature = "alloc")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReaderEvent {
     /// Reader added
@@ -88,14 +87,14 @@ pub enum ReaderEvent {
     Removed,
 }
 
-#[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+#[cfg(not(any(feature = "std", feature = "alloc")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CardStatusEvent {
     /// Card state changed
     StateChanged,
 }
 
-#[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+#[cfg(not(any(feature = "std", feature = "alloc")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CardState {
     /// Card is present

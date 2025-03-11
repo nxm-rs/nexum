@@ -5,7 +5,7 @@ use apdu_core::transport::error::TransportError;
 #[cfg(feature = "std")]
 use core::fmt;
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::string::String;
 #[cfg(not(feature = "std"))]
 use core::fmt;
@@ -21,19 +21,19 @@ pub enum PcscError {
     NoReadersAvailable,
 
     /// Reader not found
-    #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+    #[cfg(any(feature = "std", feature = "alloc"))]
     ReaderNotFound(String),
 
     /// Reader not found (no alloc version)
-    #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+    #[cfg(not(any(feature = "std", feature = "alloc")))]
     ReaderNotFound,
 
     /// No card present in reader
-    #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+    #[cfg(any(feature = "std", feature = "alloc"))]
     NoCard(String),
 
     /// No card present in reader (no alloc version)
-    #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+    #[cfg(not(any(feature = "std", feature = "alloc")))]
     NoCard,
 
     /// Card was reset
@@ -49,11 +49,11 @@ pub enum PcscError {
     NoTransaction,
 
     /// Other error
-    #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+    #[cfg(any(feature = "std", feature = "alloc"))]
     Other(String),
 
     /// Other error (no-alloc version)
-    #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+    #[cfg(not(any(feature = "std", feature = "alloc")))]
     Other,
 }
 
@@ -63,21 +63,21 @@ impl fmt::Display for PcscError {
             #[cfg(feature = "std")]
             Self::Pcsc(e) => write!(f, "PC/SC error: {}", e),
             Self::NoReadersAvailable => write!(f, "No readers available"),
-            #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+            #[cfg(any(feature = "std", feature = "alloc"))]
             Self::ReaderNotFound(r) => write!(f, "Reader not found: {}", r),
-            #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
             Self::ReaderNotFound => write!(f, "Reader not found"),
-            #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+            #[cfg(any(feature = "std", feature = "alloc"))]
             Self::NoCard(r) => write!(f, "No card present in reader: {}", r),
-            #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
             Self::NoCard => write!(f, "No card present in reader"),
             Self::CardReset => write!(f, "Card was reset"),
             Self::CardRemoved => write!(f, "Card was removed"),
             Self::TransactionInProgress => write!(f, "Transaction already in progress"),
             Self::NoTransaction => write!(f, "No active transaction"),
-            #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+            #[cfg(any(feature = "std", feature = "alloc"))]
             Self::Other(msg) => write!(f, "{}", msg),
-            #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
             Self::Other => write!(f, "Unknown PC/SC error"),
         }
     }
@@ -108,31 +108,31 @@ impl From<PcscError> for TransportError {
             PcscError::Pcsc(pcsc::Error::InsufficientBuffer) => TransportError::BufferTooSmall,
             #[cfg(feature = "std")]
             PcscError::Pcsc(e) => {
-                #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+                #[cfg(any(feature = "std", feature = "alloc"))]
                 {
                     TransportError::Other(alloc::format!("PC/SC error: {}", e))
                 }
-                #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+                #[cfg(not(any(feature = "std", feature = "alloc")))]
                 {
                     TransportError::Other
                 }
             }
             PcscError::NoReadersAvailable => TransportError::Connection,
-            #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+            #[cfg(any(feature = "std", feature = "alloc"))]
             PcscError::ReaderNotFound(_) => TransportError::Connection,
-            #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::ReaderNotFound => TransportError::Connection,
-            #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+            #[cfg(any(feature = "std", feature = "alloc"))]
             PcscError::NoCard(_) => TransportError::Device,
-            #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::NoCard => TransportError::Device,
             PcscError::CardReset | PcscError::CardRemoved => TransportError::Device,
             PcscError::TransactionInProgress | PcscError::NoTransaction => {
                 TransportError::Transmission
             }
-            #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+            #[cfg(any(feature = "std", feature = "alloc"))]
             PcscError::Other(msg) => TransportError::Other(msg),
-            #[cfg(not(any(feature = "std", feature = "alloc", feature = "wasm")))]
+            #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::Other => TransportError::Other,
         }
     }

@@ -6,7 +6,6 @@
 //! # Features
 //!
 //! - `std` (default): Use standard library features and PC/SC system libraries
-//! - `wasm`: WebAssembly support
 //! - `alloc`: Support for no_std environments with allocator
 //!
 //! # Examples
@@ -56,11 +55,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 extern crate alloc;
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 // Core modules
 mod config;
@@ -84,14 +80,3 @@ pub use transport::PcscTransport;
 // Re-export some pcsc types for convenience
 #[cfg(feature = "std")]
 pub use pcsc::{Protocol, Protocols, Status};
-
-/// Helper function to encode a data buffer as a hexadecimal string.
-///
-/// This is a convenience function for use in debugging and logging.
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
-pub fn to_hex_string(data: &[u8]) -> alloc::string::String {
-    hex::encode(data)
-}
-
-/// Maximum ATR size supported
-pub const MAX_ATR_SIZE: usize = 33;

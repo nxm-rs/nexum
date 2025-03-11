@@ -3,9 +3,8 @@
 #[cfg(feature = "std")]
 use pcsc::{Protocols as PcscProtocols, ShareMode as PcscShareMode};
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::string::String;
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
 use alloc::vec::Vec;
 
 /// Sharing mode for card connections
@@ -43,14 +42,14 @@ pub enum TransactionMode {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConnectStrategy {
     /// Connect to a specific reader by name
-    #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+    #[cfg(any(feature = "std", feature = "alloc"))]
     Reader(String),
 
     /// Connect to any reader with a card
     AnyCard,
 
     /// Connect to reader with a card matching this ATR pattern
-    #[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+    #[cfg(any(feature = "std", feature = "alloc"))]
     CardWithAtr(Vec<u8>, Option<Vec<u8>>), // (ATR, mask)
 
     /// Connect to the first available reader

@@ -39,14 +39,14 @@ where
 }
 
 /// Simple event dispatcher that manages multiple handlers
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 #[allow(missing_debug_implementations)]
 pub struct EventDispatcher<T> {
     /// Collection of event handlers
     handlers: alloc::vec::Vec<Box<dyn EventHandler<T>>>,
 }
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> EventDispatcher<T> {
     /// Create a new event dispatcher
     pub fn new() -> Self {
@@ -79,7 +79,7 @@ impl<T> EventDispatcher<T> {
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> Default for EventDispatcher<T> {
     fn default() -> Self {
         Self::new()
@@ -87,13 +87,13 @@ impl<T> Default for EventDispatcher<T> {
 }
 
 /// Dispatcher for card events
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub type CardEventDispatcher = EventDispatcher<CardEvent>;
 
 /// Dispatcher for reader events
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub type ReaderEventDispatcher = EventDispatcher<ReaderEvent>;
 
 /// Dispatcher for card status events
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub type CardStatusEventDispatcher = EventDispatcher<CardStatusEvent>;

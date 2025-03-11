@@ -3,7 +3,7 @@
 #[cfg(feature = "std")]
 use pcsc::{Context, Scope};
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::vec::Vec;
 
 use crate::config::{ConnectStrategy, PcscConfig};

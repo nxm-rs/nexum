@@ -25,14 +25,9 @@ crossbeam-channel = { version = "0.5", optional = true }
 heapless = { version = "0.7", optional = true, default-features = false }
 parking_lot.workspace = true
 
-# WASM support
-wasm-bindgen = { version = "0.2", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["console"] }
-
 [features]
 default = ["std"]
 std = ["thiserror", "crossbeam-channel", "apdu-core/std", "hex/std"]
-wasm = ["wasm-bindgen", "web-sys"]
 alloc = ["hex/alloc"]
 
 [dev-dependencies]

@@ -11,9 +11,9 @@ use pcsc::{Card, Context, Disposition};
 #[cfg(feature = "std")]
 use std::ffi::CString;
 
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::string::{String, ToString};
-#[cfg(any(feature = "std", feature = "alloc", feature = "wasm"))]
+#[cfg(any(feature = "std", feature = "alloc"))]
 use alloc::vec::Vec;
 
 use crate::config::PcscConfig;
