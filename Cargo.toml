@@ -50,6 +50,7 @@ pcsc = { version = "2.9.0", default-features = false }
 bytes = { version = "1.9.0", default-features = false }
 thiserror = { version = "2.0", default-features = false }
 once_cell = { version = "1.19", default-features = false, features = ["critical-section"] }
+iso7816-tlv = { version = "0.4.4" }
 
 ## sync
 parking_lot = { version = "0.12", default-features = false }
@@ -61,6 +62,7 @@ dyn-clone = "1"
 ## crypto
 cipher = { version = "0.4", default-features = false }
 cbc = { version = "0.1", default-features = false }
+
 cbc-mac = { version = "0.1", default-features = false }
 des = { version = "0.8", default-features = false }
 zeroize = { version = "1.8", features = ["derive"] }
@@ -82,6 +84,6 @@ derive_more = { version = "2", default-features = false }
 
 ##
 tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
 
-
-clap = { version = "4.5", default-features = false }
+clap = { version = "4.5" }

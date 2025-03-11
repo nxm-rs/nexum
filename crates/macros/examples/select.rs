@@ -3,6 +3,7 @@
 
 use apdu_core::{ApduCommand, Bytes, Error, StatusWord};
 use apdu_macros::apdu_pair;
+use iso7816_tlv::simple::Tlv;
 
 apdu_pair! {
     /// Select command for applications and files
@@ -31,7 +32,7 @@ apdu_pair! {
         }
 
         response {
-            enum_response {
+            variants {
                 // Normal success (90 00)
                 #[sw(0x90, 0x00)]
                 Success {
@@ -84,28 +85,26 @@ apdu_pair! {
                 }
 
                 /// Get the application label if present in FCI
-                pub fn application_label(&self) -> Option<&[u8]> {
+                pub fn application_label(&self) -> Option<Vec<u8>> {
                     if let Self::Success { fci: Some(data) } = self {
-                        Self::extract_tlv_tag(data, 0x50)
+                        let mut remaining = data.as_slice();
+                        while !remaining.is_empty() {
+                            let (tlv_result, next_remaining) = Tlv::parse(remaining);
+                            match tlv_result {
+                                Ok(tlv) => {
+                                    // Explicitly specify the type for the comparison
+                                    if <iso7816_tlv::simple::Tag as Into<u8>>::into(tlv.tag()) == 0x50 {
+                                        return Some(tlv.value().to_owned());
+                                    }
+                                    remaining = next_remaining;
+                                },
+                                Err(_) => break,
+                            }
+                        }
+                        None
                     } else {
                         None
                     }
-                }
-
-                /// Simple TLV extraction helper
-                fn extract_tlv_tag(data: &[u8], tag: u8) -> Option<&[u8]> {
-                    let mut pos = 0;
-                    while pos + 1 < data.len() {
-                        let t = data[pos];
-                        let l = data[pos + 1] as usize;
-
-                        if pos + 2 + l <= data.len() && t == tag {
-                            return Some(&data[pos+2..pos+2+l]);
-                        }
-
-                        pos += 2 + l;
-                    }
-                    None
                 }
 
                 /// Get the status word

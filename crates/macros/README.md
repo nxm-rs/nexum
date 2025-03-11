@@ -10,7 +10,8 @@ This crate provides macros to simplify the definition of APDU commands and respo
 - Status word-based response variant handling
 - Builder methods for common command patterns
 - Support for capturing status word values in response types
-- TLV data field support (coming soon)
+- Custom payload parsing support
+- Flexible status word matching patterns
 
 ## Usage
 
@@ -45,21 +46,19 @@ apdu_pair! {
         }
 
         response {
-            enum_response {
+            variants {
+                #[sw(0x90, 0x00)]
                 Success {
-                    #[sw(0x90, 0x00)]
                     fci: Option<Vec<u8>>,
                 },
 
-                NotFound {
-                    #[sw(0x6A, 0x82)]
-                },
+                #[sw(0x6A, 0x82)]
+                NotFound,
 
+                #[sw(_, _)]
+                #[sw1]
                 OtherError {
-                    #[sw(_, _)]
-                    #[sw1]
                     sw1: u8,
-                    #[sw2]
                     sw2: u8,
                 }
             }
@@ -86,6 +85,40 @@ fn main() {
 }
 ```
 
+## Custom Payload Parsing
+
+You can provide custom payload parsing logic:
+
+```rust
+apdu_pair! {
+    pub struct GetData {
+        // Command section...
+
+        response {
+            variants {
+                #[sw(0x90, 0x00)]
+                Success {
+                    parsed_data: Vec<u8>,
+                },
+                // Other variants...
+            }
+
+            parse_payload = |payload, sw, variant| -> Result<(), apdu_core::Error> {
+                if let Self::Success { parsed_data } = variant {
+                    // Custom parsing logic here
+                    parsed_data.extend_from_slice(payload);
+                }
+                Ok(())
+            }
+
+            methods {
+                // Custom methods...
+            }
+        }
+    }
+}
+```
+
 ## Status Word Matching
 
 The macros provide several ways to match status words:
@@ -100,23 +133,21 @@ The macros provide several ways to match status words:
 // Match any SW1 and SW2
 #[sw(_, _)]
 
-// Capture SW1 and SW2 values
+// Match using a StatusWord constant
+#[sw(status::SUCCESS)]
+
+// Capture SW1 and SW2 values in fields
 #[sw(_, _)]
-#[sw1]
-sw1: u8,
-#[sw2]
-sw2: u8,
+OtherError {
+    sw1: u8,
+    sw2: u8,
+}
 ```
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+Licensed under MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT).
 
 ## Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be licensed as above, without any additional terms or conditions.

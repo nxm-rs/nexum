@@ -45,8 +45,6 @@ pub(crate) struct ResponseVariant {
     pub fields: Vec<Field>,
     /// Fields that capture SW1/SW2 values
     pub sw_fields: Vec<(String, bool)>, // (field_name, is_sw1)
-    /// Whether to do TLV parsing
-    pub tlv_parse: bool,
     /// Documentation attributes
     pub doc_attrs: Vec<Attribute>,
 }
@@ -74,7 +72,7 @@ impl ResponseDef {
             let key_str = key.to_string();
 
             match key_str.as_str() {
-                "variants" | "enum_response" => {
+                "variants" => {
                     // Support both names for backward compatibility
                     // Parse enum response
                     let content;
@@ -222,7 +220,6 @@ impl ResponseDef {
                 sw_pattern,
                 fields,
                 sw_fields,
-                tlv_parse: false, // Default to false for now
                 doc_attrs,
             });
 

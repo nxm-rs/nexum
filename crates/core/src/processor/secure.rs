@@ -58,8 +58,6 @@ pub trait SecureChannel: CommandProcessor + DynClone {
 /// A base secure channel implementation that can be extended
 #[derive(Debug, Clone)]
 pub struct BaseSecureChannel {
-    /// The current security level
-    level: SecurityLevel,
     /// Whether the channel is established
     established: bool,
     /// Session data for the channel
@@ -68,9 +66,8 @@ pub struct BaseSecureChannel {
 
 impl BaseSecureChannel {
     /// Create a new base secure channel
-    pub fn new(level: SecurityLevel) -> Self {
+    pub fn new() -> Self {
         Self {
-            level,
             established: false,
             session_data: None,
         }
@@ -144,8 +141,8 @@ pub struct MockSecureChannel {
 #[cfg(test)]
 impl MockSecureChannel {
     /// Create a new mock secure channel
-    pub fn new(level: SecurityLevel) -> Self {
-        let mut base = BaseSecureChannel::new(level);
+    pub fn new() -> Self {
+        let mut base = BaseSecureChannel::new();
         base.set_established(true);
 
         Self { base }

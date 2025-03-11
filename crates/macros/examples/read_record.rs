@@ -35,7 +35,7 @@ apdu_pair! {
         }
 
         response {
-            enum_response {
+            variants {
                 // Success
                 #[sw(0x90, 0x00)]
                 Success {
