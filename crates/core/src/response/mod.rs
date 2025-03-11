@@ -5,15 +5,16 @@
 
 pub mod error;
 pub mod status;
+pub mod utils;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use tracing::{debug, trace};
+use tracing::trace;
 
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
 use crate::Error;
-use error::{ResponseError, StatusError};
+use error::StatusError;
 use status::StatusWord;
 
 /// Trait for APDU responses
@@ -91,26 +92,18 @@ impl Response {
 
     /// Parse response from raw bytes (including status word)
     pub fn from_bytes(data: &[u8]) -> Result<Self, Error> {
-        if data.len() < 2 {
-            debug!("Response too short: {} bytes", data.len());
-            return Err(Error::Response(ResponseError::Incomplete));
-        }
-
-        let len = data.len();
-        let sw1 = data[len - 2];
-        let sw2 = data[len - 1];
-        let payload = if len > 2 { &data[..len - 2] } else { &[] };
+        let (status, payload) = utils::extract_status_and_payload(data)?;
 
         trace!(
-            sw1 = format_args!("{:#04x}", sw1),
-            sw2 = format_args!("{:#04x}", sw2),
+            sw1 = format_args!("{:#04x}", status.sw1),
+            sw2 = format_args!("{:#04x}", status.sw2),
             payload_len = payload.len(),
             "Parsed APDU response"
         );
 
         Ok(Self {
             payload: Bytes::copy_from_slice(payload),
-            status: StatusWord::new(sw1, sw2),
+            status,
         })
     }
 

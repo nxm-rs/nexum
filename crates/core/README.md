@@ -38,9 +38,9 @@ The `CommandProcessor` trait handles command transformations:
 pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
     fn process_command(
         &mut self,
-        command: &[u8],
-        transport: &mut dyn CardTransport,
-    ) -> Result<Bytes, ProcessorError>;
+        command: &Command,
+        transport: &mut dyn CardTransport
+    ) -> Result<Response, ProcessorError>;
 
     fn security_level(&self) -> SecurityLevel;
     fn is_active(&self) -> bool;
@@ -62,7 +62,7 @@ pub trait Executor: Send + Sync + fmt::Debug {
 ## Example
 
 ```rust
-use apdu_core::{Command, CardExecutor, Response};
+use apdu_core::{Command, CardExecutor, Executor, Response};
 use apdu_core::processor::GetResponseProcessor;
 use some_transport::PcscTransport;
 
@@ -78,7 +78,8 @@ fn main() -> Result<(), apdu_core::Error> {
     let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid.to_vec());
 
     // Execute the command
-    let response = executor.execute(&select_cmd)?;
+    let response_bytes = executor.transmit(&select_cmd.to_bytes())?;
+    let response = Response::from_bytes(&response_bytes)?;
 
     // Parse the response
     if response.is_success() {
@@ -100,11 +101,24 @@ Secure channels are implemented as command processors:
 let provider = SomeSecureChannelProvider::new(keys);
 
 // Open a secure channel with the card
-executor.open_secure_channel(&provider, SecurityLevel::FullEncryption)?;
+executor.open_secure_channel(&provider)?;
 
 // Commands now automatically use the secure channel
 let response = executor.transmit(&command)?;
 ```
+
+## Command Processors
+
+The library includes various built-in command processors:
+
+- `GetResponseProcessor`: Automatically handles GET RESPONSE commands for response chaining
+- `IdentityProcessor`: Simple pass-through processor for testing
+
+You can implement custom processors to handle:
+- Secure messaging
+- Command pre-processing
+- Response post-processing
+- Protocol-specific translations
 
 ## No-std Support
 
@@ -115,11 +129,11 @@ This crate supports `no_std` environments. To use it without the standard librar
 apdu-core = { version = "0.1.0", default-features = false }
 ```
 
+## Feature Flags
+
+- `std` (default): Enable standard library support
+- `longer_payloads`: Enable support for extended length APDUs
+
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+Licensed under MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)

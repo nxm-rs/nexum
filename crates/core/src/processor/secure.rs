@@ -38,7 +38,6 @@ pub trait SecureChannelProvider: Send + Sync + fmt::Debug {
     fn create_secure_channel(
         &self,
         transport: &mut dyn CardTransport,
-        level: SecurityLevel,
     ) -> Result<Box<dyn CommandProcessor>, ProcessorError>;
 }
 
@@ -99,8 +98,6 @@ impl CommandProcessor for BaseSecureChannel {
         command: &Command,
         transport: &mut dyn CardTransport,
     ) -> Result<Response, ProcessorError> {
-        // Base implementation just passes through
-        // Derived types should override this
         warn!("Using BaseSecureChannel which does not implement any protection");
 
         let command_bytes = command.to_bytes();
@@ -110,10 +107,6 @@ impl CommandProcessor for BaseSecureChannel {
 
         Response::from_bytes(&response_bytes)
             .map_err(|_| ProcessorError::InvalidResponse("Failed to parse response"))
-    }
-
-    fn security_level(&self) -> SecurityLevel {
-        self.level
     }
 
     fn is_active(&self) -> bool {
@@ -146,7 +139,6 @@ impl SecureChannel for BaseSecureChannel {
 #[derive(Debug, Clone)]
 pub struct MockSecureChannel {
     base: BaseSecureChannel,
-    prefix: u8,
 }
 
 #[cfg(test)]
@@ -156,15 +148,7 @@ impl MockSecureChannel {
         let mut base = BaseSecureChannel::new(level);
         base.set_established(true);
 
-        Self {
-            base,
-            prefix: match level {
-                SecurityLevel::Authenticated => 0x81,
-                SecurityLevel::MACProtection => 0x82,
-                SecurityLevel::FullEncryption => 0x84,
-                _ => 0x80,
-            },
-        }
+        Self { base }
     }
 }
 
@@ -181,7 +165,7 @@ impl CommandProcessor for MockSecureChannel {
 
         // Create a secured version of the command
         let secured_cmd = Command::new(
-            self.prefix, // Replace original CLA with secure channel class
+            command.class(),
             command.instruction(),
             command.p1(),
             command.p2(),

@@ -4,9 +4,7 @@
 //! with functionality needed for specialized operations.
 
 use crate::{
-    Bytes, Error, Result,
-    executor::Executor,
-    processor::secure::{SecureChannelProvider, SecurityLevel},
+    Bytes, Error, Result, executor::Executor, processor::secure::SecureChannelProvider,
     transport::CardTransport,
 };
 
@@ -26,11 +24,7 @@ pub trait SecureChannelExecutor: Executor {
     ///
     /// This establishes a secure channel using the provided secure channel provider
     /// and the requested security level.
-    fn open_secure_channel(
-        &mut self,
-        provider: &dyn SecureChannelProvider,
-        level: SecurityLevel,
-    ) -> Result<()>;
+    fn open_secure_channel(&mut self, provider: &dyn SecureChannelProvider) -> Result<()>;
 }
 
 // Implementation for CardExecutor
@@ -42,11 +36,7 @@ impl<T: CardTransport> ResponseAwareExecutor for super::CardExecutor<T> {
 }
 
 impl<T: CardTransport> SecureChannelExecutor for super::CardExecutor<T> {
-    fn open_secure_channel(
-        &mut self,
-        provider: &dyn SecureChannelProvider,
-        level: SecurityLevel,
-    ) -> Result<()> {
-        super::CardExecutor::open_secure_channel(self, provider, level)
+    fn open_secure_channel(&mut self, provider: &dyn SecureChannelProvider) -> Result<()> {
+        super::CardExecutor::open_secure_channel(self, provider)
     }
 }

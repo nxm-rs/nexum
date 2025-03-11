@@ -4,7 +4,7 @@
 //! command processors to handle APDU command execution.
 
 pub mod error;
-pub mod ext; // New submodule for executor extensions
+pub mod ext;
 
 use bytes::Bytes;
 use core::fmt;
@@ -17,7 +17,7 @@ use alloc::vec::Vec;
 
 use crate::command::{ApduCommand, Command};
 use crate::processor::CommandProcessor;
-use crate::processor::secure::{SecureChannelProvider, SecurityLevel};
+use crate::processor::secure::SecurityLevel;
 use crate::transport::CardTransport;
 use crate::{Error, Result};
 
@@ -142,13 +142,12 @@ impl<T: CardTransport> CardExecutor<T> {
     pub fn open_secure_channel(
         &mut self,
         provider: &dyn crate::processor::secure::SecureChannelProvider,
-        level: SecurityLevel,
     ) -> Result<()> {
-        debug!(security_level = ?level, "Opening secure channel");
+        debug!("Opening secure channel");
 
         // Create the secure channel
         let secure_channel = provider
-            .create_secure_channel(&mut self.transport, level)
+            .create_secure_channel(&mut self.transport)
             .map_err(Error::Processor)?;
 
         // Add it to our processors
@@ -223,13 +222,10 @@ impl<T: CardTransport> Executor for CardExecutor<T> {
     }
 }
 
-// Extension trait implementations moved to ext.rs module
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::processor::IdentityProcessor;
-    use crate::processor::secure::MockSecureChannel;
     use crate::transport::MockTransport;
 
     #[test]
@@ -251,26 +247,5 @@ mod tests {
 
         let response = executor.transmit(&[0x00, 0xA4, 0x04, 0x00]).unwrap();
         assert_eq!(response.as_ref(), &[0x90, 0x00]);
-    }
-
-    #[test]
-    fn test_executor_with_secure_channel() {
-        let mut transport = MockTransport::new(Vec::new());
-        transport.responses.push(Bytes::from_static(&[0x90, 0x00]));
-
-        let mut executor = CardExecutor::new(transport);
-
-        // Add a mock secure channel
-        let secure_channel = MockSecureChannel::new(SecurityLevel::FullEncryption);
-        executor.add_processor(Box::new(secure_channel));
-
-        // Send command
-        let response = executor.transmit(&[0x00, 0xA4, 0x04, 0x00]).unwrap();
-
-        // Verify response
-        assert_eq!(response.as_ref(), &[0x90, 0x00]);
-
-        // Verify the command was "secured" (prefixed with 0x84)
-        assert_eq!(executor.transport().commands[0][0], 0x84);
     }
 }

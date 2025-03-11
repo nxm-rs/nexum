@@ -18,6 +18,7 @@ use alloc::boxed::Box;
 
 use crate::command::Command;
 use crate::response::Response;
+use crate::response::utils;
 use crate::transport::CardTransport;
 use crate::{ApduCommand, ApduResponse};
 use error::ProcessorError;
@@ -133,81 +134,75 @@ impl CommandProcessor for GetResponseProcessor {
         let command_bytes = command.to_bytes();
 
         // First send the original command
-        let mut response_bytes = transport
+        let response_bytes = transport
             .transmit_raw(&command_bytes)
             .map_err(ProcessorError::from)?;
 
-        if response_bytes.len() < 2 {
-            return Err(ProcessorError::InvalidResponse("Response too short"));
-        }
-
-        let mut sw1 = response_bytes[response_bytes.len() - 2];
-        let mut sw2 = response_bytes[response_bytes.len() - 1];
+        // Extract status and payload
+        let ((sw1, sw2), payload) = utils::extract_response_parts(&response_bytes)
+            .map_err(|_| ProcessorError::InvalidResponse("Response too short"))?;
 
         // If SW1=61, use GET RESPONSE to fetch more data
         if sw1 == 0x61 {
             let mut buffer = Vec::new();
 
             // Save any payload data from initial response
-            if response_bytes.len() > 2 {
-                buffer.extend_from_slice(&response_bytes[0..response_bytes.len() - 2]);
-            }
+            buffer.extend_from_slice(payload);
 
             let mut chains = 0;
+            let mut current_sw1 = sw1;
+            let mut current_sw2 = sw2;
 
             // Process GET RESPONSE chain
-            while sw1 == 0x61 && chains < self.max_chains {
+            while current_sw1 == 0x61 && chains < self.max_chains {
                 // Build GET RESPONSE command
-                let get_response = Command::new(0x00, 0xC0, 0x00, 0x00).with_le(sw2 as u16);
+                let get_response = Command::new(0x00, 0xC0, 0x00, 0x00).with_le(current_sw2 as u16);
                 let get_resp_bytes = get_response.to_bytes();
 
                 trace!(
-                    remaining = sw2,
+                    remaining = current_sw2,
                     chain_count = chains + 1,
                     "Sending GET RESPONSE command"
                 );
 
                 // Send GET RESPONSE
-                response_bytes = transport
+                let response_bytes = transport
                     .transmit_raw(&get_resp_bytes)
                     .map_err(ProcessorError::from)?;
 
-                if response_bytes.len() < 2 {
-                    return Err(ProcessorError::InvalidResponse(
-                        "GET RESPONSE returned incomplete data",
-                    ));
-                }
+                // Extract status and payload from response
+                let ((new_sw1, new_sw2), new_payload) =
+                    utils::extract_response_parts(&response_bytes).map_err(|_| {
+                        ProcessorError::InvalidResponse("GET RESPONSE returned incomplete data")
+                    })?;
 
-                // Extract data portion
-                if response_bytes.len() > 2 {
-                    buffer.extend_from_slice(&response_bytes[0..response_bytes.len() - 2]);
-                }
+                // Add payload to buffer
+                buffer.extend_from_slice(new_payload);
 
                 // Update status for potential next iteration
-                sw1 = response_bytes[response_bytes.len() - 2];
-                sw2 = response_bytes[response_bytes.len() - 1];
+                current_sw1 = new_sw1;
+                current_sw2 = new_sw2;
                 chains += 1;
             }
 
-            if chains >= self.max_chains && sw1 == 0x61 {
+            if chains >= self.max_chains && current_sw1 == 0x61 {
                 return Err(ProcessorError::ChainLimitExceeded);
             }
 
             // Construct final response with accumulated data and final status word
-            let response = Response::new(Bytes::from(buffer), (sw1, sw2));
+            let response = Response::new(Bytes::from(buffer), (current_sw1, current_sw2));
 
             trace!(
                 total_data_len = response.payload().len(),
-                final_sw = format!("{:02X}{:02X}", sw1, sw2),
+                final_sw = format!("{:02X}{:02X}", current_sw1, current_sw2),
                 "Completed response chaining"
             );
 
             return Ok(response);
         }
 
-        // If no chaining needed, convert to Response
-        Response::from_bytes(&response_bytes)
-            .map_err(|_| ProcessorError::InvalidResponse("Failed to parse response"))
+        // If no chaining needed, create response directly
+        Ok(Response::new(Bytes::copy_from_slice(payload), (sw1, sw2)))
     }
 }
 

@@ -41,7 +41,7 @@ pub use command::{ApduCommand, Command};
 pub use executor::ext::{ResponseAwareExecutor, SecureChannelExecutor}; // New re-exports
 pub use executor::{CardExecutor, Executor};
 pub use response::status::StatusWord;
-pub use response::{ApduResponse, Response};
+pub use response::{ApduResponse, Response, utils};
 pub use transport::CardTransport;
 
 /// Prelude module containing commonly used traits and types
