@@ -160,8 +160,21 @@ fn build_install_data(
     data.extend_from_slice(privilege);
 
     // Install Parameters
-    data.push(install_parameters.len() as u8);
-    data.extend_from_slice(install_parameters);
+    if install_parameters.is_empty() {
+        // Even for empty parameters, we need to provide the C9 tag with zero length
+        let params_tlv = [0xC9, 0x00];
+        data.push(params_tlv.len() as u8);
+        data.extend_from_slice(&params_tlv);
+    } else {
+        // Create TLV structure: C9 + len + value
+        let mut params_tlv = Vec::with_capacity(2 + install_parameters.len());
+        params_tlv.push(0xC9); // Tag for application specific parameters
+        params_tlv.push(install_parameters.len() as u8);
+        params_tlv.extend_from_slice(install_parameters);
+
+        data.push(params_tlv.len() as u8);
+        data.extend_from_slice(&params_tlv);
+    }
 
     // Install Token
     data.push(install_token.len() as u8);
@@ -195,7 +208,7 @@ mod tests {
         let raw = cmd.to_bytes();
         assert_eq!(
             raw.as_ref(),
-            hex!("80E60200180C53746174757357616C6C657408A000000151000000000000")
+            hex!("80E60200190C53746174757357616C6C657408A000000151000000000000")
         );
     }
 
@@ -205,7 +218,7 @@ mod tests {
         let module_aid = hex!("53746174757357616C6C6574417070");
         let applet_aid = hex!("53746174757357616C6C6574417070");
         let privileges = hex!("01");
-        let install_params = hex!("C903AABBCC");
+        let install_params = hex!("03AABBCC");
         let install_token = hex!("");
 
         let cmd = InstallCommand::for_install_and_make_selectable(
@@ -221,7 +234,7 @@ mod tests {
 
         // Check the command data format
         let expected_data = hex!(
-            "0C53746174757357616C6C65740F53746174757357616C6C65744170700F53746174757357616C6C657441707001000005C903AABBCC00"
+            "0C53746174757357616C6C65740F53746174757357616C6C65744170700F53746174757357616C6C6574417070010106C90403AABBCC00"
         );
         assert_eq!(cmd.data(), Some(expected_data.as_ref()));
     }

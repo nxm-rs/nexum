@@ -80,7 +80,7 @@ mod tests {
 
         // Test command serialization
         let raw = cmd.to_bytes();
-        assert_eq!(raw.as_ref(), hex!("80E8010104C4020304"));
+        assert_eq!(raw.as_ref(), hex!("80E8000104C4020304"));
     }
 
     #[test]

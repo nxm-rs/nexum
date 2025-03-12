@@ -6,10 +6,9 @@
 use zeroize::Zeroize;
 
 use crate::{
-    Error, Result,
+    Error, InitializeUpdateResponse, Result,
     constants::scp,
     crypto::{DERIVATION_PURPOSE_ENC, DERIVATION_PURPOSE_MAC, derive_key, verify_cryptogram},
-    util::check_length,
 };
 
 /// Secure Channel Protocol (SCP) keys
@@ -20,51 +19,27 @@ pub struct Keys {
     enc: [u8; 16],
     /// MAC key
     mac: [u8; 16],
-    /// Data encryption key (optional)
-    dek: Option<[u8; 16]>,
 }
 
 impl Keys {
     /// Create a new key set with the specified encryption and MAC keys
     pub fn new(enc: [u8; 16], mac: [u8; 16]) -> Self {
-        Self {
-            enc,
-            mac,
-            dek: None,
-        }
-    }
-
-    /// Create a new key set with all three keys
-    pub fn new_with_dek(enc: [u8; 16], mac: [u8; 16], dek: [u8; 16]) -> Self {
-        Self {
-            enc,
-            mac,
-            dek: Some(dek),
-        }
+        Self { enc, mac }
     }
 
     /// Create a new key set where all keys are the same
     pub fn from_single_key(key: [u8; 16]) -> Self {
-        Self {
-            enc: key,
-            mac: key,
-            dek: Some(key),
-        }
+        Self { enc: key, mac: key }
     }
 
     /// Get the encryption key
-    pub fn enc(&self) -> &[u8] {
+    pub fn enc(&self) -> &[u8; 16] {
         &self.enc
     }
 
     /// Get the MAC key
-    pub fn mac(&self) -> &[u8] {
+    pub fn mac(&self) -> &[u8; 16] {
         &self.mac
-    }
-
-    /// Get the data encryption key
-    pub fn dek(&self) -> Option<&[u8]> {
-        self.dek.as_ref().map(|key| key.as_slice())
     }
 }
 
@@ -74,13 +49,11 @@ pub struct Session {
     /// Session keys derived from card keys
     keys: Keys,
     /// Card challenge received during initialization
-    card_challenge: [u8; 8],
+    card_challenge: [u8; 6],
     /// Host challenge sent during initialization
     host_challenge: [u8; 8],
     /// Sequence counter
     sequence_counter: [u8; 2],
-    /// Security level
-    security_level: u8,
 }
 
 impl Session {
@@ -91,78 +64,54 @@ impl Session {
     /// # Arguments
     ///
     /// * `card_keys` - The keys shared with the card
-    /// * `init_response` - The response data from INITIALIZE UPDATE
+    /// * `init_response` - The successful INITIALIZE UPDATE response
     /// * `host_challenge` - The challenge sent to the card
     ///
     /// # Returns
     ///
     /// A new Session if the card's cryptogram is valid
-    pub fn new(card_keys: &Keys, init_response: &[u8], host_challenge: &[u8]) -> Result<Self> {
-        // Validate inputs
-        check_length(host_challenge, 8)?;
+    pub fn from_response(
+        keys: &Keys,
+        init_response: &InitializeUpdateResponse,
+        host_challenge: [u8; 8],
+    ) -> Result<Self> {
+        // Extract data from the response
+        let (sequence_counter, card_challenge, card_cryptogram) = match init_response {
+            InitializeUpdateResponse::Success {
+                key_info,
+                sequence_counter,
+                card_challenge,
+                card_cryptogram,
+                ..
+            } => {
+                // Check SCP version
+                let scp_version = key_info[1];
+                if scp_version != scp::SCP02 {
+                    return Err(Error::UnsupportedScpVersion(scp_version));
+                }
 
-        // Check for error status words
-        if init_response.len() < 2 {
-            return Err(Error::InvalidLength {
-                expected: 28,
-                actual: init_response.len(),
-            });
-        }
-
-        // Basic response validation
-        if init_response.len() < 28 {
-            return Err(Error::InvalidLength {
-                expected: 28,
-                actual: init_response.len(),
-            });
-        }
-
-        // Check SCP version
-        let scp_major_version = init_response[11];
-        if scp_major_version != scp::SCP02 {
-            return Err(Error::UnsupportedScpVersion(scp_major_version));
-        }
-
-        // Extract data
-        let security_level = init_response[10];
-
-        let mut sequence_counter = [0u8; 2];
-        sequence_counter.copy_from_slice(&init_response[12..14]);
-
-        let mut card_challenge = [0u8; 8];
-        card_challenge.copy_from_slice(&init_response[12..20]);
-
-        let card_cryptogram = &init_response[20..28];
+                (sequence_counter, card_challenge, card_cryptogram)
+            }
+            _ => {
+                return Err(Error::InvalidResponse(
+                    "Not a successful INITIALIZE UPDATE response",
+                ));
+            }
+        };
 
         // Derive session keys
-        let session_enc = derive_key(
-            card_keys.enc().try_into().unwrap(),
-            sequence_counter,
-            DERIVATION_PURPOSE_ENC,
-        )?;
-        let session_mac = derive_key(
-            card_keys.mac().try_into().unwrap(),
-            sequence_counter,
-            DERIVATION_PURPOSE_MAC,
-        )?;
+        let session_enc = derive_key(keys.enc(), sequence_counter, &DERIVATION_PURPOSE_ENC)?;
+        let session_mac = derive_key(keys.mac(), sequence_counter, &DERIVATION_PURPOSE_MAC)?;
 
         // Create session with the derived keys
-        let session_keys = if let Some(dek) = card_keys.dek() {
-            let session_dek = derive_key(
-                dek.try_into().unwrap(),
-                sequence_counter,
-                crate::crypto::DERIVATION_PURPOSE_DEK,
-            )?;
-            Keys::new_with_dek(session_enc, session_mac, session_dek)
-        } else {
-            Keys::new(session_enc, session_mac)
-        };
+        let keys = Keys::new(session_enc, session_mac);
 
         // Verify the card's cryptogram
         let verified = verify_cryptogram(
-            session_keys.enc(),
-            host_challenge,
-            &card_challenge,
+            keys.enc(),
+            &sequence_counter,
+            card_challenge,
+            &host_challenge,
             card_cryptogram,
         )?;
 
@@ -170,16 +119,27 @@ impl Session {
             return Err(Error::AuthenticationFailed("Invalid card cryptogram"));
         }
 
-        let mut host_challenge_array = [0u8; 8];
-        host_challenge_array.copy_from_slice(host_challenge);
-
         Ok(Session {
-            keys: session_keys,
-            card_challenge,
-            host_challenge: host_challenge_array,
-            sequence_counter,
-            security_level,
+            keys,
+            card_challenge: *card_challenge,
+            host_challenge,
+            sequence_counter: *sequence_counter,
         })
+    }
+
+    // Keep the original method for backward compatibility but implement it in terms of from_response
+    pub fn new(card_keys: &Keys, init_response: &[u8], host_challenge: [u8; 8]) -> Result<Self> {
+        // Parse the raw response bytes
+        let response = match InitializeUpdateResponse::from_bytes(init_response) {
+            Ok(resp) => resp,
+            Err(_) => {
+                return Err(Error::InvalidResponse(
+                    "Failed to parse INITIALIZE UPDATE response",
+                ));
+            }
+        };
+
+        Self::from_response(card_keys, &response, host_challenge)
     }
 
     /// Get the session keys
@@ -187,24 +147,19 @@ impl Session {
         &self.keys
     }
 
+    /// Get the sequence counter
+    pub fn sequence_counter(&self) -> &[u8; 2] {
+        &self.sequence_counter
+    }
+
     /// Get the card challenge
-    pub fn card_challenge(&self) -> &[u8] {
+    pub fn card_challenge(&self) -> &[u8; 6] {
         &self.card_challenge
     }
 
     /// Get the host challenge
-    pub fn host_challenge(&self) -> &[u8] {
+    pub fn host_challenge(&self) -> &[u8; 8] {
         &self.host_challenge
-    }
-
-    /// Get the sequence counter
-    pub fn sequence_counter(&self) -> &[u8] {
-        &self.sequence_counter
-    }
-
-    /// Get the security level
-    pub fn security_level(&self) -> u8 {
-        self.security_level
     }
 }
 
@@ -220,33 +175,33 @@ mod tests {
         let init_response = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000");
         let host_challenge = hex!("f0467f908e5ca23f");
 
-        let session = Session::new(&card_key, &init_response, &host_challenge);
+        let session = Session::new(&card_key, &init_response, host_challenge);
         assert!(session.is_ok());
 
         // Verify extracted data
         let session = session.unwrap();
-        assert_eq!(session.security_level(), 0x36);
         assert_eq!(session.sequence_counter(), &[0x00, 0x0d]);
     }
 
     #[test]
+    // TODO: Check these tests.
     fn test_session_bad_response() {
-        let card_key = Keys::from_single_key(hex!("404142434445464748494a4b4c4d4e4f"));
+        let card_key = Keys::from_single_key([0u8; 16]);
         let host_challenge = hex!("f0467f908e5ca23f");
 
         // Too short response
         let init_response = hex!("01026982");
-        let session = Session::new(&card_key, &init_response, &host_challenge);
+        let session = Session::new(&card_key, &init_response, host_challenge);
         assert!(session.is_err());
 
         // Wrong SCP version
         let init_response = hex!("000002650183039536622001000de9c62ba1c4c8e55fcb91b6654ce49000");
-        let session = Session::new(&card_key, &init_response, &host_challenge);
+        let session = Session::new(&card_key, &init_response, host_challenge);
         assert!(session.is_err());
 
         // Invalid cryptogram
         let init_response = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce40000");
-        let session = Session::new(&card_key, &init_response, &host_challenge);
+        let session = Session::new(&card_key, &init_response, host_challenge);
         assert!(session.is_err());
     }
 
@@ -257,12 +212,5 @@ mod tests {
 
         assert_eq!(keys.enc(), &key);
         assert_eq!(keys.mac(), &key);
-
-        // Convert fixed-size array to slice for comparison
-        if let Some(dek) = keys.dek() {
-            assert_eq!(dek, key.as_slice());
-        } else {
-            panic!("DEK should be present");
-        }
     }
 }

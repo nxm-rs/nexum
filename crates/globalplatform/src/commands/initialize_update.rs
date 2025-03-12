@@ -37,10 +37,11 @@ apdu_pair! {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
                 Success {
-                    key_diversification_data: Vec<u8>,
-                    key_info: Vec<u8>,
-                    card_challenge: Vec<u8>,
-                    card_cryptogram: Vec<u8>,
+                    key_diversification_data: [u8; 10],
+                    key_info: [u8; 2],
+                    sequence_counter: [u8; 2],
+                    card_challenge: [u8; 6],
+                    card_cryptogram: [u8; 8],
                 },
 
                 /// Security condition not satisfied (6982)
@@ -63,24 +64,28 @@ apdu_pair! {
                 if let Self::Success {
                     key_diversification_data,
                     key_info,
+                    sequence_counter,
                     card_challenge,
                     card_cryptogram
                 } = variant {
-                    if payload.len() < 28 {
-                        return Err(apdu_core::Error::Parse("Response data too short"));
+                    if payload.len() != 28 {
+                        return Err(apdu_core::Error::Parse("Response data incorrect length"));
                     }
 
                     // Key diversification data (10 bytes)
-                    key_diversification_data.extend_from_slice(&payload[0..10]);
+                    key_diversification_data.copy_from_slice(&payload[0..10]);
 
                     // Key information (2 bytes)
-                    key_info.extend_from_slice(&payload[10..12]);
+                    key_info.copy_from_slice(&payload[10..12]);
 
-                    // Card challenge (8 bytes)
-                    card_challenge.extend_from_slice(&payload[12..20]);
+                    // Sequence counter (2 bytes)
+                    sequence_counter.copy_from_slice(&payload[12..14]);
+
+                    // Card challenge (6 bytes)
+                    card_challenge.copy_from_slice(&payload[14..20]);
 
                     // Card cryptogram (8 bytes)
-                    card_cryptogram.extend_from_slice(&payload[20..28]);
+                    card_cryptogram.copy_from_slice(&payload[20..28]);
                 }
 
                 Ok(())
@@ -118,12 +123,8 @@ apdu_pair! {
                 /// Get the sequence counter
                 pub fn sequence_counter(&self) -> Option<&[u8]> {
                     match self {
-                        Self::Success { card_challenge, .. } => {
-                            if card_challenge.len() >= 2 {
-                                Some(&card_challenge[0..2])
-                            } else {
-                                None
-                            }
+                        Self::Success { sequence_counter, .. } => {
+                            Some(sequence_counter)
                         },
                         _ => None,
                     }
@@ -133,10 +134,9 @@ apdu_pair! {
                 pub fn security_level(&self) -> Option<u8> {
                     match self {
                         Self::Success { key_info, .. } => {
-                            if key_info.len() >= 1 {
-                                let sec_level = key_info[0];
+                            if key_info.len() >= 2 {
                                 // Security level is the second byte of key info
-                                Some(sec_level)
+                                Some(key_info[1])
                             } else {
                                 None
                             }
@@ -170,7 +170,7 @@ mod tests {
 
         // Test command serialization
         let raw = cmd.to_bytes();
-        assert_eq!(raw.as_ref(), hex!("8050000003010203"));
+        assert_eq!(raw.as_ref(), hex!("805000000301020300"));
     }
 
     #[test]
@@ -182,11 +182,11 @@ mod tests {
 
         assert!(matches!(response, InitializeUpdateResponse::Success { .. }));
         assert_eq!(response.scp_version(), Some(0x02));
-        assert_eq!(response.key_version_number(), Some(0x01));
+        assert_eq!(response.key_version_number(), Some(0x20));
 
-        // Use .as_slice() to convert the array reference to a slice for comparison
+        // Check sequence counter using the sequence_counter() method
         if let Some(counter) = response.sequence_counter() {
-            assert_eq!(counter, &[0x00, 0x0d]);
+            assert_eq!(counter, &[0x00, 0x0D]);
         } else {
             panic!("Sequence counter should be present");
         }
@@ -194,14 +194,17 @@ mod tests {
         if let InitializeUpdateResponse::Success {
             key_diversification_data,
             key_info,
+            sequence_counter,
             card_challenge,
             card_cryptogram,
         } = response
         {
-            assert_eq!(key_diversification_data, hex!("0000026501830395"));
-            assert_eq!(key_info, hex!("3662"));
-            assert_eq!(card_challenge, hex!("2002000de9c62ba1"));
-            assert_eq!(card_cryptogram, hex!("c4c8e55fcb91b665"));
+            // Use the correct size hex literals for each field
+            assert_eq!(key_diversification_data, hex!("00000265018303953662"));
+            assert_eq!(key_info, hex!("2002"));
+            assert_eq!(sequence_counter, hex!("000D"));
+            assert_eq!(card_challenge, hex!("E9C62BA1C4C8"));
+            assert_eq!(card_cryptogram, hex!("E55FCB91B6654CE4"));
         }
 
         // Test error response

@@ -11,8 +11,6 @@ pub mod cla {
     pub const GP: u8 = 0x80;
     /// Secure messaging command class (with MAC)
     pub const MAC: u8 = 0x84;
-    /// Secure messaging command class (with MAC and encryption)
-    pub const MAC_ENC: u8 = 0x84;
 }
 
 /// GlobalPlatform instruction codes

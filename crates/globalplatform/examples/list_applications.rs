@@ -6,20 +6,19 @@
 use apdu_core::CardExecutor;
 use apdu_globalplatform::GlobalPlatform;
 use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
+use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Set up tracing subscriber for logging
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_target(true)
+        .init();
+
     // Create a PC/SC device manager
     let manager = PcscDeviceManager::new()?;
 
     // List available readers
-    let readers = manager.list_readers()?;
-
-    if readers.is_empty() {
-        println!("No readers found!");
-        return Ok(());
-    }
-
-    // Find a reader with a card
     let readers = manager.list_readers()?;
 
     if readers.is_empty() {

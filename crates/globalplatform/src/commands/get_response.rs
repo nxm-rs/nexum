@@ -5,6 +5,8 @@
 
 use apdu_macros::apdu_pair;
 
+use bytes::Bytes;
+
 use crate::constants::{cla, ins, status};
 
 apdu_pair! {
@@ -28,14 +30,14 @@ apdu_pair! {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
                 Success {
-                    data: Vec<u8>,
+                    data: bytes::Bytes,
                 },
 
                 /// More data available (61xx)
                 #[sw(0x61, _)]
                 MoreData {
                     sw2: u8, // remaining
-                    data: Vec<u8>,
+                    data: bytes::Bytes,
                 },
 
                 /// Wrong length (6700)
@@ -53,7 +55,7 @@ apdu_pair! {
             parse_payload = |payload: &[u8], _sw: apdu_core::StatusWord, variant: &mut Self| -> Result<(), apdu_core::Error> {
                 match variant {
                     Self::Success { data } | Self::MoreData { data, .. } => {
-                        data.extend_from_slice(payload);
+                        *data = Bytes::copy_from_slice(payload);
                     }
                     _ => {}
                 }

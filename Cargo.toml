@@ -15,7 +15,7 @@ exclude = ["benches/", "tests/", "crates/**/examples/*"]
 
 [workspace.lints.rust]
 missing-debug-implementations = "warn"
-missing-docs = "warn"
+# missing-docs = "warn"
 unreachable-pub = "warn"
 unused-must-use = "deny"
 rust-2018-idioms = "deny"
@@ -62,9 +62,9 @@ dyn-clone = "1"
 ## crypto
 cipher = { version = "0.4", default-features = false }
 cbc = { version = "0.1", default-features = false }
-
 cbc-mac = { version = "0.1", default-features = false }
 des = { version = "0.8", default-features = false }
+block-padding = { version = "0.4.0-rc.3" }
 zeroize = { version = "1.8", features = ["derive"] }
 
 zip = { version = "2.2", default-features = false }

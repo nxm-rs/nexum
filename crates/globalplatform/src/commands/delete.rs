@@ -5,6 +5,7 @@
 use apdu_macros::apdu_pair;
 
 use crate::constants::{cla, delete_p2, ins, status, tags};
+use iso7816_tlv::simple::Tlv;
 
 apdu_pair! {
     /// DELETE command for GlobalPlatform
@@ -17,14 +18,9 @@ apdu_pair! {
             builders {
                 /// Create a DELETE command for an object with specified parameters
                 pub fn with_aid(aid: impl AsRef<[u8]>, p2: u8) -> Self {
-                    // Build data field: tag + length + AID
-                    let aid_data = aid.as_ref();
-                    let mut data = Vec::with_capacity(2 + aid_data.len());
-                    data.push(tags::DELETE_AID);
-                    data.push(aid_data.len() as u8);
-                    data.extend_from_slice(aid_data);
+                    let data = Tlv::new(tags::DELETE_AID.try_into().unwrap(), aid.as_ref().to_vec()).unwrap();
 
-                    Self::new(0x00, p2).with_data(data)
+                    Self::new(0x00, p2).with_data(data.to_vec())
                 }
 
                 /// Create a DELETE command for an object
@@ -41,15 +37,19 @@ apdu_pair! {
 
         response {
             variants {
+                /// Success in deleting the object
                 #[sw(0x90, 0x00)]
                 Success,
 
+                /// Referenced data not found
                 #[sw(status::REFERENCED_DATA_NOT_FOUND)]
                 ReferencedDataNotFound,
 
+                /// Security condition not satisfied
                 #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
                 SecurityConditionNotSatisfied,
 
+                /// Other error
                 #[sw(_, _)]
                 OtherError {
                     sw1: u8,

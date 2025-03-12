@@ -86,8 +86,8 @@ apdu_pair! {
                 }
 
                 /// Extract the application label from FCI if available
-                pub fn application_label(&self) -> Option<&[u8]> {
-                    self.fci().and_then(|fci| crate::util::tlv::find_tlv_value(fci, crate::constants::tags::APPLICATION_LABEL))
+                pub fn application_label(&self) -> Option<bytes::Bytes> {
+                    self.fci().and_then(|fci| crate::util::tlv::find_tlv_value(bytes::Bytes::copy_from_slice(fci), crate::constants::tags::APPLICATION_LABEL))
                 }
             }
         }
@@ -122,7 +122,9 @@ mod tests {
     fn test_select_response() {
         // Test successful response with FCI
         let fci_data = hex!("6F10840E315041592E5359532E4444463031A5020500");
-        let response_data = [fci_data.as_ref(), &hex!("9000")].concat();
+        let mut response_data = Vec::new();
+        response_data.extend_from_slice(&fci_data);
+        response_data.extend_from_slice(&hex!("9000"));
 
         let response = SelectResponse::from_bytes(&response_data).unwrap();
         assert!(response.is_success());
@@ -142,11 +144,17 @@ mod tests {
         //                                                 ^-- Application Label tag
         //                                                    ^-- "APPLABEL" in ASCII
 
-        let response_data = [fci_data.as_ref(), &hex!("9000")].concat();
+        let mut response_data = Vec::new();
+        response_data.extend_from_slice(&fci_data);
+        response_data.extend_from_slice(&hex!("9000"));
+
         let response = SelectResponse::from_bytes(&response_data).unwrap();
 
         // Extract the application label
         let label = response.application_label();
-        assert_eq!(label, Some(&hex!("4150504C4142454C")[..])); // "APPLABEL"
+        assert_eq!(
+            label,
+            Some(bytes::Bytes::from(hex!("4150504C4142454C").to_vec()))
+        ); // "APPLABEL"
     }
 }

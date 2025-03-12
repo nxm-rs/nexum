@@ -22,9 +22,12 @@ hex.workspace = true
 rand.workspace = true
 thiserror = { workspace = true, optional = true }
 zeroize = { workspace = true, optional = true }
-zip.workspace = true
+zip = { workspace = true, features = ["deflate"] }
 
 clap = { workspace = true, features = ["derive"] }
+block-padding.workspace = true
+
+iso7816-tlv.workspace = true
 
 cipher.workspace = true
 des.workspace = true
@@ -33,6 +36,7 @@ cbc-mac.workspace = true
 
 dyn-clone.workspace = true
 tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
 
 [features]
 default = ["std", "zeroize"]

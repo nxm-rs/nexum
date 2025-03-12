@@ -44,6 +44,14 @@ pub enum Error {
     #[cfg_attr(feature = "std", error("Card authentication failed: {0}"))]
     AuthenticationFailed(&'static str),
 
+    /// Invalid challenge
+    #[cfg_attr(feature = "std", error("Invalid challenge: {0}"))]
+    InvalidChallenge(&'static str),
+
+    /// Invalid response
+    #[cfg_attr(feature = "std", error("Invalid response: {0}"))]
+    InvalidResponse(&'static str),
+
     /// Unsupported SCP version
     #[cfg_attr(feature = "std", error("Unsupported SCP version: {0}"))]
     UnsupportedScpVersion(u8),

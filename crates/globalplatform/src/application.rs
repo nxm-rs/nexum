@@ -3,45 +3,47 @@
 //! This module provides the main GlobalPlatform application interface,
 //! which encapsulates all the functionality for managing smart cards.
 
+use std::path::Path;
+
 use apdu_core::ApduCommand;
-use rand::RngCore;
 
 use apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
-use apdu_core::{Bytes, Command, StatusWord, processor::secure::SecurityLevel};
+use apdu_core::{Bytes, Command, StatusWord};
 
 use crate::{
     Error, Result,
     commands::{
-        DeleteCommand, DeleteResponse, ExternalAuthenticateCommand, ExternalAuthenticateResponse,
-        GetStatusCommand, GetStatusResponse, InstallCommand, InstallResponse, LoadCommand,
-        LoadResponse, SelectCommand, SelectResponse,
-        initialize_update::{InitializeUpdateCommand, InitializeUpdateResponse},
+        DeleteCommand, DeleteResponse, GetStatusCommand, GetStatusResponse, InstallCommand,
+        InstallResponse, LoadCommand, LoadResponse, SelectCommand, SelectResponse,
     },
-    constants::{
-        DEFAULT_HOST_CHALLENGE_LENGTH, SECURITY_DOMAIN_AID, external_auth_p1, get_status_p1,
-        load_p1,
-    },
+    constants::{SECURITY_DOMAIN_AID, get_status_p1, load_p1},
     load::{CapFileInfo, LoadCommandStream},
     secure_channel::create_secure_channel_provider,
     session::{Keys, Session},
 };
 
 /// Default GlobalPlatform keys
+#[derive(Debug, Clone, Copy)]
 pub struct DefaultKeys;
 
 impl DefaultKeys {
     /// Create a new set of default GlobalPlatform keys
     pub fn new() -> Keys {
         // Default GlobalPlatform test key
+        // let key = [
+        //     0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D,
+        //     0x4E, 0x4F,
+        // ];
         let key = [
-            0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D,
-            0x4E, 0x4F,
+            0xc2, 0x12, 0xe0, 0x73, 0xff, 0x8b, 0x4b, 0xbf, 0xaf, 0xf4, 0xde, 0x8a, 0xb6, 0x55,
+            0x22, 0x1f,
         ];
         Keys::from_single_key(key)
     }
 }
 
 /// GlobalPlatform card management application
+#[allow(missing_debug_implementations)]
 pub struct GlobalPlatform<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> {
     /// Card executor
     executor: E,
@@ -86,81 +88,16 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
 
     /// Open a secure channel with default keys
     pub fn open_secure_channel(&mut self) -> Result<()> {
-        self.open_secure_channel_with_keys(&DefaultKeys::new(), SecurityLevel::MACProtection)
+        self.open_secure_channel_with_keys(&DefaultKeys::new())
     }
 
     /// Open a secure channel with specific keys and security level
-    pub fn open_secure_channel_with_keys(
-        &mut self,
-        keys: &Keys,
-        level: SecurityLevel,
-    ) -> Result<()> {
-        // Generate a random host challenge
-        let mut host_challenge = [0u8; DEFAULT_HOST_CHALLENGE_LENGTH];
-        rand::rng().fill_bytes(&mut host_challenge);
-
-        // Initialize update
-        let init_cmd = InitializeUpdateCommand::with_challenge(host_challenge.to_vec());
-        let init_response = match self.executor.execute(&init_cmd) {
-            Ok(response) => {
-                // Store raw response bytes for session creation
-                if let Ok(raw_response) = self.executor.last_response() {
-                    self.last_response = Some(Bytes::copy_from_slice(raw_response));
-                }
-                response
-            }
-            Err(e) => return Err(Error::from(e)),
-        };
-
-        // Check the response
-        if !matches!(init_response, InitializeUpdateResponse::Success { .. }) {
-            return Err(Error::AuthenticationFailed("INITIALIZE UPDATE failed"));
-        }
-
-        // Create a new session from the response
-        let response_bytes = self
-            .last_response
-            .as_ref()
-            .ok_or(Error::AuthenticationFailed("Missing response data"))?;
-
-        let session = match &init_response {
-            InitializeUpdateResponse::Success { .. } => {
-                Session::new(keys, response_bytes, &host_challenge)?
-            }
-            _ => return Err(Error::AuthenticationFailed("INITIALIZE UPDATE failed")),
-        };
-
-        // Store the session
-        self.session = Some(session.clone());
-
-        // Determine the security level parameter
-        let security_level_p1 = match level {
-            SecurityLevel::MACProtection => external_auth_p1::CMAC,
-            SecurityLevel::FullEncryption => external_auth_p1::CMAC | external_auth_p1::ENC,
-            _ => external_auth_p1::CMAC, // Default to MAC protection
-        };
-
-        // Create external authenticate command with appropriate security level
-        let auth_cmd = ExternalAuthenticateCommand::with_security_level(
-            session.keys().enc(),
-            session.card_challenge(),
-            session.host_challenge(),
-            security_level_p1,
-        )?;
-
+    pub fn open_secure_channel_with_keys(&mut self, keys: &Keys) -> Result<()> {
         // Create secure channel provider
-        let provider = create_secure_channel_provider(session);
+        let provider = create_secure_channel_provider(keys.clone());
 
-        // Open the secure channel
-        self.executor.open_secure_channel(&provider, level)?;
-
-        // Send external authenticate command through the secure channel
-        let auth_response = self.executor.execute(&auth_cmd)?;
-
-        // Check if authentication was successful
-        if !matches!(auth_response, ExternalAuthenticateResponse::Success) {
-            return Err(Error::AuthenticationFailed("EXTERNAL AUTHENTICATE failed"));
-        }
+        // Open secure channel (this handles both INITIALIZE UPDATE and EXTERNAL AUTHENTICATE)
+        self.executor.open_secure_channel(&provider)?;
 
         Ok(())
     }
@@ -261,6 +198,80 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
             if !matches!(response, LoadResponse::Success) {
                 return Err(Error::Other("Load failed"));
             }
+        }
+
+        Ok(())
+    }
+
+    /// Install a specific applet from a CAP file
+    pub fn install_applet_from_cap<P: AsRef<Path>>(
+        &mut self,
+        cap_file: P,
+        applet_index: usize,
+        callback: Option<&mut dyn FnMut(usize, usize) -> Result<()>>,
+    ) -> Result<()> {
+        // Extract CAP file info
+        let info = LoadCommandStream::extract_info(&cap_file)?;
+
+        let package_aid = info
+            .package_aid
+            .ok_or_else(|| Error::CapFile("Package AID not found"))?;
+
+        if applet_index >= info.applet_aids.len() {
+            return Err(Error::CapFile("Invalid applet index"));
+        }
+
+        let applet_aid = &info.applet_aids[applet_index];
+
+        // First, install the package
+        self.install_for_load(&package_aid, None)?;
+
+        // Then load the CAP file
+        self.load_cap_file(cap_file, callback)?;
+
+        // Finally, install and make selectable
+        self.install_for_install_and_make_selectable(
+            &package_aid,
+            applet_aid,
+            applet_aid, // using same AID for instance
+            &[],        // empty params
+        )?;
+
+        Ok(())
+    }
+
+    /// Install all applets from a CAP file
+    pub fn install_all_applets_from_cap<P: AsRef<Path>>(
+        &mut self,
+        cap_file: P,
+        callback: Option<&mut dyn FnMut(usize, usize) -> Result<()>>,
+    ) -> Result<()> {
+        // Extract CAP file info
+        let info = LoadCommandStream::extract_info(&cap_file)?;
+
+        let package_aid = info
+            .package_aid
+            .ok_or_else(|| Error::CapFile("Package AID not found"))?;
+
+        if info.applet_aids.is_empty() {
+            return Err(Error::CapFile("No applets found in CAP file"));
+        }
+
+        // First, install the package
+        self.install_for_load(&package_aid, None)?;
+
+        // Then load the CAP file
+        self.load_cap_file(&cap_file, callback)?;
+
+        // Finally, install and make selectable each applet
+        for applet_aid in &info.applet_aids {
+            // Use the applet AID as the instance AID as well
+            self.install_for_install_and_make_selectable(
+                &package_aid,
+                applet_aid,
+                applet_aid, // using same AID for instance
+                &[],        // empty params
+            )?;
         }
 
         Ok(())
@@ -398,18 +409,6 @@ mod tests {
         Bytes::copy_from_slice(&hex!(
             "6F 10 84 08 A0 00 00 01 51 00 00 00 A5 04 9F 65 01 FF 90 00"
         ))
-    }
-
-    // Mock response for initialize update
-    fn mock_init_update_response() -> Bytes {
-        Bytes::copy_from_slice(&hex!(
-            "00 00 02 65 01 83 03 95 36 62 20 02 00 0D E9 C6 2B A1 C4 C8 E5 5F CB 91 B6 65 90 00"
-        ))
-    }
-
-    // Mock response for external authenticate
-    fn mock_ext_auth_response() -> Bytes {
-        Bytes::copy_from_slice(&hex!("90 00"))
     }
 
     #[test]
