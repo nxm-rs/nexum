@@ -97,41 +97,41 @@ impl From<PcscError> for TransportError {
     fn from(error: PcscError) -> Self {
         match error {
             #[cfg(feature = "std")]
-            PcscError::Pcsc(pcsc::Error::NoSmartcard) => TransportError::Device,
+            PcscError::Pcsc(pcsc::Error::NoSmartcard) => Self::Device,
             #[cfg(feature = "std")]
-            PcscError::Pcsc(pcsc::Error::ResetCard) => TransportError::Device,
+            PcscError::Pcsc(pcsc::Error::ResetCard) => Self::Device,
             #[cfg(feature = "std")]
-            PcscError::Pcsc(pcsc::Error::RemovedCard) => TransportError::Device,
+            PcscError::Pcsc(pcsc::Error::RemovedCard) => Self::Device,
             #[cfg(feature = "std")]
-            PcscError::Pcsc(pcsc::Error::Timeout) => TransportError::Timeout,
+            PcscError::Pcsc(pcsc::Error::Timeout) => Self::Timeout,
             #[cfg(feature = "std")]
-            PcscError::Pcsc(pcsc::Error::InsufficientBuffer) => TransportError::BufferTooSmall,
+            PcscError::Pcsc(pcsc::Error::InsufficientBuffer) => Self::BufferTooSmall,
             #[cfg(feature = "std")]
             PcscError::Pcsc(e) => {
                 #[cfg(any(feature = "std", feature = "alloc"))]
                 {
-                    TransportError::Other(alloc::format!("PC/SC error: {}", e))
+                    Self::Other(alloc::format!("PC/SC error: {}", e))
                 }
                 #[cfg(not(any(feature = "std", feature = "alloc")))]
                 {
                     TransportError::Other
                 }
             }
-            PcscError::NoReadersAvailable => TransportError::Connection,
+            PcscError::NoReadersAvailable => Self::Connection,
             #[cfg(any(feature = "std", feature = "alloc"))]
-            PcscError::ReaderNotFound(_) => TransportError::Connection,
+            PcscError::ReaderNotFound(_) => Self::Connection,
             #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::ReaderNotFound => TransportError::Connection,
             #[cfg(any(feature = "std", feature = "alloc"))]
-            PcscError::NoCard(_) => TransportError::Device,
+            PcscError::NoCard(_) => Self::Device,
             #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::NoCard => TransportError::Device,
-            PcscError::CardReset | PcscError::CardRemoved => TransportError::Device,
+            PcscError::CardReset | PcscError::CardRemoved => Self::Device,
             PcscError::TransactionInProgress | PcscError::NoTransaction => {
-                TransportError::Transmission
+                Self::Transmission
             }
             #[cfg(any(feature = "std", feature = "alloc"))]
-            PcscError::Other(msg) => TransportError::Other(msg),
+            PcscError::Other(msg) => Self::Other(msg),
             #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::Other => TransportError::Other,
         }

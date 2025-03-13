@@ -57,7 +57,7 @@ pub mod std_channel {
 }
 
 // No-std implementation using heapless
-#[cfg(all(any(feature = "alloc"), not(feature = "std")))]
+#[cfg(feature = "alloc")]
 pub mod no_std_channel {
     use crate::event::{CardEvent, CardStatusEvent, ReaderEvent};
     use alloc::boxed::Box;
@@ -208,5 +208,5 @@ pub mod no_std_channel {
 #[cfg(feature = "std")]
 pub use std_channel::*;
 
-#[cfg(all(any(feature = "alloc"), not(feature = "std")))]
+#[cfg(feature = "alloc")]
 pub use no_std_channel::*;

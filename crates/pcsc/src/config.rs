@@ -22,9 +22,9 @@ pub enum ShareMode {
 impl From<ShareMode> for PcscShareMode {
     fn from(mode: ShareMode) -> Self {
         match mode {
-            ShareMode::Exclusive => PcscShareMode::Exclusive,
-            ShareMode::Shared => PcscShareMode::Shared,
-            ShareMode::Direct => PcscShareMode::Direct,
+            ShareMode::Exclusive => Self::Exclusive,
+            ShareMode::Shared => Self::Shared,
+            ShareMode::Direct => Self::Direct,
         }
     }
 }
@@ -103,26 +103,26 @@ impl PcscConfig {
     }
 
     /// Set the sharing mode
-    pub fn with_share_mode(mut self, mode: ShareMode) -> Self {
+    pub const fn with_share_mode(mut self, mode: ShareMode) -> Self {
         self.share_mode = mode;
         self
     }
 
     /// Set the preferred protocols
     #[cfg(feature = "std")]
-    pub fn with_protocols(mut self, protocols: PcscProtocols) -> Self {
+    pub const fn with_protocols(mut self, protocols: PcscProtocols) -> Self {
         self.protocols = protocols;
         self
     }
 
     /// Set whether to automatically reconnect
-    pub fn with_auto_reconnect(mut self, auto_reconnect: bool) -> Self {
+    pub const fn with_auto_reconnect(mut self, auto_reconnect: bool) -> Self {
         self.auto_reconnect = auto_reconnect;
         self
     }
 
     /// Set the transaction mode
-    pub fn with_transaction_mode(mut self, mode: TransactionMode) -> Self {
+    pub const fn with_transaction_mode(mut self, mode: TransactionMode) -> Self {
         self.transaction_mode = mode;
         self
     }

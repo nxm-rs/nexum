@@ -26,7 +26,7 @@ pub struct PcscReader {
 #[cfg(any(feature = "std", feature = "alloc"))]
 impl PcscReader {
     /// Create a new reader
-    pub fn new(name: String, has_card: bool, atr: Option<Vec<u8>>) -> Self {
+    pub const fn new(name: String, has_card: bool, atr: Option<Vec<u8>>) -> Self {
         Self {
             name,
             has_card,
@@ -40,7 +40,7 @@ impl PcscReader {
     }
 
     /// Check if a card is present in the reader
-    pub fn has_card(&self) -> bool {
+    pub const fn has_card(&self) -> bool {
         self.has_card
     }
 

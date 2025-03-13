@@ -108,12 +108,13 @@ impl PcscTransport {
 
     /// Get the ATR of the current card
     pub fn atr(&self) -> Result<Vec<u8>, PcscError> {
-        match &self.card {
-            Some(card) => card
-                .get_attribute_owned(pcsc::Attribute::AtrString)
-                .map_err(|e| e.into()),
-            None => Err(PcscError::NoCard(self.reader_name.clone())),
-        }
+        self.card.as_ref().map_or_else(
+            || Err(PcscError::NoCard(self.reader_name.clone())),
+            |card| {
+                card.get_attribute_owned(pcsc::Attribute::AtrString)
+                    .map_err(|e| e.into())
+            },
+        )
     }
 
     /// Get the reader name
@@ -122,7 +123,7 @@ impl PcscTransport {
     }
 
     /// Check if the transport is connected to a card
-    pub fn has_card(&self) -> bool {
+    pub const fn has_card(&self) -> bool {
         self.card.is_some()
     }
 
