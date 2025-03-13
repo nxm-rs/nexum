@@ -538,7 +538,7 @@ pub(crate) fn expand_response(
             },
             |sw_ref| {
                 quote! {
-                    (sw1, sw2) if apdu_core::StatusWord::new(s1, s2) == #sw_ref
+                    (sw1, sw2) if apdu_core::StatusWord::new(sw1, sw2) == #sw_ref
                 }
             },
         );
