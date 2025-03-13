@@ -27,22 +27,22 @@ pub struct Keys {
 
 impl Keys {
     /// Create a new key set with the specified encryption and MAC keys
-    pub fn new(enc: Key<Scp02>, mac: Key<Scp02>) -> Self {
+    pub const fn new(enc: Key<Scp02>, mac: Key<Scp02>) -> Self {
         Self { enc, mac }
     }
 
     /// Create a new key set where all keys are the same
-    pub fn from_single_key(key: Key<Scp02>) -> Self {
+    pub const fn from_single_key(key: Key<Scp02>) -> Self {
         Self { enc: key, mac: key }
     }
 
     /// Get the encryption key
-    pub fn enc(&self) -> &Key<Scp02> {
+    pub const fn enc(&self) -> &Key<Scp02> {
         &self.enc
     }
 
     /// Get the MAC key
-    pub fn mac(&self) -> &Key<Scp02> {
+    pub const fn mac(&self) -> &Key<Scp02> {
         &self.mac
     }
 }
@@ -114,7 +114,7 @@ impl Session {
         if *card_cryptogram
             != calculate_cryptogram(
                 keys.enc(),
-                &sequence_counter,
+                sequence_counter,
                 card_challenge,
                 &host_challenge,
                 false,
@@ -123,7 +123,7 @@ impl Session {
             return Err(Error::AuthenticationFailed("Invalid card cryptogram"));
         }
 
-        Ok(Session {
+        Ok(Self {
             keys,
             card_challenge: *card_challenge,
             host_challenge,
@@ -134,22 +134,22 @@ impl Session {
     // Keep the original method for backward compatibility but implement it in terms of from_response
 
     /// Get the session keys
-    pub fn keys(&self) -> &Keys {
+    pub const fn keys(&self) -> &Keys {
         &self.keys
     }
 
     /// Get the sequence counter
-    pub fn sequence_counter(&self) -> &SequenceCounter {
+    pub const fn sequence_counter(&self) -> &SequenceCounter {
         &self.sequence_counter
     }
 
     /// Get the card challenge
-    pub fn card_challenge(&self) -> &CardChallenge {
+    pub const fn card_challenge(&self) -> &CardChallenge {
         &self.card_challenge
     }
 
     /// Get the host challenge
-    pub fn host_challenge(&self) -> &HostChallenge {
+    pub const fn host_challenge(&self) -> &HostChallenge {
         &self.host_challenge
     }
 }

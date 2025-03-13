@@ -19,7 +19,7 @@ apdu_pair! {
 
             builders {
                 /// Create a GET RESPONSE command with expected length
-                pub fn with_length(length: u8) -> Self {
+                pub const fn with_length(length: u8) -> Self {
                     Self::new(0x00, 0x00).with_le(length as u16)
                 }
             }
@@ -72,12 +72,12 @@ apdu_pair! {
                 }
 
                 /// Check if more data is available
-                pub fn has_more_data(&self) -> bool {
+                pub const fn has_more_data(&self) -> bool {
                     matches!(self, Self::MoreData { .. })
                 }
 
                 /// Get the number of remaining bytes if more data is available
-                pub fn remaining_bytes(&self) -> Option<u8> {
+                pub const fn remaining_bytes(&self) -> Option<u8> {
                     match self {
                         Self::MoreData { sw2, .. } => Some(*sw2),
                         _ => None,

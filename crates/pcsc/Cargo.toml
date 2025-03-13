@@ -28,6 +28,5 @@ std = ["crossbeam-channel", "apdu-core/std", "hex/std"]
 alloc = ["hex/alloc"]
 
 [dev-dependencies]
-hex = { workspace = true }
 apdu-macros.workspace = true
 pcsc.workspace = true

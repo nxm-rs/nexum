@@ -66,7 +66,7 @@ impl SCP02Wrapper {
 
         // Encrypt the ICV if it's not default
         let icv_for_mac = if self.icv == Default::default() {
-            self.icv.clone()
+            self.icv
         } else {
             encrypt_icv(&self.mac_key, &self.icv)
         };
@@ -98,7 +98,7 @@ impl SCP02Wrapper {
     }
 
     /// Get the current ICV
-    pub fn icv(&self) -> &Iv<Scp02> {
+    pub const fn icv(&self) -> &Iv<Scp02> {
         &self.icv
     }
 
@@ -142,7 +142,7 @@ impl GPSecureChannel {
     }
 
     /// Get a reference to the session
-    pub fn session(&self) -> &Session {
+    pub const fn session(&self) -> &Session {
         &self.session
     }
 
@@ -263,7 +263,7 @@ pub struct GPSecureChannelProvider {
 
 impl GPSecureChannelProvider {
     /// Create a new SCP02 secure channel provider with the given keys
-    pub fn new(keys: Keys) -> Self {
+    pub const fn new(keys: Keys) -> Self {
         Self { keys }
     }
 }
@@ -319,9 +319,9 @@ impl apdu_core::processor::secure::SecureChannelProvider for GPSecureChannelProv
                 Ok(Box::new(channel))
             }
             _ => {
-                return Err(ProcessorError::authentication_failed(
+                Err(ProcessorError::authentication_failed(
                     "INITIALIZE UPDATE failed",
-                ));
+                ))
             }
         }
     }

@@ -90,7 +90,7 @@ apdu_pair! {
 
             methods {
                 /// Get the SCP version
-                pub fn scp_version(&self) -> Option<u8> {
+                pub const fn scp_version(&self) -> Option<u8> {
                     match self {
                         Self::Success { key_info, .. } => {
                             if key_info.len() >= 2 {
@@ -104,13 +104,12 @@ apdu_pair! {
                 }
 
                 /// Get the key version number
-                pub fn key_version_number(&self) -> Option<u8> {
+                pub const fn key_version_number(&self) -> Option<u8> {
                     match self {
                         Self::Success { key_info, .. } => {
-                            if key_info.len() >= 1 {
-                                Some(key_info[0])
-                            } else {
-                                None
+                            match !key_info.is_empty() {
+                                true => Some(key_info[0]),
+                                false => None,
                             }
                         },
                         _ => None,
@@ -118,7 +117,7 @@ apdu_pair! {
                 }
 
                 /// Get the sequence counter
-                pub fn sequence_counter(&self) -> Option<&[u8]> {
+                pub const fn sequence_counter(&self) -> Option<&[u8]> {
                     match self {
                         Self::Success { sequence_counter, .. } => {
                             Some(sequence_counter)
@@ -128,14 +127,12 @@ apdu_pair! {
                 }
 
                 /// Get the security level supported by the card
-                pub fn security_level(&self) -> Option<u8> {
+                pub const fn security_level(&self) -> Option<u8> {
                     match self {
                         Self::Success { key_info, .. } => {
-                            if key_info.len() >= 2 {
-                                // Security level is the second byte of key info
-                                Some(key_info[1])
-                            } else {
-                                None
+                            match key_info.len() >= 2 {
+                                true => Some(key_info[1]),
+                                false => None,
                             }
                         },
                         _ => None,

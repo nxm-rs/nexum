@@ -54,7 +54,7 @@ pub struct GlobalPlatform<E: Executor + ResponseAwareExecutor + SecureChannelExe
 
 impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform<E> {
     /// Create a new GlobalPlatform instance
-    pub fn new(executor: E) -> Self {
+    pub const fn new(executor: E) -> Self {
         Self {
             executor,
             session: None,
@@ -214,7 +214,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
 
         let package_aid = info
             .package_aid
-            .ok_or_else(|| Error::CapFile("Package AID not found"))?;
+            .ok_or(Error::CapFile("Package AID not found"))?;
 
         if applet_index >= info.applet_aids.len() {
             return Err(Error::CapFile("Invalid applet index"));
@@ -250,7 +250,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
 
         let package_aid = info
             .package_aid
-            .ok_or_else(|| Error::CapFile("Package AID not found"))?;
+            .ok_or(Error::CapFile("Package AID not found"))?;
 
         if info.applet_aids.is_empty() {
             return Err(Error::CapFile("No applets found in CAP file"));
@@ -282,7 +282,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
     }
 
     /// Get the executor
-    pub fn executor(&self) -> &E {
+    pub const fn executor(&self) -> &E {
         &self.executor
     }
 
@@ -292,7 +292,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
     }
 
     /// Get the session
-    pub fn session(&self) -> Option<&Session> {
+    pub const fn session(&self) -> Option<&Session> {
         self.session.as_ref()
     }
 

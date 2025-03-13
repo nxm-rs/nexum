@@ -48,7 +48,7 @@ apdu_pair! {
 
                 /// Get status with empty AID (wildcard)
                 pub fn all_with_type(p1: u8) -> Self {
-                    Self::with_aid_filter(p1, &[])
+                    Self::with_aid_filter(p1, [])
                 }
             }
         }
@@ -103,12 +103,12 @@ apdu_pair! {
                 }
 
                 /// Check if more data is available
-                pub fn has_more_data(&self) -> bool {
+                pub const fn has_more_data(&self) -> bool {
                     matches!(self, Self::MoreData { .. })
                 }
 
                 /// Get the number of remaining bytes if more data is available
-                pub fn remaining_bytes(&self) -> Option<u8> {
+                pub const fn remaining_bytes(&self) -> Option<u8> {
                     match self {
                         Self::MoreData { sw2, .. } => Some(*sw2),
                         _ => None,
@@ -193,10 +193,10 @@ enum EntryType {
 }
 
 impl EntryType {
-    fn tag(&self) -> u8 {
+    const fn tag(&self) -> u8 {
         match self {
-            EntryType::Application => TAG_APPLICATION,
-            EntryType::LoadFile => TAG_LOAD_FILE,
+            Self::Application => TAG_APPLICATION,
+            Self::LoadFile => TAG_LOAD_FILE,
         }
     }
 }

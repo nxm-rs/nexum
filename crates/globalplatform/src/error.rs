@@ -81,7 +81,7 @@ pub enum Error {
 
 impl From<ApduError> for Error {
     fn from(err: ApduError) -> Self {
-        Error::Apdu(err)
+        Self::Apdu(err)
     }
 }
 
@@ -89,6 +89,6 @@ impl From<ApduError> for Error {
 impl Error {
     /// Create a new error with a string message
     pub fn msg<S: Into<String>>(msg: S) -> Self {
-        Error::Msg(msg.into())
+        Self::Msg(msg.into())
     }
 }

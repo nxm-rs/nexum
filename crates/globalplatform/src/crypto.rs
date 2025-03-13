@@ -63,7 +63,7 @@ pub fn derive_key(
     blocks[0][2..4].copy_from_slice(seq);
 
     // Prepare 3DES key and zero IV
-    let key = resize_key(&card_key);
+    let key = resize_key(card_key);
     let iv = GenericArray::default();
 
     // Encrypt the blocks in CBC mode
@@ -157,10 +157,10 @@ pub fn mac_full_3des(key: &Key<Scp02>, iv: &Iv<Scp02>, data: &[u8]) -> Scp02Mac 
     // For SCP02, we need a specialized MAC algorithm (single DES for all blocks except last)
     // This is custom logic that we have to implement manually
     let des_key8 = &key[..8];
-    let des3_key24 = resize_key(&key);
+    let des3_key24 = resize_key(key);
 
     // This is safe as otherwise the direct assignment above would have paniced.
-    let des_cipher = Des::new_from_slice(&des_key8).unwrap();
+    let des_cipher = Des::new_from_slice(des_key8).unwrap();
     let des3_cipher = TdesEde3::new(&des3_key24);
 
     let mut current_iv = Iv::<Scp02>::default();
@@ -218,9 +218,9 @@ pub fn mac_full_3des(key: &Key<Scp02>, iv: &Iv<Scp02>, data: &[u8]) -> Scp02Mac 
 /// The encrypted ICV (8 bytes)
 pub fn encrypt_icv(mac_key: &Key<Scp02>, icv: &Iv<Scp02>) -> Iv<Scp02> {
     let key = GenericArray::from_slice(&mac_key[..8]);
-    let mut mac = <CbcMac<Des> as Mac>::new(&key);
-    mac.update(&icv.as_ref());
-    mac.finalize().into_bytes().into()
+    let mut mac = <CbcMac<Des> as Mac>::new(key);
+    mac.update(icv.as_ref());
+    mac.finalize().into_bytes()
 }
 
 /// Resize the SCP02 16-byte key to 24 bytes for 3DES
@@ -236,7 +236,7 @@ pub fn encrypt_icv(mac_key: &Key<Scp02>, icv: &Iv<Scp02>) -> Iv<Scp02> {
 /// A 24-byte key in a static buffer
 pub fn resize_key(key: &Key<Scp02>) -> Key<TdesEde3> {
     let mut result = Key::<TdesEde3>::default();
-    result[..16].copy_from_slice(&key);
+    result[..16].copy_from_slice(key);
     result[16..24].copy_from_slice(&key[..8]);
     result
 }

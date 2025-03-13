@@ -99,7 +99,7 @@ impl LoadCommandStream {
 
         // Encode the files into the load file data block format
         let data = Self::encode_files_data(&files)?;
-        let blocks_count = (data.len() + BLOCK_SIZE - 1) / BLOCK_SIZE; // ceiling division
+        let blocks_count = data.len().div_ceil(BLOCK_SIZE); // ceiling division
 
         Ok(Self {
             data,
@@ -136,7 +136,7 @@ impl LoadCommandStream {
     fn encode_length(length: usize) -> Vec<u8> {
         if length < 0x80 {
             // Short form
-            return vec![length as u8];
+            vec![length as u8]
         } else if length < 0x100 {
             // Long form, 1 byte
             return vec![0x81, length as u8];
@@ -155,12 +155,12 @@ impl LoadCommandStream {
     }
 
     /// Get the total number of blocks
-    pub fn blocks_count(&self) -> usize {
+    pub const fn blocks_count(&self) -> usize {
         self.blocks_count
     }
 
     /// Get the current block index
-    pub fn current_block(&self) -> usize {
+    pub const fn current_block(&self) -> usize {
         self.current_block
     }
 

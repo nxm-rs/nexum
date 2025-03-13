@@ -91,12 +91,12 @@ apdu_pair! {
 
             methods {
                 /// Returns true if the selection was successful
-                pub fn is_success(&self) -> bool {
+                pub const fn is_success(&self) -> bool {
                     matches!(self, Self::Success { .. })
                 }
 
                 /// Returns true if the file or application was not found
-                pub fn is_not_found(&self) -> bool {
+                pub const fn is_not_found(&self) -> bool {
                     matches!(self, Self::NotFound { .. })
                 }
 
@@ -192,7 +192,7 @@ fn parse_proprietary_data(prop_tlv: &Tlv) -> Result<ProprietaryData, &'static st
             .iter()
             .find(|tlv| {
                 *tlv.tag()
-                    == u16::from(TAG_APP_PRODUCTION_LIFECYCLE_DATA)
+                    == TAG_APP_PRODUCTION_LIFECYCLE_DATA
                         .try_into()
                         .unwrap()
             })
@@ -207,7 +207,7 @@ fn parse_proprietary_data(prop_tlv: &Tlv) -> Result<ProprietaryData, &'static st
         // Extract Maximum Command Data Length (tag 9F65) - mandatory
         let max_command_data_length = prop_content
             .iter()
-            .find(|tlv| *tlv.tag() == u16::from(TAG_MAX_COMMAND_DATA_LENGTH).try_into().unwrap())
+            .find(|tlv| *tlv.tag() == TAG_MAX_COMMAND_DATA_LENGTH.try_into().unwrap())
             .ok_or("Max command data length (9F65) not found")?;
 
         // Parse max command data length as u16
