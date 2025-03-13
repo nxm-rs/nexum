@@ -2,9 +2,9 @@
 //!
 //! This command is used to select an application or file by its AID.
 
-use apdu_macros::apdu_pair;
 use bytes::Bytes;
 use iso7816_tlv::ber::{Tlv, Value};
+use nexum_apdu_macros::apdu_pair;
 use std::convert::TryFrom;
 
 use crate::constants::{cla, ins, select_p1, status};
@@ -80,7 +80,7 @@ apdu_pair! {
                 }
             }
 
-            parse_payload = |payload: &[u8], _sw: apdu_core::StatusWord, variant: &mut Self| -> Result<(), apdu_core::Error> {
+            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
                 if let Self::Success { fci } = variant {
                     if !payload.is_empty() {
                         *fci = Some(payload.to_vec());
@@ -190,12 +190,7 @@ fn parse_proprietary_data(prop_tlv: &Tlv) -> Result<ProprietaryData, &'static st
         // Extract Application Production Life Cycle Data (tag 9F6E) if present
         let app_production_lifecycle_data = prop_content
             .iter()
-            .find(|tlv| {
-                *tlv.tag()
-                    == TAG_APP_PRODUCTION_LIFECYCLE_DATA
-                        .try_into()
-                        .unwrap()
-            })
+            .find(|tlv| *tlv.tag() == TAG_APP_PRODUCTION_LIFECYCLE_DATA.try_into().unwrap())
             .and_then(|tlv| {
                 if let Value::Primitive(data) = tlv.value() {
                     Some(Bytes::copy_from_slice(data))
@@ -236,8 +231,8 @@ fn parse_proprietary_data(prop_tlv: &Tlv) -> Result<ProprietaryData, &'static st
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_select_command() {

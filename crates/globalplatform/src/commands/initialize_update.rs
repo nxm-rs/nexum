@@ -2,7 +2,7 @@
 //!
 //! This command is used to start a secure channel session.
 
-use apdu_macros::apdu_pair;
+use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, status};
 
@@ -57,7 +57,7 @@ apdu_pair! {
                 }
             }
 
-            parse_payload = |payload: &[u8], _sw: apdu_core::StatusWord, variant: &mut Self| -> Result<(), apdu_core::Error> {
+            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
                 if let Self::Success {
                     key_diversification_data,
                     key_info,
@@ -66,7 +66,7 @@ apdu_pair! {
                     card_cryptogram
                 } = variant {
                     if payload.len() != 28 {
-                        return Err(apdu_core::Error::Parse("Response data incorrect length"));
+                        return Err(nexum_apdu_core::Error::Parse("Response data incorrect length"));
                     }
 
                     // Key diversification data (10 bytes)
@@ -146,8 +146,8 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_initialize_update_command() {

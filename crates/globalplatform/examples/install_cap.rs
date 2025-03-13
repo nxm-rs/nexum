@@ -6,9 +6,9 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use apdu_core::CardExecutor;
-use apdu_globalplatform::{GlobalPlatform, load::LoadCommandStream};
-use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
+use nexum_apdu_core::CardExecutor;
+use nexum_apdu_globalplatform::{GlobalPlatform, load::LoadCommandStream};
+use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the tracing logger with env_format and ansi
@@ -152,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Prepare callback for progress reporting
-    let mut callback = |current: usize, total: usize| -> apdu_globalplatform::Result<()> {
+    let mut callback = |current: usize, total: usize| -> nexum_apdu_globalplatform::Result<()> {
         println!(
             "Loading block {}/{} ({}%)",
             current,

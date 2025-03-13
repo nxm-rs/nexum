@@ -5,12 +5,12 @@
 
 use std::fmt;
 
-use apdu_core::processor::secure::SecureChannel;
-use apdu_core::processor::{CommandProcessor, error::ProcessorError};
-use apdu_core::transport::CardTransport;
-use apdu_core::{ApduCommand, Command, Response};
 use bytes::{BufMut, BytesMut};
 use cipher::{Iv, Key};
+use nexum_apdu_core::processor::secure::SecureChannel;
+use nexum_apdu_core::processor::{CommandProcessor, error::ProcessorError};
+use nexum_apdu_core::transport::CardTransport;
+use nexum_apdu_core::{ApduCommand, Command, Response};
 use rand::RngCore;
 use tracing::{debug, trace, warn};
 
@@ -273,7 +273,7 @@ pub const fn create_secure_channel_provider(keys: Keys) -> GPSecureChannelProvid
     GPSecureChannelProvider::new(keys)
 }
 
-impl apdu_core::processor::secure::SecureChannelProvider for GPSecureChannelProvider {
+impl nexum_apdu_core::processor::secure::SecureChannelProvider for GPSecureChannelProvider {
     fn create_secure_channel(
         &self,
         transport: &mut dyn CardTransport,
@@ -318,11 +318,9 @@ impl apdu_core::processor::secure::SecureChannelProvider for GPSecureChannelProv
 
                 Ok(Box::new(channel))
             }
-            _ => {
-                Err(ProcessorError::authentication_failed(
-                    "INITIALIZE UPDATE failed",
-                ))
-            }
+            _ => Err(ProcessorError::authentication_failed(
+                "INITIALIZE UPDATE failed",
+            )),
         }
     }
 }
@@ -331,9 +329,9 @@ impl apdu_core::processor::secure::SecureChannelProvider for GPSecureChannelProv
 mod tests {
     use super::*;
     use crate::session::Keys;
-    use apdu_core::processor::secure::SecureChannelProvider;
     use bytes::Bytes;
     use hex_literal::hex;
+    use nexum_apdu_core::processor::secure::SecureChannelProvider;
 
     // Create a mock transport implementation for testing
     #[derive(Debug)]
@@ -361,11 +359,11 @@ mod tests {
         fn do_transmit_raw(
             &mut self,
             command: &[u8],
-        ) -> Result<Bytes, apdu_core::transport::error::TransportError> {
+        ) -> Result<Bytes, nexum_apdu_core::transport::error::TransportError> {
             self.commands.push(command.to_vec());
 
             if self.responses.is_empty() {
-                return Err(apdu_core::transport::error::TransportError::Transmission);
+                return Err(nexum_apdu_core::transport::error::TransportError::Transmission);
             }
 
             // Either return the next response or keep reusing the last one
@@ -380,7 +378,7 @@ mod tests {
             true
         }
 
-        fn reset(&mut self) -> Result<(), apdu_core::transport::error::TransportError> {
+        fn reset(&mut self) -> Result<(), nexum_apdu_core::transport::error::TransportError> {
             self.commands.clear();
             Ok(())
         }
@@ -410,7 +408,7 @@ mod tests {
         }
     }
 
-    impl apdu_core::processor::secure::SecureChannelProvider for TestGPSecureChannelProvider {
+    impl SecureChannelProvider for TestGPSecureChannelProvider {
         fn create_secure_channel(
             &self,
             transport: &mut dyn CardTransport,

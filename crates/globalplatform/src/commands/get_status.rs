@@ -3,8 +3,8 @@
 //! This command is used to retrieve information about applications,
 //! security domains, and load files on the card.
 
-use apdu_macros::apdu_pair;
 use bytes::Bytes;
+use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, get_status_p1, get_status_p2, ins, status, tags};
 use iso7816_tlv::simple::Tlv;
@@ -83,7 +83,7 @@ apdu_pair! {
                 }
             }
 
-            parse_payload = |payload: &[u8], _sw: apdu_core::StatusWord, variant: &mut Self| -> Result<(), apdu_core::Error> {
+            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
                 match variant {
                     Self::Success { tlv_data } | Self::MoreData { tlv_data, .. } => {
                         tlv_data.extend_from_slice(payload);
@@ -263,8 +263,8 @@ fn parse_entry(data: &[u8], entry_type: EntryType) -> Option<Entry> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_get_status_command() {

@@ -26,8 +26,8 @@ apdu-macros = "0.1.0"
 ### Basic Example
 
 ```rust
-use apdu_core::{ApduCommand, Bytes, CommandExecutor};
-use apdu_macros::apdu_pair;
+use nexum_apdu_core::{ApduCommand, Bytes, CommandExecutor};
+use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
     /// Select command
@@ -103,7 +103,7 @@ apdu_pair! {
                 // Other variants...
             }
 
-            parse_payload = |payload, sw, variant| -> Result<(), apdu_core::Error> {
+            parse_payload = |payload, sw, variant| -> Result<(), nexum_apdu_core::Error> {
                 if let Self::Success { parsed_data } = variant {
                     // Custom parsing logic here
                     parsed_data.extend_from_slice(payload);

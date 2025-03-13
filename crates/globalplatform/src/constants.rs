@@ -109,7 +109,7 @@ pub mod delete_p2 {
 
 /// Commonly used status words in GlobalPlatform
 pub mod status {
-    use apdu_core::StatusWord;
+    use nexum_apdu_core::StatusWord;
 
     /// Success
     pub const SUCCESS: StatusWord = StatusWord::new(0x90, 0x00);

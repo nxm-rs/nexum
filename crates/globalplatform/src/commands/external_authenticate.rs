@@ -3,7 +3,7 @@
 //! This command is used to authenticate the host to the card
 //! and establish a secure channel.
 
-use apdu_macros::apdu_pair;
+use nexum_apdu_macros::apdu_pair;
 
 use crate::{
     Result,
@@ -69,9 +69,9 @@ mod tests {
     use crate::crypto::Scp02;
 
     use super::*;
-    use apdu_core::ApduCommand;
     use cipher::Key;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_external_authenticate_command() {

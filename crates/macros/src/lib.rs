@@ -29,8 +29,8 @@ use utils::error_tokens;
 /// # Example
 ///
 /// ```
-/// use apdu_macros::apdu_pair;
-/// use apdu_core::{Error, StatusWord};
+/// use nexum_apdu_macros::apdu_pair;
+/// use nexum_apdu_core::{Error, StatusWord};
 ///
 /// apdu_pair! {
 ///     /// Select command for applications
@@ -65,7 +65,7 @@ use utils::error_tokens;
 ///                 }
 ///             }
 ///
-///             parse_payload = |payload, sw, variant| -> Result<(), apdu_core::Error> {
+///             parse_payload = |payload, sw, variant| -> Result<(), nexum_apdu_core::Error> {
 ///                 // Custom parsing logic here
 ///                 Ok(())
 ///             }

@@ -2,7 +2,7 @@
 //!
 //! This command is used to load executable code (CAP files) to the card.
 
-use apdu_macros::apdu_pair;
+use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, load_p1, status};
 
@@ -64,8 +64,8 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_load_command() {

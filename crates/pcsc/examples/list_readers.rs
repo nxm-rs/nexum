@@ -1,6 +1,6 @@
 //! Example showing how to enumerate connected card readers
 
-use apdu_transport_pcsc::PcscDeviceManager;
+use nexum_apdu_transport_pcsc::PcscDeviceManager;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a PC/SC device manager

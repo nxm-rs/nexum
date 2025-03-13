@@ -5,11 +5,11 @@
 
 use std::path::Path;
 
-use apdu_core::ApduCommand;
+use nexum_apdu_core::ApduCommand;
 
-use apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
-use apdu_core::{Bytes, Command, StatusWord};
 use cipher::Key;
+use nexum_apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
+use nexum_apdu_core::{Bytes, Command, StatusWord};
 
 use crate::crypto::Scp02;
 use crate::{
@@ -355,8 +355,8 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::CardExecutor;
     use hex_literal::hex;
+    use nexum_apdu_core::CardExecutor;
 
     // Custom mock transport for tests
     #[derive(Debug)]
@@ -376,13 +376,13 @@ mod tests {
         }
     }
 
-    impl apdu_core::transport::CardTransport for TestTransport {
+    impl nexum_apdu_core::transport::CardTransport for TestTransport {
         fn do_transmit_raw(
             &mut self,
             _command: &[u8],
-        ) -> std::result::Result<Bytes, apdu_core::transport::error::TransportError> {
+        ) -> std::result::Result<Bytes, nexum_apdu_core::transport::error::TransportError> {
             if self.responses.is_empty() {
-                return Err(apdu_core::transport::error::TransportError::Transmission);
+                return Err(nexum_apdu_core::transport::error::TransportError::Transmission);
             }
 
             if self.responses.len() == 1 {
@@ -398,7 +398,7 @@ mod tests {
 
         fn reset(
             &mut self,
-        ) -> std::result::Result<(), apdu_core::transport::error::TransportError> {
+        ) -> std::result::Result<(), nexum_apdu_core::transport::error::TransportError> {
             Ok(())
         }
     }

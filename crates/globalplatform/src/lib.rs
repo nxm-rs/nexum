@@ -32,8 +32,8 @@ pub use load::CapFileInfo;
 pub use secure_channel::GPSecureChannel;
 pub use session::{Keys, Session};
 
-// Re-export from apdu_core for convenience
-pub use apdu_core::{ResponseAwareExecutor, SecureChannelExecutor};
+// Re-export from nexum_apdu_core for convenience
+pub use nexum_apdu_core::{ResponseAwareExecutor, SecureChannelExecutor};
 
 // Export DefaultKeys for easy initialization
 pub use application::DefaultKeys;
@@ -47,9 +47,9 @@ pub use commands::{
 
 /// Convenience functions for common operations
 pub mod operations {
-    use apdu_core::CardExecutor;
-    use apdu_core::prelude::Executor;
-    use apdu_core::{ResponseAwareExecutor, SecureChannelExecutor};
+    use nexum_apdu_core::CardExecutor;
+    use nexum_apdu_core::prelude::Executor;
+    use nexum_apdu_core::{ResponseAwareExecutor, SecureChannelExecutor};
 
     use crate::{Error, GlobalPlatform, Result};
 
@@ -58,7 +58,7 @@ pub mod operations {
         executor: CardExecutor<T>,
     ) -> Result<GlobalPlatform<CardExecutor<T>>>
     where
-        T: apdu_core::transport::CardTransport,
+        T: nexum_apdu_core::transport::CardTransport,
     {
         // Create GlobalPlatform instance
         let mut gp = GlobalPlatform::new(executor);

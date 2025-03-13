@@ -1,6 +1,6 @@
 //! Error types for PC/SC transport
 
-use apdu_core::transport::error::TransportError;
+use nexum_apdu_core::transport::error::TransportError;
 
 #[cfg(feature = "std")]
 use core::fmt;
@@ -127,9 +127,7 @@ impl From<PcscError> for TransportError {
             #[cfg(not(any(feature = "std", feature = "alloc")))]
             PcscError::NoCard => TransportError::Device,
             PcscError::CardReset | PcscError::CardRemoved => Self::Device,
-            PcscError::TransactionInProgress | PcscError::NoTransaction => {
-                Self::Transmission
-            }
+            PcscError::TransactionInProgress | PcscError::NoTransaction => Self::Transmission,
             #[cfg(any(feature = "std", feature = "alloc"))]
             PcscError::Other(msg) => Self::Other(msg),
             #[cfg(not(any(feature = "std", feature = "alloc")))]

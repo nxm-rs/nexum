@@ -2,7 +2,7 @@
 //!
 //! This command is used to delete applications, packages, and other objects.
 
-use apdu_macros::apdu_pair;
+use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, delete_p2, ins, status, tags};
 use iso7816_tlv::simple::Tlv;
@@ -63,8 +63,8 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_delete_command() {

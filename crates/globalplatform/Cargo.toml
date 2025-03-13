@@ -1,5 +1,5 @@
 [package]
-name = "apdu-globalplatform"
+name = "nexum-apdu-globalplatform"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,9 +15,9 @@ workspace = true
 
 [dependencies]
 ## apdu
-apdu-core.workspace = true
-apdu-macros.workspace = true
-apdu-transport-pcsc.workspace = true
+nexum-apdu-core.workspace = true
+nexum-apdu-macros.workspace = true
+nexum-apdu-transport-pcsc.workspace = true
 hex.workspace = true
 rand.workspace = true
 thiserror = { workspace = true, optional = true }
@@ -42,7 +42,7 @@ tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"
 
 [features]
 default = ["std", "zeroize"]
-std = ["thiserror", "apdu-core/std", "cipher/std", "cbc-mac/std", "clap/std"]
+std = ["thiserror", "nexum-apdu-core/std", "cipher/std", "cbc-mac/std", "clap/std"]
 zeroize = ["dep:zeroize", "cipher/zeroize", "des/zeroize", "cipher/zeroize"]
 
 [dev-dependencies]

@@ -3,8 +3,8 @@
 //! This binary provides a simple tool to analyze CAP files and display their
 //! package AIDs, applet AIDs, and other metadata.
 
-use apdu_globalplatform::load::LoadCommandStream;
 use clap::Parser;
+use nexum_apdu_globalplatform::load::LoadCommandStream;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 

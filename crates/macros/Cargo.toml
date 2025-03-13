@@ -1,5 +1,5 @@
 [package]
-name = "apdu-macros"
+name = "nexum-apdu-macros"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -23,5 +23,5 @@ heck.workspace = true
 iso7816-tlv.workspace = true
 
 [dev-dependencies]
-apdu-core.workspace = true
+nexum-apdu-core.workspace = true
 bytes.workspace = true

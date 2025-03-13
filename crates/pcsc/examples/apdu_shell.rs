@@ -1,8 +1,8 @@
 //! Interactive APDU shell for sending commands to a smart card
 
-use apdu_core::prelude::Executor;
-use apdu_core::{ApduCommand, ApduResponse, CardExecutor, Command, Response};
-use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager, PcscTransport};
+use nexum_apdu_core::prelude::Executor;
+use nexum_apdu_core::{ApduCommand, ApduResponse, CardExecutor, Command, Response};
+use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager, PcscTransport};
 use std::any::Any;
 use std::io::{self, BufRead, Write};
 

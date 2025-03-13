@@ -2,7 +2,7 @@
 //!
 //! This command is used to install applications on the card.
 
-use apdu_macros::apdu_pair;
+use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, install_p1, status};
 
@@ -186,8 +186,8 @@ fn build_install_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_install_for_load() {

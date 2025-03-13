@@ -68,68 +68,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apdu-core"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "cfg-if",
- "dyn-clone",
- "hex",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "apdu-globalplatform"
-version = "0.1.0"
-dependencies = [
- "apdu-core",
- "apdu-macros",
- "apdu-transport-pcsc",
- "block-padding 0.4.0-rc.3",
- "bytes",
- "cbc",
- "cbc-mac",
- "cipher",
- "clap",
- "des",
- "hex",
- "hex-literal",
- "iso7816-tlv",
- "rand",
- "thiserror",
- "tracing",
- "tracing-subscriber",
- "zeroize",
- "zip",
-]
-
-[[package]]
-name = "apdu-macros"
-version = "0.1.0"
-dependencies = [
- "apdu-core",
- "bytes",
- "heck",
- "iso7816-tlv",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "apdu-transport-pcsc"
-version = "0.1.0"
-dependencies = [
- "apdu-core",
- "apdu-macros",
- "crossbeam-channel",
- "heapless",
- "hex",
- "pcsc",
-]
-
-[[package]]
 name = "arbitrary"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -558,6 +496,68 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e3e04debbb59698c15bacbb6d93584a8c0ca9cc3213cb423d31f760d8843ce5"
 dependencies = [
  "adler2",
+]
+
+[[package]]
+name = "nexum-apdu-core"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "cfg-if",
+ "dyn-clone",
+ "hex",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "nexum-apdu-globalplatform"
+version = "0.1.0"
+dependencies = [
+ "block-padding 0.4.0-rc.3",
+ "bytes",
+ "cbc",
+ "cbc-mac",
+ "cipher",
+ "clap",
+ "des",
+ "hex",
+ "hex-literal",
+ "iso7816-tlv",
+ "nexum-apdu-core",
+ "nexum-apdu-macros",
+ "nexum-apdu-transport-pcsc",
+ "rand",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "zeroize",
+ "zip",
+]
+
+[[package]]
+name = "nexum-apdu-macros"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "heck",
+ "iso7816-tlv",
+ "nexum-apdu-core",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "nexum-apdu-transport-pcsc"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "heapless",
+ "hex",
+ "nexum-apdu-core",
+ "nexum-apdu-macros",
+ "pcsc",
 ]
 
 [[package]]

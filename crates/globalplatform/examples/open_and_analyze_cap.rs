@@ -5,7 +5,7 @@
 
 use std::path::PathBuf;
 
-use apdu_globalplatform::load::LoadCommandStream;
+use nexum_apdu_globalplatform::load::LoadCommandStream;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check command line arguments

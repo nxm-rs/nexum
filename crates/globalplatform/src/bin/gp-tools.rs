@@ -3,13 +3,15 @@
 //! This binary provides a command-line interface for common GlobalPlatform
 //! operations like listing applications, installing or deleting packages, etc.
 
-use apdu_core::CardExecutor;
-use apdu_globalplatform::crypto::Scp02;
-use apdu_globalplatform::{DefaultKeys, GlobalPlatform, Keys, load::LoadCommandStream, operations};
-use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
 use cipher::Key;
 use clap::{Parser, Subcommand, ValueEnum};
 use hex::FromHex;
+use nexum_apdu_core::CardExecutor;
+use nexum_apdu_globalplatform::crypto::Scp02;
+use nexum_apdu_globalplatform::{
+    DefaultKeys, GlobalPlatform, Keys, load::LoadCommandStream, operations,
+};
+use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -456,15 +458,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Prepare callback for progress reporting
-            let mut callback = |current: usize, total: usize| -> apdu_globalplatform::Result<()> {
-                println!(
-                    "Loading block {}/{} ({}%)",
-                    current,
-                    total,
-                    (current * 100) / total
-                );
-                Ok(())
-            };
+            let mut callback =
+                |current: usize, total: usize| -> nexum_apdu_globalplatform::Result<()> {
+                    println!(
+                        "Loading block {}/{} ({}%)",
+                        current,
+                        total,
+                        (current * 100) / total
+                    );
+                    Ok(())
+                };
 
             // Load the CAP file
             println!("Loading CAP file...");

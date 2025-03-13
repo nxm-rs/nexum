@@ -3,7 +3,7 @@
 //! This command is used to retrieve response data when the previous
 //! command indicated that more data is available (SW1=61).
 
-use apdu_macros::apdu_pair;
+use nexum_apdu_macros::apdu_pair;
 
 use bytes::Bytes;
 
@@ -52,7 +52,7 @@ apdu_pair! {
                 }
             }
 
-            parse_payload = |payload: &[u8], _sw: apdu_core::StatusWord, variant: &mut Self| -> Result<(), apdu_core::Error> {
+            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
                 match variant {
                     Self::Success { data } | Self::MoreData { data, .. } => {
                         *data = Bytes::copy_from_slice(payload);
@@ -91,8 +91,8 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apdu_core::ApduCommand;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_get_response_command() {

@@ -1,9 +1,9 @@
 #![allow(missing_docs)]
 //! Example of using the apdu_pair macro to define a Select command with custom payload parsing
 
-use apdu_core::{ApduCommand, Bytes, Error, StatusWord};
-use apdu_macros::apdu_pair;
 use iso7816_tlv::simple::Tlv;
+use nexum_apdu_core::{ApduCommand, Bytes, Error, StatusWord};
+use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
     /// Select command for applications and files

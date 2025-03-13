@@ -22,9 +22,9 @@ for common card management operations.
 ## Usage Example
 
 ```rust
-use apdu_core::CardExecutor;
-use apdu_globalplatform::GlobalPlatform;
-use apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
+use nexum_apdu_core::CardExecutor;
+use nexum_apdu_globalplatform::GlobalPlatform;
+use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to a card

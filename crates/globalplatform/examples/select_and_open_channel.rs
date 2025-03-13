@@ -2,9 +2,9 @@
 //!
 //! This example connects to a PC/SC reader, selects the ISD, and opens a secure channel.
 
-use apdu_core::CardExecutor;
-use apdu_globalplatform::GlobalPlatform;
-use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
+use nexum_apdu_core::CardExecutor;
+use nexum_apdu_globalplatform::GlobalPlatform;
+use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a PC/SC device manager

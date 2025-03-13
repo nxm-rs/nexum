@@ -1,5 +1,5 @@
 [package]
-name = "apdu-transport-pcsc"
+name = "nexum-apdu-transport-pcsc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,7 +14,7 @@ description = "PC/SC transport implementation for APDU operations"
 workspace = true
 
 [dependencies]
-apdu-core = { workspace = true }
+nexum-apdu-core = { workspace = true }
 pcsc.workspace = true
 
 hex.workspace = true
@@ -24,9 +24,9 @@ heapless = { version = "0.7", optional = true, default-features = false }
 
 [features]
 default = ["std"]
-std = ["crossbeam-channel", "apdu-core/std", "hex/std"]
+std = ["crossbeam-channel", "nexum-apdu-core/std", "hex/std"]
 alloc = ["hex/alloc"]
 
 [dev-dependencies]
-apdu-macros.workspace = true
+nexum-apdu-macros.workspace = true
 pcsc.workspace = true

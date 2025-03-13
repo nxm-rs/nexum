@@ -1,6 +1,6 @@
 //! Example showing how to monitor PC/SC reader and card events
 
-use apdu_transport_pcsc::{PcscDeviceManager, PcscMonitor};
+use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscMonitor};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -29,8 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Waiting for events...");
 
     // Set up channels for different event types
-    let (card_sender, card_receiver) = apdu_transport_pcsc::event::card_event_channel();
-    let (reader_sender, reader_receiver) = apdu_transport_pcsc::event::reader_event_channel();
+    let (card_sender, card_receiver) = nexum_apdu_transport_pcsc::event::card_event_channel();
+    let (reader_sender, reader_receiver) = nexum_apdu_transport_pcsc::event::reader_event_channel();
 
     // Start monitoring both card and reader events
     monitor.monitor_cards_channel(card_sender)?;
@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Check for card events
         if let Ok(event) = card_receiver.try_recv() {
             match event {
-                apdu_transport_pcsc::CardEvent::Inserted { reader, atr } => {
+                nexum_apdu_transport_pcsc::CardEvent::Inserted { reader, atr } => {
                     let is_new = match seen_cards.get(&reader) {
                         Some(prev_atr) => *prev_atr != atr,
                         None => true,
@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         seen_cards.insert(reader, atr);
                     }
                 }
-                apdu_transport_pcsc::CardEvent::Removed { reader } => {
+                nexum_apdu_transport_pcsc::CardEvent::Removed { reader } => {
                     if seen_cards.contains_key(&reader) {
                         println!("Card removed from reader '{}'", reader);
                         // Mark as removed but keep in map to track state
@@ -73,13 +73,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Check for reader events
         if let Ok(event) = reader_receiver.try_recv() {
             match event {
-                apdu_transport_pcsc::ReaderEvent::Added(name) => {
+                nexum_apdu_transport_pcsc::ReaderEvent::Added(name) => {
                     if !known_readers.contains(&name) {
                         println!("Reader added: {}", name);
                         known_readers.push(name);
                     }
                 }
-                apdu_transport_pcsc::ReaderEvent::Removed(name) => {
+                nexum_apdu_transport_pcsc::ReaderEvent::Removed(name) => {
                     if let Some(pos) = known_readers.iter().position(|x| *x == name) {
                         println!("Reader removed: {}", name);
                         known_readers.remove(pos);

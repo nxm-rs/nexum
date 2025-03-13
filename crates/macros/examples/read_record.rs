@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 //! Example of using the apdu_pair macro to define a Read Record command
 
-use apdu_core::{ApduCommand, StatusWord};
-use apdu_macros::apdu_pair;
+use nexum_apdu_core::{ApduCommand, StatusWord};
+use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
     /// Read Record command

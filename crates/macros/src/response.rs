@@ -538,7 +538,7 @@ pub(crate) fn expand_response(
             },
             |sw_ref| {
                 quote! {
-                    (sw1, sw2) if apdu_core::StatusWord::new(sw1, sw2) == #sw_ref
+                    (sw1, sw2) if nexum_apdu_core::StatusWord::new(sw1, sw2) == #sw_ref
                 }
             },
         );
@@ -595,7 +595,7 @@ pub(crate) fn expand_response(
         |parser| {
             quote! {
                 // Use the custom payload parser if provided
-                let status_word = apdu_core::StatusWord::new(sw1, sw2);
+                let status_word = nexum_apdu_core::StatusWord::new(sw1, sw2);
                 // Apply the custom parser
                 (#parser)(payload, status_word, &mut response)?;
             }
@@ -614,10 +614,10 @@ pub(crate) fn expand_response(
 
         impl #response_name {
             /// Parse response from raw bytes
-            pub fn from_bytes(bytes: &[u8]) -> core::result::Result<Self, apdu_core::Error> {
+            pub fn from_bytes(bytes: &[u8]) -> core::result::Result<Self, nexum_apdu_core::Error> {
                 if bytes.len() < 2 {
-                    return Err(apdu_core::Error::Response(
-                        apdu_core::response::error::ResponseError::Incomplete
+                    return Err(nexum_apdu_core::Error::Response(
+                        nexum_apdu_core::response::error::ResponseError::Incomplete
                     ));
                 }
 
@@ -633,7 +633,7 @@ pub(crate) fn expand_response(
                 // Create the initial response variant based on status
                 let mut response = match (sw1, sw2) {
                     #(#match_arms,)*
-                    _ => return Err(apdu_core::Error::status(sw1, sw2)),
+                    _ => return Err(nexum_apdu_core::Error::status(sw1, sw2)),
                 };
 
                 // Apply custom payload parsing if payload is present
@@ -649,7 +649,7 @@ pub(crate) fn expand_response(
         }
 
         impl TryFrom<bytes::Bytes> for #response_name {
-            type Error = apdu_core::Error;
+            type Error = nexum_apdu_core::Error;
 
             fn try_from(bytes: bytes::Bytes) -> core::result::Result<Self, Self::Error> {
                 Self::from_bytes(&bytes)

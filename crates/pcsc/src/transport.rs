@@ -3,8 +3,8 @@
 
 use core::fmt;
 
-use apdu_core::Bytes;
-use apdu_core::transport::{CardTransport, error::TransportError};
+use nexum_apdu_core::Bytes;
+use nexum_apdu_core::transport::{CardTransport, error::TransportError};
 
 #[cfg(feature = "std")]
 use pcsc::{Card, Context, Disposition};

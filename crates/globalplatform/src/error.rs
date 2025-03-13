@@ -1,6 +1,6 @@
 //! Error types for GlobalPlatform operations
 
-use apdu_core::{Error as ApduError, StatusWord};
+use nexum_apdu_core::{Error as ApduError, StatusWord};
 
 #[cfg(feature = "std")]
 use thiserror::Error;
