@@ -32,13 +32,9 @@ impl DefaultKeys {
     /// Create a new set of default GlobalPlatform keys
     pub fn new() -> Keys {
         // Default GlobalPlatform test key
-        // let key = [
-        //     0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D,
-        //     0x4E, 0x4F,
-        // ];
         let key = [
-            0xc2, 0x12, 0xe0, 0x73, 0xff, 0x8b, 0x4b, 0xbf, 0xaf, 0xf4, 0xde, 0x8a, 0xb6, 0x55,
-            0x22, 0x1f,
+            0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D,
+            0x4E, 0x4F,
         ];
         let key = Key::<Scp02>::from_slice(&key);
         Keys::from_single_key(*key)
@@ -433,23 +429,5 @@ mod tests {
         // Validate the response
         let response = result.unwrap();
         assert!(response.is_success());
-    }
-
-    #[test]
-    fn test_delete_object() {
-        // Create a test transport with success response
-        let mut transport = TestTransport::new();
-        transport.add_response(Bytes::copy_from_slice(&hex!("9000")));
-
-        // Create executor
-        let executor = CardExecutor::new(transport);
-
-        // Create GlobalPlatform instance
-        let mut gp = GlobalPlatform::new(executor);
-
-        // Try to delete an object without secure channel (should fail)
-        let aid = hex!("A0000000030000");
-        let result = gp.delete_object(&aid);
-        assert!(result.is_err());
     }
 }

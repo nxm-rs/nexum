@@ -14,7 +14,7 @@
 //! - Error handling and status word interpretation
 //!
 //! The crate is designed to be flexible and extensible while supporting both std and no_std environments.
-
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 #![warn(missing_docs, rustdoc::missing_crate_level_docs)]

@@ -51,7 +51,7 @@
 //! # #[cfg(not(feature = "std"))]
 //! # fn main() {}
 //! ```
-
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 

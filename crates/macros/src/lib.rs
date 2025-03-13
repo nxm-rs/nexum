@@ -2,6 +2,7 @@
 //!
 //! This crate provides macros to simplify the definition of APDU commands
 //! and responses according to ISO/IEC 7816-4 standards.
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
 use heck::ToSnakeCase;
 use proc_macro::TokenStream;

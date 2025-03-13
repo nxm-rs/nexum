@@ -93,7 +93,6 @@ dependencies = [
  "cipher",
  "clap",
  "des",
- "dyn-clone",
  "hex",
  "hex-literal",
  "iso7816-tlv",

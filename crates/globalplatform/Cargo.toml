@@ -14,27 +14,29 @@ description = "GlobalPlatform implementation for smart card management"
 workspace = true
 
 [dependencies]
+## apdu
 apdu-core.workspace = true
 apdu-macros.workspace = true
 apdu-transport-pcsc.workspace = true
-bytes.workspace = true
 hex.workspace = true
 rand.workspace = true
 thiserror = { workspace = true, optional = true }
-zeroize = { workspace = true, optional = true }
 zip = { workspace = true, features = ["deflate"] }
 
-clap = { workspace = true, features = ["derive"] }
-block-padding.workspace = true
-
+## bytes
+bytes.workspace = true
 iso7816-tlv.workspace = true
 
-cipher.workspace = true
-des.workspace = true
+## crypto
+block-padding.workspace = true
 cbc.workspace = true
 cbc-mac.workspace = true
+cipher.workspace = true
+des.workspace = true
+zeroize = { workspace = true, optional = true }
 
-dyn-clone.workspace = true
+## misc
+clap = { workspace = true, features = ["derive"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
 

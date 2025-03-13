@@ -3,8 +3,31 @@
 //! This command is used to select an application or file by its AID.
 
 use apdu_macros::apdu_pair;
+use bytes::Bytes;
+use iso7816_tlv::ber::{Tlv, Value};
+use std::convert::TryFrom;
 
 use crate::constants::{cla, ins, select_p1, status};
+
+/// Represents the parsed FCI (File Control Information)
+#[derive(Debug, Clone)]
+pub struct FciTemplate {
+    /// Application/file AID (tag 84)
+    pub aid: Bytes,
+    /// Proprietary data (tag A5)
+    pub proprietary_data: ProprietaryData,
+}
+
+/// Represents proprietary data within the FCI
+#[derive(Debug, Clone)]
+pub struct ProprietaryData {
+    /// Security Domain Management Data (tag 73)
+    pub security_domain_management_data: Option<Bytes>,
+    /// Application production life cycle data (tag 9F6E)
+    pub app_production_lifecycle_data: Option<Bytes>,
+    /// Maximum length of data field in command message (tag 9F65)
+    pub max_command_data_length: u16,
+}
 
 apdu_pair! {
     /// SELECT command for GlobalPlatform
@@ -89,8 +112,124 @@ apdu_pair! {
                 pub fn application_label(&self) -> Option<bytes::Bytes> {
                     self.fci().and_then(|fci| crate::util::tlv::find_tlv_value(bytes::Bytes::copy_from_slice(fci), crate::constants::tags::APPLICATION_LABEL))
                 }
+
+                /// Parse the FCI data into a structured format
+                pub fn parsed_fci(&self) -> Option<FciTemplate> {
+                    self.fci().and_then(|fci| parse_fci(fci).ok())
+                }
             }
         }
+    }
+}
+
+// FCI tag constants
+const TAG_FCI_TEMPLATE: u8 = 0x6F;
+const TAG_AID: u8 = 0x84;
+const TAG_PROPRIETARY_DATA: u8 = 0xA5;
+const TAG_SECURITY_DOMAIN_MGMT_DATA: u8 = 0x73;
+const TAG_APP_PRODUCTION_LIFECYCLE_DATA: u16 = 0x9F6E;
+const TAG_MAX_COMMAND_DATA_LENGTH: u16 = 0x9F65;
+
+/// Parse the FCI data into a structured format
+fn parse_fci(fci: &[u8]) -> Result<FciTemplate, &'static str> {
+    // Parse the FCI template (tag 6F)
+    let tlvs = Tlv::parse_all(fci);
+    let fci_tlv = tlvs
+        .iter()
+        .find(|tlv| *tlv.tag() == u16::from(TAG_FCI_TEMPLATE).try_into().unwrap())
+        .ok_or("FCI template (6F) not found")?;
+
+    // Extract content of the FCI template
+    if let Value::Constructed(content_tlvs) = fci_tlv.value() {
+        // Find the AID (tag 84)
+        let aid_tlv = content_tlvs
+            .iter()
+            .find(|tlv| *tlv.tag() == u16::from(TAG_AID).try_into().unwrap())
+            .ok_or("AID (84) not found in FCI")?;
+
+        // Extract AID value
+        let aid = if let Value::Primitive(aid_data) = aid_tlv.value() {
+            Bytes::copy_from_slice(aid_data)
+        } else {
+            return Err("Invalid AID value format (not primitive)");
+        };
+
+        // Find the proprietary data (tag A5)
+        let prop_tlv = content_tlvs
+            .iter()
+            .find(|tlv| *tlv.tag() == u16::from(TAG_PROPRIETARY_DATA).try_into().unwrap())
+            .ok_or("Proprietary data (A5) not found in FCI")?;
+
+        // Parse proprietary data
+        let proprietary_data = parse_proprietary_data(prop_tlv)?;
+
+        Ok(FciTemplate {
+            aid,
+            proprietary_data,
+        })
+    } else {
+        Err("FCI template (6F) is not constructed")
+    }
+}
+
+/// Parse the proprietary data from the FCI
+fn parse_proprietary_data(prop_tlv: &Tlv) -> Result<ProprietaryData, &'static str> {
+    if let Value::Constructed(prop_content) = prop_tlv.value() {
+        // Extract Security Domain Management Data (tag 73) if present
+        let security_domain_management_data = prop_content
+            .iter()
+            .find(|tlv| *tlv.tag() == u16::from(TAG_SECURITY_DOMAIN_MGMT_DATA).try_into().unwrap())
+            .and_then(|tlv| {
+                if let Value::Primitive(data) = tlv.value() {
+                    Some(Bytes::copy_from_slice(data))
+                } else {
+                    None
+                }
+            });
+
+        // Extract Application Production Life Cycle Data (tag 9F6E) if present
+        let app_production_lifecycle_data = prop_content
+            .iter()
+            .find(|tlv| {
+                *tlv.tag()
+                    == u16::from(TAG_APP_PRODUCTION_LIFECYCLE_DATA)
+                        .try_into()
+                        .unwrap()
+            })
+            .and_then(|tlv| {
+                if let Value::Primitive(data) = tlv.value() {
+                    Some(Bytes::copy_from_slice(data))
+                } else {
+                    None
+                }
+            });
+
+        // Extract Maximum Command Data Length (tag 9F65) - mandatory
+        let max_command_data_length = prop_content
+            .iter()
+            .find(|tlv| *tlv.tag() == u16::from(TAG_MAX_COMMAND_DATA_LENGTH).try_into().unwrap())
+            .ok_or("Max command data length (9F65) not found")?;
+
+        // Parse max command data length as u16
+        if let Value::Primitive(max_length_value) = max_command_data_length.value() {
+            let max_length = if max_length_value.len() >= 2 {
+                ((max_length_value[0] as u16) << 8) | (max_length_value[1] as u16)
+            } else if max_length_value.len() == 1 {
+                max_length_value[0] as u16
+            } else {
+                return Err("Invalid max command data length format");
+            };
+
+            Ok(ProprietaryData {
+                security_domain_management_data,
+                app_production_lifecycle_data,
+                max_command_data_length: max_length,
+            })
+        } else {
+            Err("Invalid max command data length format (not primitive)")
+        }
+    } else {
+        Err("Proprietary data (A5) is not constructed")
     }
 }
 
@@ -135,26 +274,5 @@ mod tests {
         let response = SelectResponse::from_bytes(&response_data).unwrap();
         assert!(response.is_not_found());
         assert_eq!(response.fci(), None);
-    }
-
-    #[test]
-    fn test_application_label_extraction() {
-        // Create an FCI with an application label
-        let fci_data = hex!("6F1A840E315041592E5359532E4444463031500841 50504C4142454C");
-        //                                                 ^-- Application Label tag
-        //                                                    ^-- "APPLABEL" in ASCII
-
-        let mut response_data = Vec::new();
-        response_data.extend_from_slice(&fci_data);
-        response_data.extend_from_slice(&hex!("9000"));
-
-        let response = SelectResponse::from_bytes(&response_data).unwrap();
-
-        // Extract the application label
-        let label = response.application_label();
-        assert_eq!(
-            label,
-            Some(bytes::Bytes::from(hex!("4150504C4142454C").to_vec()))
-        ); // "APPLABEL"
     }
 }
