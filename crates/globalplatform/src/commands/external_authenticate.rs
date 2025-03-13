@@ -27,13 +27,13 @@ apdu_pair! {
 
                 /// Create host cryptogram and command for SCP02
                 pub fn from_challenges(
-                    enc_key: &[u8; 16],
+                    enc_key: &cipher::Key<crate::crypto::Scp02> ,
                     sequence_counter: &[u8; 2],
                     card_challenge: &[u8; 6],
                     host_challenge: &[u8; 8],
                 ) -> Result<Self> {
                     let host_cryptogram = calculate_cryptogram(
-                        enc_key, sequence_counter, card_challenge, host_challenge, true)?;
+                        enc_key, sequence_counter, card_challenge, host_challenge, true);
                     Ok(Self::with_host_cryptogram(host_cryptogram.to_vec()))
                 }
             }
@@ -66,8 +66,11 @@ apdu_pair! {
 
 #[cfg(test)]
 mod tests {
+    use crate::crypto::Scp02;
+
     use super::*;
     use apdu_core::ApduCommand;
+    use cipher::Key;
     use hex_literal::hex;
 
     #[test]
@@ -89,6 +92,7 @@ mod tests {
     #[test]
     fn test_from_challenges() {
         let enc_key = hex!("8D289AFE0AB9C45B1C76DEEA182966F4");
+        let enc_key = Key::<Scp02>::clone_from_slice(&enc_key);
         let sequence_counter = hex!("000f");
         let card_challenge = hex!("3fd65d4d6e45");
         let host_challenge = hex!("cf307b6719bf224d");

@@ -4,24 +4,40 @@
 //! required for the SCP02 protocol, including key derivation, MAC calculation,
 //! and cryptogram verification.
 
-use block_padding::{Iso7816, Padding, array::Array};
+use block_padding::{Iso7816, Padding, RawPadding, array::Array};
 use cbc_mac::{CbcMac, Mac};
 use cipher::{
-    BlockEncrypt, BlockEncryptMut, KeyInit, KeyIvInit,
-    consts::{U24, U256},
+    BlockEncrypt, BlockEncryptMut, Iv, IvSizeUser, Key, KeyInit, KeyIvInit, KeySizeUser,
+    consts::{U8, U16, U256},
     generic_array::GenericArray,
 };
 use des::{Des, TdesEde3};
 
-use crate::{Error, Result};
+use crate::Result;
 
-/// Null bytes used as initial IV
-pub const NULL_BYTES_8: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+pub type Purpose = [u8; 2];
+pub type SequenceCounter = [u8; 2];
+pub type CardChallenge = [u8; 6];
+pub type HostChallenge = [u8; 8];
+pub type Cryptogram = [u8; 8];
+pub type Scp02Mac = [u8; 8];
 
 /// Derivation purpose for encryption key
-pub const DERIVATION_PURPOSE_ENC: [u8; 2] = [0x01, 0x82];
+pub const DERIVATION_ENC: Purpose = [0x01, 0x82];
 /// Derivation purpose for MAC key
-pub const DERIVATION_PURPOSE_MAC: [u8; 2] = [0x01, 0x01];
+pub const DERIVATION_MAC: Purpose = [0x01, 0x01];
+
+/// Placeholder struct for defining SCP02 cryptographic parameters
+#[allow(missing_debug_implementations)]
+pub struct Scp02;
+
+impl KeySizeUser for Scp02 {
+    type KeySize = U16;
+}
+
+impl IvSizeUser for Scp02 {
+    type IvSize = U8;
+}
 
 /// Derive a session key from the card key using the sequence number and purpose
 ///
@@ -36,62 +52,30 @@ pub const DERIVATION_PURPOSE_MAC: [u8; 2] = [0x01, 0x01];
 /// # Returns
 ///
 /// The derived key (16 bytes)
-pub fn derive_key(card_key: &[u8; 16], seq: &[u8; 2], purpose: &[u8; 2]) -> Result<[u8; 16]> {
-    // Resize the key to 24 bytes for 3DES (Triple DES)
-    let key24 = resize_key_24(card_key.as_slice());
-
+pub fn derive_key(
+    card_key: &Key<Scp02>,
+    seq: &SequenceCounter,
+    purpose: &Purpose,
+) -> Result<Key<Scp02>> {
     // Create derivation data
-    let mut derivation_data = [0u8; 16];
-    derivation_data[0..2].copy_from_slice(purpose);
-    derivation_data[2..4].copy_from_slice(seq);
+    let mut blocks = [GenericArray::default(), GenericArray::default()];
+    blocks[0][0..2].copy_from_slice(purpose);
+    blocks[0][2..4].copy_from_slice(seq);
 
-    // Convert derivation data to blocks
-    let mut blocks = [
-        GenericArray::clone_from_slice(&derivation_data[0..8]),
-        GenericArray::clone_from_slice(&derivation_data[8..16]),
-    ];
-
-    // Create CBC mode encryptor with NULL_BYTES_8 as IV
-    let iv = GenericArray::clone_from_slice(&NULL_BYTES_8);
+    // Prepare 3DES key and zero IV
+    let key = resize_key(&card_key);
+    let iv = GenericArray::default();
 
     // Encrypt the blocks in CBC mode
-    let mut encryptor = cbc::Encryptor::<des::TdesEde3>::new(&key24.into(), &iv);
+    let mut encryptor = cbc::Encryptor::<des::TdesEde3>::new(&key, &iv);
     encryptor.encrypt_blocks_mut(&mut blocks);
 
-    // Combine the encrypted blocks into the result
-    let mut result = [0u8; 16];
+    // Convert the encrypted blocks to result key
+    let mut result = Key::<Scp02>::default();
     result[0..8].copy_from_slice(blocks[0].as_slice());
     result[8..16].copy_from_slice(blocks[1].as_slice());
 
     Ok(result)
-}
-
-/// Verify a card cryptogram against the expected value
-///
-/// # Arguments
-///
-/// * `enc_key` - The session encryption key
-/// * `host_challenge` - The host challenge
-/// * `card_challenge` - The card challenge
-/// * `card_cryptogram` - The cryptogram provided by the card
-///
-/// # Returns
-///
-/// `true` if the cryptogram is valid, `false` otherwise
-pub fn verify_cryptogram(
-    enc_key: &[u8; 16],
-    sequence_counter: &[u8; 2],
-    card_challenge: &[u8; 6],
-    host_challenge: &[u8; 8],
-    card_cryptogram: &[u8; 8],
-) -> Result<bool> {
-    Ok(calculate_cryptogram(
-        enc_key,
-        sequence_counter,
-        card_challenge,
-        host_challenge,
-        false,
-    )? == *card_cryptogram)
 }
 
 /// Calculate a cryptogram using 3DES in CBC mode
@@ -107,70 +91,34 @@ pub fn verify_cryptogram(
 ///
 /// The calculated cryptogram (8 bytes)
 pub fn calculate_cryptogram(
-    enc_key: &[u8; 16],
-    sequence_counter: &[u8; 2],
-    card_challenge: &[u8; 6],
-    host_challenge: &[u8; 8],
+    enc_key: &Key<Scp02>,
+    sequence_counter: &SequenceCounter,
+    card_challenge: &CardChallenge,
+    host_challenge: &HostChallenge,
     for_host: bool,
-) -> Result<[u8; 8]> {
-    let mut block: Array<u8, U24> = [0u8; 24].into();
+) -> Cryptogram {
+    // Create exactly 3 blocks (24 bytes) for data
+    let mut blocks = [GenericArray::default(); 3];
 
     if for_host {
-        // Host cryptogram order for EXTERNAL AUTHENTICATE: sequence counter + card challenge + host challenge
-        block[0..2].copy_from_slice(sequence_counter);
-        block[2..8].copy_from_slice(card_challenge);
-        block[8..16].copy_from_slice(host_challenge);
+        // Host cryptogram order: sequence counter + card challenge + host challenge
+        blocks[0][0..2].copy_from_slice(sequence_counter);
+        blocks[0][2..8].copy_from_slice(card_challenge);
+        blocks[1][0..8].copy_from_slice(host_challenge);
     } else {
-        // Card cryptogram order for INITIALIZE UPDATE: host challenge + sequence counter + card challenge
-        block[0..8].copy_from_slice(host_challenge);
-        block[8..10].copy_from_slice(sequence_counter);
-        block[10..16].copy_from_slice(card_challenge);
+        // Card cryptogram order: host challenge + sequence counter + card challenge
+        blocks[0][0..8].copy_from_slice(host_challenge);
+        blocks[1][0..2].copy_from_slice(sequence_counter);
+        blocks[1][2..8].copy_from_slice(card_challenge);
     }
 
-    Iso7816::pad(&mut block, 16);
+    // Pad and Calculate MAC with zero IV
+    Iso7816::raw_pad(&mut blocks[2], 0);
+    let mut cipher = cbc::Encryptor::<TdesEde3>::new(&resize_key(enc_key), &Default::default());
 
-    mac_3des(enc_key, &NULL_BYTES_8, &block)
-}
-
-/// Calculate a MAC using 3DES in CBC mode
-///
-/// # Arguments
-///
-/// * `key` - The key (16 bytes)
-/// * `iv` - The initialization vector (8 bytes)
-/// * `data` - The data to MAC
-///
-/// # Returns
-///
-/// The MAC value (8 bytes)
-pub fn mac_3des(key: &[u8; 16], iv: &[u8; 8], data: &[u8]) -> Result<[u8; 8]> {
-    let key24 = resize_key_24(key.as_slice());
-
-    // We need to implement CBC-MAC with a custom IV manually
-    // since most MAC implementations use a zero IV by default
-    let mut mac = <CbcMac<TdesEde3> as Mac>::new_from_slice(&key24).unwrap();
-
-    // Set IV through the first block processing
-    // If data is less than a block, we need to pad it
-    let mut first_block = [0u8; 8];
-    let first_len = std::cmp::min(data.len(), 8);
-    first_block[..first_len].copy_from_slice(&data[..first_len]);
-
-    // XOR first block with IV
-    for i in 0..8 {
-        first_block[i] ^= iv[i];
-    }
-
-    // Process first block manually
-    mac.update(&first_block);
-
-    // Process the rest of the data
-    if data.len() > 8 {
-        mac.update(&data[8..]);
-    }
-
-    // Finalize and return the MAC as a fixed-size array
-    Ok(mac.finalize().into_bytes().into())
+    // Encrypt blocks in place and return the last encrypted block as the MAC
+    cipher.encrypt_blocks_mut(&mut blocks);
+    blocks[blocks.len() - 1].into()
 }
 
 /// Calculate a full 3DES MAC for SCP02
@@ -187,7 +135,7 @@ pub fn mac_3des(key: &[u8; 16], iv: &[u8; 8], data: &[u8]) -> Result<[u8; 8]> {
 /// # Returns
 ///
 /// The MAC value (8 bytes)
-pub fn mac_full_3des(key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 8]> {
+pub fn mac_full_3des(key: &Key<Scp02>, iv: &Iv<Scp02>, data: &[u8]) -> Scp02Mac {
     // Calculate padded length (includes padding bytes)
     let padding_bytes = if data.len() % 8 == 0 {
         8
@@ -209,16 +157,14 @@ pub fn mac_full_3des(key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 8]> {
     // For SCP02, we need a specialized MAC algorithm (single DES for all blocks except last)
     // This is custom logic that we have to implement manually
     let des_key8 = &key[..8];
-    let des3_key24 = resize_key_24(key);
+    let des3_key24 = resize_key(&key);
 
-    let des_cipher = Des::new_from_slice(&des_key8)
-        .map_err(|_| Error::Crypto("Failed to initialize DES cipher"))?;
+    // This is safe as otherwise the direct assignment above would have paniced.
+    let des_cipher = Des::new_from_slice(&des_key8).unwrap();
+    let des3_cipher = TdesEde3::new(&des3_key24);
 
-    let des3_cipher = TdesEde3::new_from_slice(&des3_key24)
-        .map_err(|_| Error::Crypto("Failed to initialize 3DES cipher"))?;
-
-    let mut current_iv = [0u8; 8];
-    current_iv.copy_from_slice(iv);
+    let mut current_iv = Iv::<Scp02>::default();
+    current_iv.copy_from_slice(iv.as_slice());
 
     // If data is longer than 8 bytes, process all but the last block with single DES
     if padded_len > 8 {
@@ -257,9 +203,7 @@ pub fn mac_full_3des(key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 8]> {
     des3_cipher.encrypt_block(&mut last_block);
 
     // Return the final MAC
-    let mut result = [0u8; 8];
-    result.copy_from_slice(&last_block);
-    Ok(result)
+    last_block.into()
 }
 
 /// Encrypt an ICV (Initial Chaining Vector) for SCP02
@@ -272,18 +216,14 @@ pub fn mac_full_3des(key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 8]> {
 /// # Returns
 ///
 /// The encrypted ICV (8 bytes)
-pub fn encrypt_icv(mac_key: &[u8; 16], icv: &[u8; 8]) -> Result<[u8; 8]> {
+pub fn encrypt_icv(mac_key: &Key<Scp02>, icv: &Iv<Scp02>) -> Iv<Scp02> {
     let key = GenericArray::from_slice(&mac_key[..8]);
     let mut mac = <CbcMac<Des> as Mac>::new(&key);
-
-    // Process the icv
     mac.update(&icv.as_ref());
-
-    // Finalize and return the MAC as a fixed-size array
-    Ok(mac.finalize().into_bytes().into())
+    mac.finalize().into_bytes().into()
 }
 
-/// Resize a 16-byte key to 24 bytes for 3DES
+/// Resize the SCP02 16-byte key to 24 bytes for 3DES
 ///
 /// This copies the first 8 bytes to the end of the key.
 ///
@@ -294,10 +234,10 @@ pub fn encrypt_icv(mac_key: &[u8; 16], icv: &[u8; 8]) -> Result<[u8; 8]> {
 /// # Returns
 ///
 /// A 24-byte key in a static buffer
-pub fn resize_key_24(key: &[u8]) -> [u8; 24] {
-    let mut result = [0u8; 24];
-    result[..16].copy_from_slice(&key[0..16]);
-    result[16..24].copy_from_slice(&key[0..8]);
+pub fn resize_key(key: &Key<Scp02>) -> Key<TdesEde3> {
+    let mut result = Key::<TdesEde3>::default();
+    result[..16].copy_from_slice(&key);
+    result[16..24].copy_from_slice(&key[..8]);
     result
 }
 
@@ -311,18 +251,23 @@ mod tests {
         let card_key = hex!("404142434445464748494a4b4c4d4e4f");
         let seq = hex!("0065");
 
-        let enc_key = derive_key(&card_key, &seq, &DERIVATION_PURPOSE_ENC).unwrap();
+        let enc_key = derive_key(
+            &Key::<Scp02>::clone_from_slice(&card_key),
+            &seq,
+            &DERIVATION_ENC,
+        )
+        .unwrap();
 
-        assert_eq!(enc_key, hex!("85e72aaf47874218a202bf5ef891dd21"));
+        assert_eq!(enc_key.as_slice(), hex!("85e72aaf47874218a202bf5ef891dd21"));
     }
 
     #[test]
     fn test_resize_key_24() {
         let key = hex!("404142434445464748494a4b4c4d4e4f");
-        let resized = resize_key_24(&key);
+        let resized = resize_key(&Key::<Scp02>::clone_from_slice(&key));
 
         assert_eq!(
-            resized,
+            resized.as_slice(),
             hex!("404142434445464748494a4b4c4d4e4f4041424344454647")
         );
     }
@@ -330,36 +275,28 @@ mod tests {
     #[test]
     fn test_verify_cryptogram() {
         let enc_key = hex!("16b5867ff50be7239c2bf1245b83a362");
+        let enc_key = Key::<Scp02>::clone_from_slice(&enc_key);
         let host_challenge = hex!("32da078d7aac1cff");
         let sequence_counter = hex!("0072");
         let card_challenge = hex!("84f64a7d6465");
         let card_cryptogram = hex!("05c4bb8a86014e22");
 
-        let result = verify_cryptogram(
+        let result = calculate_cryptogram(
             &enc_key,
             &sequence_counter,
             &card_challenge,
             &host_challenge,
-            &card_cryptogram,
-        )
-        .unwrap();
-        assert!(result);
-    }
-
-    #[test]
-    fn test_mac_3des() {
-        let key = hex!("16b5867ff50be7239c2bf1245b83a362");
-        let data = hex!("32da078d7aac1cff007284f64a7d64658000000000000000");
-        let result = mac_3des(&key, &&NULL_BYTES_8, &data).unwrap();
-
-        assert_eq!(result, hex!("05c4bb8a86014e22"));
+            false,
+        );
+        assert_eq!(result, card_cryptogram);
     }
 
     #[test]
     fn test_mac_full_3des() {
         let key = hex!("5b02e75ad63190aece0622936f11abab");
+        let key = Key::<Scp02>::clone_from_slice(&key);
         let data = hex!("8482010010810b098a8fbb88da");
-        let result = mac_full_3des(&key, &NULL_BYTES_8, &data).unwrap();
+        let result = mac_full_3des(&key, &Default::default(), &data);
 
         assert_eq!(result, hex!("5271d7174a5a166a"));
     }

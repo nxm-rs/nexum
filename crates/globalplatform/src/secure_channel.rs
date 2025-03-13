@@ -10,17 +10,17 @@ use apdu_core::processor::{CommandProcessor, error::ProcessorError};
 use apdu_core::transport::CardTransport;
 use apdu_core::{ApduCommand, Command, Response};
 use bytes::{BufMut, BytesMut};
+use cipher::{Iv, Key};
 use rand::RngCore;
 use tracing::{debug, trace, warn};
 
+use crate::crypto::{HostChallenge, Scp02};
 use crate::{
     commands::{
-        ExternalAuthenticateCommand, ExternalAuthenticateResponse,
-        initialize_update::{
-            DEFAULT_HOST_CHALLENGE_LENGTH, InitializeUpdateCommand, InitializeUpdateResponse,
-        },
+        ExternalAuthenticateCommand, ExternalAuthenticateResponse, InitializeUpdateCommand,
+        InitializeUpdateResponse,
     },
-    crypto::{NULL_BYTES_8, encrypt_icv, mac_full_3des},
+    crypto::{encrypt_icv, mac_full_3des},
     session::{Keys, Session},
 };
 
@@ -29,17 +29,17 @@ use crate::{
 #[derive(Clone)]
 pub struct SCP02Wrapper {
     /// MAC key
-    mac_key: [u8; 16],
+    mac_key: Key<Scp02>,
     /// Initial chaining vector
-    icv: [u8; 8],
+    icv: Iv<Scp02>,
 }
 
 impl SCP02Wrapper {
     /// Create a new SCP02 wrapper with the specified MAC key
-    pub fn new(key: [u8; 16]) -> crate::Result<Self> {
+    pub fn new(key: Key<Scp02>) -> crate::Result<Self> {
         Ok(Self {
             mac_key: key,
-            icv: NULL_BYTES_8,
+            icv: Default::default(),
         })
     }
 
@@ -64,15 +64,15 @@ impl SCP02Wrapper {
             mac_data.put_slice(data);
         }
 
-        // Encrypt the ICV if it's not NULL_BYTES_8
-        let icv_for_mac = if self.icv == NULL_BYTES_8 {
+        // Encrypt the ICV if it's not default
+        let icv_for_mac = if self.icv == Default::default() {
             self.icv.clone()
         } else {
-            encrypt_icv(&self.mac_key, &self.icv)?
+            encrypt_icv(&self.mac_key, &self.icv)
         };
 
         // Calculate the MAC
-        let mac = mac_full_3des(&self.mac_key, &icv_for_mac, &mac_data)?;
+        let mac = mac_full_3des(&self.mac_key, &icv_for_mac, &mac_data);
 
         // Save MAC as ICV for next command
         self.icv.copy_from_slice(&mac);
@@ -98,13 +98,13 @@ impl SCP02Wrapper {
     }
 
     /// Get the current ICV
-    pub fn icv(&self) -> &[u8; 8] {
+    pub fn icv(&self) -> &Iv<Scp02> {
         &self.icv
     }
 
     /// Encrypt the ICV for the next operation
     pub fn encrypt_icv(&mut self) -> crate::Result<()> {
-        let encrypted = encrypt_icv(&self.mac_key, &self.icv)?;
+        let encrypted = encrypt_icv(&self.mac_key, &self.icv);
         self.icv.copy_from_slice(&encrypted);
         Ok(())
     }
@@ -279,7 +279,7 @@ impl apdu_core::processor::secure::SecureChannelProvider for GPSecureChannelProv
         transport: &mut dyn CardTransport,
     ) -> Result<Box<dyn CommandProcessor>, ProcessorError> {
         // Generate host challenge
-        let mut host_challenge = [0u8; DEFAULT_HOST_CHALLENGE_LENGTH];
+        let mut host_challenge = HostChallenge::default();
         rand::rng().fill_bytes(&mut host_challenge);
 
         // Step 1: Send INITIALIZE UPDATE
@@ -389,11 +389,13 @@ mod tests {
     // Helper to create a test session with realistic data
     fn create_test_session() -> Session {
         // Realistic test values based on actual card responses
-        let keys = Keys::from_single_key(hex!("404142434445464748494a4b4c4d4e4f"));
+        let key = Key::<Scp02>::from_slice(hex!("404142434445464748494a4b4c4d4e4f").as_slice());
+        let keys = Keys::from_single_key(*key);
         let init_response = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000");
         let host_challenge = hex!("f0467f908e5ca23f");
 
-        Session::new(&keys, &init_response, host_challenge).unwrap()
+        let response = InitializeUpdateResponse::from_bytes(&init_response).unwrap();
+        Session::from_response(&keys, &response, host_challenge).unwrap()
     }
 
     // A test-specific secure channel provider that uses a fixed host challenge
@@ -436,7 +438,7 @@ mod tests {
             }
 
             // Create session from response
-            let session = Session::new(&self.keys, &response_bytes, host_challenge)
+            let session = Session::from_response(&self.keys, &init_response, host_challenge)
                 .map_err(|_| ProcessorError::authentication_failed("Failed to create session"))?;
 
             // Create secure channel with session (not yet established)
@@ -452,11 +454,11 @@ mod tests {
 
     #[test]
     fn test_wrap_command() {
-        let mac_key = hex!("2983ba77d709c2daa1e6000abccac951");
-        let mut wrapper = SCP02Wrapper::new(mac_key).unwrap();
+        let mac_key = Key::<Scp02>::from_slice(hex!("2983ba77d709c2daa1e6000abccac951").as_slice());
+        let mut wrapper = SCP02Wrapper::new(*mac_key).unwrap();
 
         // Verify initial ICV
-        assert_eq!(wrapper.icv(), &NULL_BYTES_8);
+        assert_eq!(wrapper.icv(), &Iv::<Scp02>::default());
 
         // Test wrapping a command
         let data = hex!("1d4de92eaf7a2c9f");
@@ -471,7 +473,8 @@ mod tests {
         );
 
         // Verify ICV is updated
-        assert_eq!(wrapper.icv(), &hex!("8f9b0df681c1d3ec"));
+        let iv = Iv::<Scp02>::from_slice(hex!("8f9b0df681c1d3ec").as_slice());
+        assert_eq!(wrapper.icv(), iv);
 
         // Test wrapping another command
         let data = hex!("4f00");
@@ -561,7 +564,8 @@ mod tests {
             .push(Bytes::copy_from_slice(&hex!("9000")));
 
         // Create test keys - use the same keys as in create_test_session()
-        let keys = Keys::from_single_key(hex!("404142434445464748494a4b4c4d4e4f"));
+        let key = Key::<Scp02>::from_slice(hex!("404142434445464748494a4b4c4d4e4f").as_slice());
+        let keys = Keys::from_single_key(*key);
 
         // Create our test-specific provider that uses fixed host challenge
         let provider = TestGPSecureChannelProvider::new(keys);

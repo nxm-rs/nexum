@@ -6,9 +6,6 @@ use apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, status};
 
-/// Default host challenge length in bytes
-pub const DEFAULT_HOST_CHALLENGE_LENGTH: usize = 8;
-
 apdu_pair! {
     /// INITIALIZE UPDATE command for GlobalPlatform
     pub struct InitializeUpdate {
@@ -25,7 +22,7 @@ apdu_pair! {
 
                 /// Create a new INITIALIZE UPDATE command with random host challenge
                 pub fn with_random_challenge() -> Self {
-                    let mut challenge = [0u8; DEFAULT_HOST_CHALLENGE_LENGTH];
+                    let mut challenge = [0u8; 8];
                     rand::RngCore::fill_bytes(&mut rand::rng(), &mut challenge);
                     Self::with_challenge(challenge.to_vec())
                 }

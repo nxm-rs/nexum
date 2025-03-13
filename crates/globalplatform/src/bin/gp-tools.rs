@@ -4,8 +4,10 @@
 //! operations like listing applications, installing or deleting packages, etc.
 
 use apdu_core::CardExecutor;
+use apdu_globalplatform::crypto::Scp02;
 use apdu_globalplatform::{DefaultKeys, GlobalPlatform, Keys, load::LoadCommandStream, operations};
 use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
+use cipher::Key;
 use clap::{Parser, Subcommand, ValueEnum};
 use hex::FromHex;
 use std::io::{self, Write};
@@ -190,7 +192,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let mut key = [0u8; 16];
         key.copy_from_slice(&key_bytes);
-        Keys::from_single_key(key)
+        let key = Key::<Scp02>::from_slice(&key);
+        Keys::from_single_key(*key)
     } else {
         // Default to test keys
         DefaultKeys::new()

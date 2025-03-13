@@ -9,7 +9,9 @@ use apdu_core::ApduCommand;
 
 use apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
 use apdu_core::{Bytes, Command, StatusWord};
+use cipher::Key;
 
+use crate::crypto::Scp02;
 use crate::{
     Error, Result,
     commands::{
@@ -38,7 +40,8 @@ impl DefaultKeys {
             0xc2, 0x12, 0xe0, 0x73, 0xff, 0x8b, 0x4b, 0xbf, 0xaf, 0xf4, 0xde, 0x8a, 0xb6, 0x55,
             0x22, 0x1f,
         ];
-        Keys::from_single_key(key)
+        let key = Key::<Scp02>::from_slice(&key);
+        Keys::from_single_key(*key)
     }
 }
 
