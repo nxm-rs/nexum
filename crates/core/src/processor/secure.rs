@@ -64,9 +64,15 @@ pub struct BaseSecureChannel {
     session_data: Option<Bytes>,
 }
 
+impl Default for BaseSecureChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BaseSecureChannel {
     /// Create a new base secure channel
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             established: false,
             session_data: None,
@@ -79,7 +85,7 @@ impl BaseSecureChannel {
     }
 
     /// Get the session data
-    pub fn session_data(&self) -> Option<&Bytes> {
+    pub const fn session_data(&self) -> Option<&Bytes> {
         self.session_data.as_ref()
     }
 

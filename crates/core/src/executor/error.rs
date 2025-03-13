@@ -122,8 +122,7 @@ impl ExecutionError {
 
     /// Check if this error has the given status word
     pub fn has_status_code(&self, sw: u16) -> bool {
-        self.status_word()
-            .map_or(false, |status| status.to_u16() == sw)
+        self.status_word().is_some_and(|status| status.to_u16() == sw)
     }
 
     /// Create a general other error

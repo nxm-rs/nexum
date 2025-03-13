@@ -134,7 +134,7 @@ impl<T: CardTransport> CardExecutor<T> {
     }
 
     /// Get the last response received
-    pub fn last_response(&self) -> Option<&Bytes> {
+    pub const fn last_response(&self) -> Option<&Bytes> {
         self.last_response.as_ref()
     }
 

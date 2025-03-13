@@ -91,7 +91,7 @@ impl StatusWord {
     }
 
     /// Get the appropriate tracing level for this status word
-    pub fn tracing_level(&self) -> Level {
+    pub const fn tracing_level(&self) -> Level {
         if self.is_success() || self.is_normal_processing() {
             Level::DEBUG
         } else if self.sw1 == 0x62 || self.sw1 == 0x63 {
@@ -104,7 +104,7 @@ impl StatusWord {
     }
 
     /// Get a description of this status word
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match (self.sw1, self.sw2) {
             (0x90, 0x00) => "Success",
             (0x61, _) => "More data available",

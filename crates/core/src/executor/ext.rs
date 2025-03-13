@@ -37,6 +37,6 @@ impl<T: CardTransport> ResponseAwareExecutor for super::CardExecutor<T> {
 
 impl<T: CardTransport> SecureChannelExecutor for super::CardExecutor<T> {
     fn open_secure_channel(&mut self, provider: &dyn SecureChannelProvider) -> Result<()> {
-        super::CardExecutor::open_secure_channel(self, provider)
+        Self::open_secure_channel(self, provider)
     }
 }
