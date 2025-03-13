@@ -77,7 +77,7 @@ impl CommandDef {
             syn::parse_str::<Expr>("false").expect("Failed to create default 'false' expression")
         });
 
-        Ok(CommandDef {
+        Ok(Self {
             cla,
             ins,
             secure,

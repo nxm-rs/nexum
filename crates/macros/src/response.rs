@@ -128,7 +128,7 @@ impl ResponseDef {
             ));
         }
 
-        Ok(ResponseDef {
+        Ok(Self {
             variants,
             payload_parser,
             methods,
@@ -287,7 +287,7 @@ impl ResponseDef {
                 }
                 _ => {
                     // Special handling for underscore
-                    if let Some(lit) = extract_token_str(&tokens) {
+                    if let Some(lit) = extract_token_str(tokens) {
                         if lit == "_" {
                             return Ok(SwAnnotation {
                                 sw1: SwPattern::Any,
@@ -306,7 +306,7 @@ impl ResponseDef {
         }
 
         // Last resort: Try to manually parse as comma-separated values
-        if let Some(lit) = extract_token_str(&tokens) {
+        if let Some(lit) = extract_token_str(tokens) {
             let parts: Vec<&str> = lit.split(',').map(|s| s.trim()).collect();
 
             if parts.len() == 2 {
@@ -316,8 +316,7 @@ impl ResponseDef {
                 // Parse SW1
                 let sw1 = if sw1_str == "_" {
                     SwPattern::Any
-                } else if sw1_str.starts_with("!") {
-                    let val_str = &sw1_str[1..];
+                } else if let Some(val_str) = sw1_str.strip_prefix("!") {
                     if let Ok(val) = u8::from_str_radix(val_str.trim_start_matches("0x"), 16) {
                         SwPattern::Not(val)
                     } else {
@@ -350,8 +349,7 @@ impl ResponseDef {
                 // Parse SW2
                 let sw2 = if sw2_str == "_" {
                     SwPattern::Any
-                } else if sw2_str.starts_with("!") {
-                    let val_str = &sw2_str[1..];
+                } else if let Some(val_str) = sw2_str.strip_prefix("!") {
                     if let Ok(val) = u8::from_str_radix(val_str.trim_start_matches("0x"), 16) {
                         SwPattern::Not(val)
                     } else {
@@ -489,59 +487,61 @@ pub(crate) fn expand_response(
         let sw_pattern = &v.sw_pattern;
 
         // Generate the match expression
-        let match_expr = if let Some(sw_ref) = &sw_pattern.sw_ref {
-            // If we're using a StatusWord constant, match against it directly
-            quote! {
-                (sw1, sw2) if apdu_core::StatusWord::new(sw1, sw2) == #sw_ref
-            }
-        } else {
-            // Otherwise, construct the match pattern from individual SW1/SW2 patterns
-            // Generate SW1 pattern
-            let sw1_pattern = match &sw_pattern.sw1 {
-                SwPattern::Any => quote! { _ },
-                SwPattern::Exact(val) => {
-                    let lit = byte_lit(*val);
-                    quote! { #lit }
-                }
-                SwPattern::Not(val) => {
-                    let lit = byte_lit(*val);
-                    quote! { sw1 if sw1 != #lit }
-                }
-                SwPattern::Range(start, end) => {
-                    let start_lit = byte_lit(*start);
-                    let end_lit = byte_lit(*end);
-                    quote! { sw1 if sw1 >= #start_lit && sw1 <= #end_lit }
-                }
-                SwPattern::Path(path) => {
-                    quote! { sw1 if sw1 == #path }
-                }
-            };
+        let match_expr = &sw_pattern.sw_ref.as_ref().map_or_else(
+            || {
+                // Otherwise, construct the match pattern from individual SW1/SW2 patterns
+                // Generate SW1 pattern
+                let sw1_pattern = match &sw_pattern.sw1 {
+                    SwPattern::Any => quote! { _ },
+                    SwPattern::Exact(val) => {
+                        let lit = byte_lit(*val);
+                        quote! { #lit }
+                    }
+                    SwPattern::Not(val) => {
+                        let lit = byte_lit(*val);
+                        quote! { sw1 if sw1 != #lit }
+                    }
+                    SwPattern::Range(start, end) => {
+                        let start_lit = byte_lit(*start);
+                        let end_lit = byte_lit(*end);
+                        quote! { sw1 if sw1 >= #start_lit && sw1 <= #end_lit }
+                    }
+                    SwPattern::Path(path) => {
+                        quote! { sw1 if sw1 == #path }
+                    }
+                };
 
-            // Generate SW2 pattern
-            let sw2_pattern = match &sw_pattern.sw2 {
-                SwPattern::Any => quote! { _ },
-                SwPattern::Exact(val) => {
-                    let lit = byte_lit(*val);
-                    quote! { #lit }
-                }
-                SwPattern::Not(val) => {
-                    let lit = byte_lit(*val);
-                    quote! { sw2 if sw2 != #lit }
-                }
-                SwPattern::Range(start, end) => {
-                    let start_lit = byte_lit(*start);
-                    let end_lit = byte_lit(*end);
-                    quote! { sw2 if sw2 >= #start_lit && sw2 <= #end_lit }
-                }
-                SwPattern::Path(path) => {
-                    quote! { sw2 if sw2 == #path }
-                }
-            };
+                // Generate SW2 pattern
+                let sw2_pattern = match &sw_pattern.sw2 {
+                    SwPattern::Any => quote! { _ },
+                    SwPattern::Exact(val) => {
+                        let lit = byte_lit(*val);
+                        quote! { #lit }
+                    }
+                    SwPattern::Not(val) => {
+                        let lit = byte_lit(*val);
+                        quote! { sw2 if sw2 != #lit }
+                    }
+                    SwPattern::Range(start, end) => {
+                        let start_lit = byte_lit(*start);
+                        let end_lit = byte_lit(*end);
+                        quote! { sw2 if sw2 >= #start_lit && sw2 <= #end_lit }
+                    }
+                    SwPattern::Path(path) => {
+                        quote! { sw2 if sw2 == #path }
+                    }
+                };
 
-            quote! {
-                (#sw1_pattern, #sw2_pattern)
-            }
-        };
+                quote! {
+                    (#sw1_pattern, #sw2_pattern)
+                }
+            },
+            |sw_ref| {
+                quote! {
+                    (sw1, sw2) if apdu_core::StatusWord::new(s1, s2) == #sw_ref
+                }
+            },
+        );
 
         // Initialize fields
         let field_inits = v.fields.iter().map(|f| {
@@ -586,18 +586,21 @@ pub(crate) fn expand_response(
     });
 
     // Generate payload parsing code if a parser was provided
-    let payload_parsing = if let Some(parser) = &response.payload_parser {
-        quote! {
-            // Use the custom payload parser if provided
-            let status_word = apdu_core::StatusWord::new(sw1, sw2);
-            // Apply the custom parser
-            (#parser)(payload, status_word, &mut response)?;
-        }
-    } else {
-        quote! {
-            // No custom parser, just use default values
-        }
-    };
+    let payload_parsing = &response.payload_parser.as_ref().map_or_else(
+        || {
+            quote! {
+                // No custom parser, just use default values
+            }
+        },
+        |parser| {
+            quote! {
+                // Use the custom payload parser if provided
+                let status_word = apdu_core::StatusWord::new(sw1, sw2);
+                // Apply the custom parser
+                (#parser)(payload, status_word, &mut response)?;
+            }
+        },
+    );
 
     // Include all the user-defined methods
     let user_methods = &response.methods;

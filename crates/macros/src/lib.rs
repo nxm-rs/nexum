@@ -97,7 +97,7 @@ struct ApduPair {
 }
 
 impl Parse for ApduPair {
-    fn parse<'a>(input: ParseStream<'a>) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         // Parse attributes and visibility
         let attrs = input.call(Attribute::parse_outer)?;
         let vis = input.parse()?;
@@ -122,7 +122,7 @@ impl Parse for ApduPair {
         braced!(response in content);
         let response_def = ResponseDef::parse(&&response)?;
 
-        Ok(ApduPair {
+        Ok(Self {
             vis,
             struct_name,
             attrs,
