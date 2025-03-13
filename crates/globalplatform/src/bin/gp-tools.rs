@@ -186,7 +186,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let keys = if cli.default_keys {
         DefaultKeys::new()
     } else if let Some(key_str) = cli.keys {
-        let key_bytes = Vec::from_hex(&key_str.replace(' ', ""))?;
+        let key_bytes = Vec::from_hex(key_str.replace(' ', ""))?;
         if key_bytes.len() != 16 {
             return Err("Key must be 16 bytes (32 hex characters)".into());
         }
@@ -325,7 +325,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Operation cancelled.");
                 }
             } else if let Some(aid_str) = aid {
-                let aid_bytes = Vec::from_hex(&aid_str.replace(' ', ""))?;
+                let aid_bytes = Vec::from_hex(aid_str.replace(' ', ""))?;
                 println!(
                     "\nDeleting package with AID: {}",
                     hex::encode_upper(&aid_bytes)
@@ -431,7 +431,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Parse install parameters if provided
             let install_params = if let Some(param_str) = params {
-                Vec::from_hex(&param_str.replace(' ', ""))?
+                Vec::from_hex(param_str.replace(' ', ""))?
             } else {
                 Vec::new()
             };

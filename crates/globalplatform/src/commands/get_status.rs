@@ -117,7 +117,7 @@ apdu_pair! {
 
                 /// Parse application entries
                 pub fn parse_applications(&self) -> Vec<ApplicationInfo> {
-                    if let Some(data) = self.tlv_data() {
+                    self.tlv_data().as_ref().map_or_else(Vec::new, |data| {
                         parse_entries(data, EntryType::Application)
                             .into_iter()
                             .filter_map(|entry| {
@@ -128,14 +128,12 @@ apdu_pair! {
                                 }
                             })
                             .collect()
-                    } else {
-                        Vec::new()
-                    }
+                    })
                 }
 
                 /// Parse load file entries
                 pub fn parse_load_files(&self) -> Vec<LoadFileInfo> {
-                    if let Some(data) = self.tlv_data() {
+                    self.tlv_data().as_ref().map_or_else(Vec::new, |data| {
                         parse_entries(data, EntryType::LoadFile)
                             .into_iter()
                             .filter_map(|entry| {
@@ -146,9 +144,7 @@ apdu_pair! {
                                 }
                             })
                             .collect()
-                    } else {
-                        Vec::new()
-                    }
+                    })
                 }
             }
         }

@@ -269,7 +269,7 @@ impl GPSecureChannelProvider {
 }
 
 /// Create a secure channel provider from a session
-pub fn create_secure_channel_provider(keys: Keys) -> GPSecureChannelProvider {
+pub const fn create_secure_channel_provider(keys: Keys) -> GPSecureChannelProvider {
     GPSecureChannelProvider::new(keys)
 }
 

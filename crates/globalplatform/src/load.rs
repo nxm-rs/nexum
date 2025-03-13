@@ -386,74 +386,70 @@ fn enhance_with_applet_xml(xml_data: &str, info: &mut CapFileInfo) -> Result<()>
 
     // Extract applet information
     let mut applet_start = 0;
-    loop {
-        if let Some(applet_idx) = xml_data[applet_start..].find("<applet>") {
-            let start_pos = applet_start + applet_idx;
-            if let Some(end_idx) = xml_data[start_pos..].find("</applet>") {
-                let end_pos = start_pos + end_idx + 9; // +9 for "</applet>"
-                let applet_section = &xml_data[start_pos..end_pos];
+    while let Some(applet_idx) = xml_data[applet_start..].find("<applet>") {
+        let start_pos = applet_start + applet_idx;
+        if let Some(end_idx) = xml_data[start_pos..].find("</applet>") {
+            let end_pos = start_pos + end_idx + 9; // +9 for "</applet>"
+            let applet_section = &xml_data[start_pos..end_pos];
 
-                // Extract applet name
-                let mut display_name = String::new();
-                if let Some(name_start) = applet_section.find("<display-name>") {
-                    if let Some(name_end) = applet_section[name_start..].find("</display-name>") {
-                        display_name = applet_section[name_start + 14..name_start + name_end]
-                            .trim()
-                            .to_string();
-                    }
+            // Extract applet name
+            let mut display_name = String::new();
+            if let Some(name_start) = applet_section.find("<display-name>") {
+                if let Some(name_end) = applet_section[name_start..].find("</display-name>") {
+                    display_name = applet_section[name_start + 14..name_start + name_end]
+                        .trim()
+                        .to_string();
                 }
+            }
 
-                // Extract applet class
-                let mut class_name = String::new();
-                if let Some(class_start) = applet_section.find("<applet-class>") {
-                    if let Some(class_end) = applet_section[class_start..].find("</applet-class>") {
-                        class_name = applet_section[class_start + 14..class_start + class_end]
-                            .trim()
-                            .to_string();
-                    }
+            // Extract applet class
+            let mut class_name = String::new();
+            if let Some(class_start) = applet_section.find("<applet-class>") {
+                if let Some(class_end) = applet_section[class_start..].find("</applet-class>") {
+                    class_name = applet_section[class_start + 14..class_start + class_end]
+                        .trim()
+                        .to_string();
                 }
+            }
 
-                // Extract applet AID
-                if let Some(aid_start) = applet_section.find("<applet-AID>") {
-                    if let Some(aid_end) = applet_section[aid_start..].find("</applet-AID>") {
-                        let aid_str = &applet_section[aid_start + 12..aid_start + aid_end];
+            // Extract applet AID
+            if let Some(aid_start) = applet_section.find("<applet-AID>") {
+                if let Some(aid_end) = applet_section[aid_start..].find("</applet-AID>") {
+                    let aid_str = &applet_section[aid_start + 12..aid_start + aid_end];
 
-                        // Format: //aid/A000000804/000101
-                        if aid_str.starts_with("//aid/") {
-                            let parts: Vec<&str> = aid_str[6..].split('/').collect();
-                            if parts.len() >= 2 {
-                                let package_part = parts[0];
-                                let instance_part = parts[1];
+                    // Format: //aid/A000000804/000101
+                    if let Some(stripped) = aid_str.strip_prefix("//aid/") {
+                        let parts: Vec<&str> = stripped.split('/').collect();
+                        if parts.len() >= 2 {
+                            let package_part = parts[0];
+                            let instance_part = parts[1];
 
-                                // Combine them to form the complete AID
-                                let mut aid_hex = String::new();
-                                aid_hex.push_str(package_part);
-                                aid_hex.push_str(instance_part);
+                            // Combine them to form the complete AID
+                            let mut aid_hex = String::new();
+                            aid_hex.push_str(package_part);
+                            aid_hex.push_str(instance_part);
 
-                                if let Ok(aid) = hex::decode(&aid_hex) {
-                                    // Create a composite display name with both display name and class name
-                                    let full_name =
-                                        if !display_name.is_empty() && !class_name.is_empty() {
-                                            format!("{} ({})", display_name, class_name)
-                                        } else if !display_name.is_empty() {
-                                            display_name
-                                        } else if !class_name.is_empty() {
-                                            class_name
-                                        } else {
-                                            String::from("Unknown")
-                                        };
+                            if let Ok(aid) = hex::decode(&aid_hex) {
+                                // Create a composite display name with both display name and class name
+                                let full_name =
+                                    if !display_name.is_empty() && !class_name.is_empty() {
+                                        format!("{} ({})", display_name, class_name)
+                                    } else if !display_name.is_empty() {
+                                        display_name
+                                    } else if !class_name.is_empty() {
+                                        class_name
+                                    } else {
+                                        String::from("Unknown")
+                                    };
 
-                                    display_names.insert(hex::encode(&aid), full_name);
-                                }
+                                display_names.insert(hex::encode(&aid), full_name);
                             }
                         }
                     }
                 }
-
-                applet_start = end_pos;
-            } else {
-                break;
             }
+
+            applet_start = end_pos;
         } else {
             break;
         }
