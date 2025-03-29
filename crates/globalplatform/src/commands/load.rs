@@ -17,7 +17,7 @@ apdu_pair! {
             builders {
                 /// Create a LOAD command with block data
                 pub fn with_block_data(p1: u8, block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new(p1, block_number).with_data(data.into())
+                    Self::new(p1, block_number).with_data(data.into()).with_le(0)
                 }
 
                 /// Create a LOAD command for more blocks
@@ -80,7 +80,7 @@ mod tests {
 
         // Test command serialization
         let raw = cmd.to_bytes();
-        assert_eq!(raw.as_ref(), hex!("80E8000104C4020304"));
+        assert_eq!(raw.as_ref(), hex!("80E8000104C402030400"));
     }
 
     #[test]

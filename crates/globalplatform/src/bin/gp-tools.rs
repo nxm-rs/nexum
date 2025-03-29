@@ -281,7 +281,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         for app in applications {
                             println!("Deleting application: {}", hex::encode_upper(&app.aid));
-                            match gp.delete_object(&app.aid) {
+                            match gp.delete_object_and_related(&app.aid) {
                                 Ok(_) => {
                                     println!("  ✅ Application deleted successfully.");
                                     success_count += 1;

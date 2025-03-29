@@ -106,7 +106,7 @@ pub(crate) fn expand_command(
             p1: u8,
             p2: u8,
             data: Option<bytes::Bytes>,
-            le: Option<u16>,
+            le: Option<ExpectedLength>,
         }
 
         impl #command_name {
@@ -127,7 +127,7 @@ pub(crate) fn expand_command(
             }
 
             /// Set the expected length
-            pub const fn with_le(mut self, le: u16) -> Self {
+            pub const fn with_le(mut self, le: ExpectedLength) -> Self {
                 self.le = Some(le);
                 self
             }
@@ -160,7 +160,7 @@ pub(crate) fn expand_command(
                 self.data.as_deref()
             }
 
-            fn expected_length(&self) -> Option<u16> {
+            fn expected_length(&self) -> Option<ExpectedLength> {
                 self.le
             }
 

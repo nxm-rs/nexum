@@ -5,8 +5,6 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use bytes::Bytes;
-
 use crate::constants::{cla, ins, status};
 
 apdu_pair! {
@@ -20,7 +18,7 @@ apdu_pair! {
             builders {
                 /// Create a GET RESPONSE command with expected length
                 pub const fn with_length(length: u8) -> Self {
-                    Self::new(0x00, 0x00).with_le(length as u16)
+                    Self::new(0x00, 0x00).with_le(length as ExpectedLength)
                 }
             }
         }
@@ -29,15 +27,17 @@ apdu_pair! {
             variants {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
+                #[payload(field = "data")]
                 Success {
-                    data: bytes::Bytes,
+                    data: Vec<u8>,
                 },
 
                 /// More data available (61xx)
                 #[sw(0x61, _)]
+                #[payload(field = "data")]
                 MoreData {
                     sw2: u8, // remaining
-                    data: bytes::Bytes,
+                    data: Vec<u8>,
                 },
 
                 /// Wrong length (6700)
@@ -50,16 +50,6 @@ apdu_pair! {
                     sw1: u8,
                     sw2: u8,
                 }
-            }
-
-            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
-                match variant {
-                    Self::Success { data } | Self::MoreData { data, .. } => {
-                        *data = Bytes::copy_from_slice(payload);
-                    }
-                    _ => {}
-                }
-                Ok(())
             }
 
             methods {

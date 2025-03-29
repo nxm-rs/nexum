@@ -55,9 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Card Manager selected successfully.");
 
         // Print FCI information if available
-        if let Some(fci) = select_response.fci() {
-            println!("FCI data: {}", hex::encode_upper(fci));
-        }
+        println!("FCI data: {}", hex::encode_upper(select_response.fci()));
 
         // Open secure channel
         println!("\nOpening secure channel...");

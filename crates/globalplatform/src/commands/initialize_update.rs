@@ -17,7 +17,7 @@ apdu_pair! {
             builders {
                 /// Create a new INITIALIZE UPDATE command with a host challenge
                 pub fn with_challenge(host_challenge: impl Into<bytes::Bytes>) -> Self {
-                    Self::new(0x00, 0x00).with_data(host_challenge.into()).with_le(0x00)
+                    Self::new(0x00, 0x00).with_data(host_challenge.into()).with_le(0)
                 }
 
                 /// Create a new INITIALIZE UPDATE command with random host challenge
@@ -57,35 +57,43 @@ apdu_pair! {
                 }
             }
 
-            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
-                if let Self::Success {
-                    key_diversification_data,
-                    key_info,
-                    sequence_counter,
-                    card_challenge,
-                    card_cryptogram
-                } = variant {
-                    if payload.len() != 28 {
-                        return Err(nexum_apdu_core::Error::Parse("Response data incorrect length"));
+            custom_parse = |payload: &[u8], sw| -> Result<Self, nexum_apdu_core::Error> {
+                match sw {
+                    status::SUCCESS => {
+                        if payload.len() != 28 {
+                            return Err(nexum_apdu_core::Error::Parse("Response data incorrect length"));
+                        }
+
+                        // Key diversification data (10 bytes)
+                        let key_diversification_data: [u8; 10] = payload[0..10].try_into().unwrap();
+
+                        // Key information (2 bytes)
+                        let key_info: [u8; 2] = payload[10..12].try_into().unwrap();
+
+                        // Sequence counter (2 bytes)
+                        let sequence_counter: [u8; 2] = payload[12..14].try_into().unwrap();
+
+                        // Card challenge (6 bytes)
+                        let card_challenge: [u8; 6] = payload[14..20].try_into().unwrap();
+
+                        // Card cryptogram (8 bytes)
+                        let card_cryptogram: [u8; 8] = payload[20..28].try_into().unwrap();
+
+                        Ok(Self::Success {
+                            key_diversification_data,
+                            key_info,
+                            sequence_counter,
+                            card_challenge,
+                            card_cryptogram,
+                        })
                     }
-
-                    // Key diversification data (10 bytes)
-                    key_diversification_data.copy_from_slice(&payload[0..10]);
-
-                    // Key information (2 bytes)
-                    key_info.copy_from_slice(&payload[10..12]);
-
-                    // Sequence counter (2 bytes)
-                    sequence_counter.copy_from_slice(&payload[12..14]);
-
-                    // Card challenge (6 bytes)
-                    card_challenge.copy_from_slice(&payload[14..20]);
-
-                    // Card cryptogram (8 bytes)
-                    card_cryptogram.copy_from_slice(&payload[20..28]);
+                    status::SECURITY_CONDITION_NOT_SATISFIED => Ok(Self::SecurityConditionNotSatisfied),
+                    status::AUTHENTICATION_METHOD_BLOCKED => Ok(Self::AuthenticationMethodBlocked),
+                    _ => Ok(Self::OtherError {
+                        sw1,
+                        sw2
+                    }),
                 }
-
-                Ok(())
             }
 
             methods {
@@ -160,7 +168,6 @@ mod tests {
         assert_eq!(cmd.p1(), 0x00);
         assert_eq!(cmd.p2(), 0x00);
         assert_eq!(cmd.data(), Some(challenge.as_ref()));
-        assert_eq!(cmd.expected_length(), Some(0x00));
 
         // Test command serialization
         let raw = cmd.to_bytes();

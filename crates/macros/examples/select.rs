@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-//! Example of using the apdu_pair macro to define a Select command with custom payload parsing
+//! Example of using the apdu_pair macro to define a Select command with custom parsing
 
 use iso7816_tlv::simple::Tlv;
 use nexum_apdu_core::{ApduCommand, Bytes, Error, StatusWord};
@@ -35,6 +35,7 @@ apdu_pair! {
             variants {
                 // Normal success (90 00)
                 #[sw(0x90, 0x00)]
+                #[payload(field = "fci")]
                 Success {
                     fci: Option<Vec<u8>>,
                 },
@@ -55,26 +56,23 @@ apdu_pair! {
                 }
             }
 
-            // Define custom payload parser as a closure
-            parse_payload = |payload: &[u8], _: StatusWord, variant: &mut Self| -> Result<(), Error> {
-                match variant {
-                    Self::Success { fci } => {
-                        if !payload.is_empty() {
-                            // Store the raw FCI data
-                            *fci = Some(payload.to_vec());
-
-                            // Example validation
-                            if let Some(data) = fci.as_ref() {
-                                // Check if this looks like File Control Information
-                                // (In real code, you might do more precise TLV parsing)
-                                if data.len() < 2 || data[0] != 0x6F {
-                                    return Err(Error::Parse("Invalid FCI format"));
-                                }
+            // Define custom parser
+            custom_parse = |payload: &[u8], sw: StatusWord| -> Result<SelectResponse, Error> {
+                match (sw.sw1, sw.sw2) {
+                    (0x90, 0x00) => {
+                        if payload.is_empty() {
+                            Ok(SelectResponse::Success { fci: None })
+                        } else {
+                            // Validate FCI format
+                            if payload[0] != 0x6F {
+                                return Err(Error::Parse("Invalid FCI format"));
                             }
+                            Ok(SelectResponse::Success { fci: Some(payload.to_vec()) })
                         }
-                        Ok(())
                     },
-                    _ => Ok(()) // No parsing for error variants
+                    (0x6A, 0x82) => Ok(SelectResponse::NotFound),
+                    (0x6A, 0x86) => Ok(SelectResponse::IncorrectParameters),
+                    (sw1, sw2) => Ok(SelectResponse::OtherError { sw1, sw2 }),
                 }
             }
 

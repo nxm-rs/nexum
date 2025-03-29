@@ -10,7 +10,7 @@ This crate provides macros to simplify the definition of APDU commands and respo
 - Status word-based response variant handling
 - Builder methods for common command patterns
 - Support for capturing status word values in response types
-- Custom payload parsing support
+- Automatic or custom payload parsing
 - Flexible status word matching patterns
 
 ## Usage
@@ -48,6 +48,7 @@ apdu_pair! {
         response {
             variants {
                 #[sw(0x90, 0x00)]
+                #[payload(field = "fci")]
                 Success {
                     fci: Option<Vec<u8>>,
                 },
@@ -56,7 +57,6 @@ apdu_pair! {
                 NotFound,
 
                 #[sw(_, _)]
-                #[sw1]
                 OtherError {
                     sw1: u8,
                     sw2: u8,
@@ -85,9 +85,35 @@ fn main() {
 }
 ```
 
+## Automatic Payload Handling
+
+Mark which field should receive the response payload using the `#[payload]` attribute:
+
+```rust
+variants {
+    #[sw(0x90, 0x00)]
+    #[payload(field = "data")]
+    Success {
+        data: Vec<u8>,  // Will automatically receive the response payload
+    },
+
+    #[sw(0x61, _)]
+    #[payload(field = "partial_data")]
+    MoreData {
+        partial_data: Vec<u8>,  // Will receive the partial payload
+        sw2: u8,  // Automatically captures SW2 value
+    },
+}
+```
+
+The macro intelligently handles different payload types:
+- `Vec<u8>` and `bytes::Bytes` - Direct assignment
+- `Option<Vec<u8>>` - Wraps payload in Some() if present
+- `String` - Attempts UTF-8 conversion
+
 ## Custom Payload Parsing
 
-You can provide custom payload parsing logic:
+For more complex cases, use `custom_parse` to gain full control over response parsing:
 
 ```rust
 apdu_pair! {
@@ -103,12 +129,23 @@ apdu_pair! {
                 // Other variants...
             }
 
-            parse_payload = |payload, sw, variant| -> Result<(), nexum_apdu_core::Error> {
-                if let Self::Success { parsed_data } = variant {
-                    // Custom parsing logic here
-                    parsed_data.extend_from_slice(payload);
+            custom_parse = |payload, sw| -> Result<GetDataResponse, nexum_apdu_core::Error> {
+                match (sw.sw1(), sw.sw2()) {
+                    (0x90, 0x00) => {
+                        // Custom parsing logic here
+                        let mut parsed_data = Vec::new();
+                        if !payload.is_empty() {
+                            // Validate and transform the payload
+                            if payload[0] != expected_tag {
+                                return Err(nexum_apdu_core::Error::Parse("Invalid tag"));
+                            }
+                            parsed_data.extend_from_slice(&payload[1..]);
+                        }
+                        Ok(GetDataResponse::Success { parsed_data })
+                    },
+                    // Handle other status word combinations...
+                    (sw1, sw2) => Ok(GetDataResponse::OtherError { sw1, sw2 }),
                 }
-                Ok(())
             }
 
             methods {

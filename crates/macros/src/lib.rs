@@ -51,6 +51,7 @@ use utils::error_tokens;
 ///         response {
 ///             variants {
 ///                 #[sw(0x90, 0x00)]
+///                 #[payload(field = "fci")]
 ///                 Success {
 ///                     fci: Option<Vec<u8>>,
 ///                 },
@@ -65,9 +66,9 @@ use utils::error_tokens;
 ///                 }
 ///             }
 ///
-///             parse_payload = |payload, sw, variant| -> Result<(), nexum_apdu_core::Error> {
+///             custom_parse = |payload, sw| -> Result<Self, nexum_apdu_core::Error> {
 ///                 // Custom parsing logic here
-///                 Ok(())
+///                 Ok(Self::Success { fci: None })
 ///             }
 ///
 ///             methods {
@@ -167,6 +168,7 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         #(#attrs)*
         mod #module_name {
             use super::*;
+            use nexum_apdu_core::command::ExpectedLength;
 
             #command_tokens
 

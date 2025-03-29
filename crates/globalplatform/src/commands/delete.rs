@@ -20,7 +20,7 @@ apdu_pair! {
                 pub fn with_aid(aid: impl AsRef<[u8]>, p2: u8) -> Self {
                     let data = Tlv::new(tags::DELETE_AID.try_into().unwrap(), aid.as_ref().to_vec()).unwrap();
 
-                    Self::new(0x00, p2).with_data(data.to_vec())
+                    Self::new(0x00, p2).with_data(data.to_vec()).with_le(0)
                 }
 
                 /// Create a DELETE command for an object
@@ -82,7 +82,7 @@ mod tests {
 
         // Test command serialization
         let raw = cmd.to_bytes();
-        assert_eq!(raw.as_ref(), hex!("80E40000074F050102030405"));
+        assert_eq!(raw.as_ref(), hex!("80E40000074F05010203040500"));
     }
 
     #[test]

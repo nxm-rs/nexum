@@ -14,6 +14,11 @@ use alloc::string::String;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+#[cfg(feature = "longer_payloads")]
+pub type ExpectedLength = u16;
+#[cfg(not(feature = "longer_payloads"))]
+pub type ExpectedLength = u8;
+
 use crate::Error;
 use error::CommandError;
 
@@ -41,7 +46,7 @@ pub trait ApduCommand {
     fn data(&self) -> Option<&[u8]>;
 
     /// Expected response length (optional)
-    fn expected_length(&self) -> Option<u16>;
+    fn expected_length(&self) -> Option<ExpectedLength>;
 
     /// Convert to raw APDU bytes
     fn to_bytes(&self) -> Bytes {
@@ -56,56 +61,28 @@ pub trait ApduCommand {
         // Add Lc and data if present
         if let Some(data) = self.data() {
             let data_len = data.len();
-
-            // Use extended length format if needed and supported
-            #[cfg(feature = "longer_payloads")]
-            if data_len > 255 {
-                buffer.put_u8(0); // Extended length marker
-                buffer.put_u8((data_len >> 8) as u8);
-                buffer.put_u8((data_len & 0xFF) as u8);
-            } else {
-                buffer.put_u8(data_len as u8);
-            }
-
-            #[cfg(not(feature = "longer_payloads"))]
             buffer.put_u8(data_len as u8);
-
-            // Append data
             buffer.put_slice(data);
         }
 
         // Add Le if present
         if let Some(le) = self.expected_length() {
             #[cfg(feature = "longer_payloads")]
-            if le > 256 {
-                if self.data().is_none() {
-                    buffer.put_u8(0); // Extended length marker if no data
+            {
+                if le > 255 {
+                    // For values > 255, use extended format
+                    buffer.put_u8((le >> 8) as u8);
+                    buffer.put_u8((le & 0xFF) as u8);
+                } else {
+                    buffer.put_u8(le as u8);
                 }
-                buffer.put_u8((le >> 8) as u8);
-                buffer.put_u8((le & 0xFF) as u8);
-            } else if le == 256 {
-                buffer.put_u8(0); // Le=0 means 256 bytes
-            } else {
-                buffer.put_u8(le as u8);
             }
 
             #[cfg(not(feature = "longer_payloads"))]
-            if le == 256 {
-                buffer.put_u8(0); // Le=0 means 256 bytes
-            } else {
-                buffer.put_u8(le as u8);
+            {
+                buffer.put_u8(le);
             }
         }
-
-        trace!(
-            cla = format_args!("{:#04x}", self.class()),
-            ins = format_args!("{:#04x}", self.instruction()),
-            p1 = format_args!("{:#04x}", self.p1()),
-            p2 = format_args!("{:#04x}", self.p2()),
-            data_len = self.data().map_or(0, |d| d.len()),
-            le = self.expected_length(),
-            "Serialized APDU command"
-        );
 
         buffer.freeze()
     }
@@ -135,10 +112,10 @@ pub trait ApduCommand {
         }
 
         // Add Le if present
-        if let Some(_le) = self.expected_length() {
+        if let Some(le) = self.expected_length() {
             #[cfg(feature = "longer_payloads")]
             {
-                if _le > 256 {
+                if le > 256 {
                     // For extended length, add 2 bytes or 3 bytes if no data
                     length += if self.data().is_some() { 2 } else { 3 };
                 } else {
@@ -204,7 +181,7 @@ pub struct Command {
     /// Command data (optional)
     pub data: Option<Bytes>,
     /// Expected length (optional)
-    pub le: Option<u16>,
+    pub le: Option<ExpectedLength>,
 }
 
 impl Command {
@@ -221,7 +198,7 @@ impl Command {
     }
 
     /// Create a new command with expected response length (Le)
-    pub const fn new_with_le(cla: u8, ins: u8, p1: u8, p2: u8, le: u16) -> Self {
+    pub const fn new_with_le(cla: u8, ins: u8, p1: u8, p2: u8, le: ExpectedLength) -> Self {
         Self {
             cla,
             ins,
@@ -251,7 +228,7 @@ impl Command {
         p1: u8,
         p2: u8,
         data: T,
-        le: u16,
+        le: ExpectedLength,
     ) -> Self {
         Self {
             cla,
@@ -270,7 +247,7 @@ impl Command {
     }
 
     /// Set the expected length field
-    pub const fn with_le(mut self, le: u16) -> Self {
+    pub const fn with_le(mut self, le: ExpectedLength) -> Self {
         self.le = Some(le);
         self
     }
@@ -290,77 +267,27 @@ impl Command {
 
         // Parse Lc, data, and Le if present
         if data.len() > 4 {
-            // For case 2 (just data) or case 3 (data + Le), the data length is in 5th byte
-            // For case 4 (just Le), the 5th byte is Le
+            // Standard case
             let lc = data[4] as usize;
 
-            if lc == 0 {
-                // Extended length format or zero-length data
-                #[cfg(feature = "longer_payloads")]
-                {
-                    // Handle extended length format
-                    if data.len() > 5 {
-                        // Extended length format
-                        if data.len() < 7 {
-                            return Err(CommandError::InvalidLength(data.len()));
-                        }
+            if data.len() == 5 {
+                // Only Le present, no data
+                command.le = Some(data[4] as ExpectedLength);
+            } else if data.len() >= 5 + lc {
+                if lc > 0 {
+                    command.data = Some(Bytes::copy_from_slice(&data[5..5 + lc]));
+                }
 
-                        let lc = ((data[5] as usize) << 8) | (data[6] as usize);
-                        if data.len() >= 7 + lc {
-                            if lc > 0 {
-                                command.data = Some(Bytes::copy_from_slice(&data[7..7 + lc]));
-                            }
-
-                            // Check for Le
-                            if data.len() > 7 + lc {
-                                if data.len() == 7 + lc + 2 {
-                                    let le =
-                                        ((data[7 + lc] as u16) << 8) | (data[7 + lc + 1] as u16);
-                                    command.le = Some(if le == 0 { 65536 } else { le });
-                                } else if data.len() == 7 + lc + 1 {
-                                    let le = data[7 + lc] as u16;
-                                    command.le = Some(if le == 0 { 256 } else { le });
-                                } else {
-                                    return Err(CommandError::InvalidLength(data.len()));
-                                }
-                            }
-                        } else {
-                            return Err(CommandError::InvalidLength(data.len()));
-                        }
+                // Check for Le
+                if data.len() > 5 + lc {
+                    if data.len() == 5 + lc + 1 {
+                        command.le = Some(data[5 + lc] as ExpectedLength);
                     } else {
-                        // This is case 4S: Only Le is present and it's 0 (means 256)
-                        command.le = Some(256);
+                        return Err(CommandError::InvalidLength(data.len()));
                     }
                 }
-
-                #[cfg(not(feature = "longer_payloads"))]
-                {
-                    // This is case 4S: Only Le is present and it's 0 (means 256)
-                    command.le = Some(256);
-                }
-            } else if data.len() == 5 {
-                // IMPORTANT FIX: This is case 4S - only Le present
-                // This is the Le field, not Lc
-                command.le = Some(lc as u16);
             } else {
-                // Standard case 2S or 3S
-                if data.len() >= 5 + lc {
-                    if lc > 0 {
-                        command.data = Some(Bytes::copy_from_slice(&data[5..5 + lc]));
-                    }
-
-                    // Check for Le
-                    if data.len() > 5 + lc {
-                        if data.len() == 5 + lc + 1 {
-                            let le = data[5 + lc] as u16;
-                            command.le = Some(if le == 0 { 256 } else { le });
-                        } else {
-                            return Err(CommandError::InvalidLength(data.len()));
-                        }
-                    }
-                } else {
-                    return Err(CommandError::InvalidLength(data.len()));
-                }
+                return Err(CommandError::InvalidLength(data.len()));
             }
         }
 
@@ -392,7 +319,7 @@ impl ApduCommand for Command {
         self.data.as_deref()
     }
 
-    fn expected_length(&self) -> Option<u16> {
+    fn expected_length(&self) -> Option<ExpectedLength> {
         self.le
     }
 }
@@ -479,9 +406,9 @@ mod tests {
         assert!(cmd.data.is_none());
         assert_eq!(cmd.le.unwrap(), 0xFF);
 
-        // Test case 5: Command with Le=0 (should be 256)
+        // Test case 5: Command with Le=0 (should be 0)
         let data = &[0x00, 0xB0, 0x00, 0x00, 0x00];
         let cmd = Command::from_bytes(data).unwrap();
-        assert_eq!(cmd.le.unwrap(), 256);
+        assert_eq!(cmd.le.unwrap(), 0);
     }
 }

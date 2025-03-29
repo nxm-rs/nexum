@@ -17,6 +17,7 @@ use tracing::{debug, trace};
 use alloc::boxed::Box;
 
 use crate::command::Command;
+use crate::command::ExpectedLength;
 use crate::response::Response;
 use crate::response::utils;
 use crate::transport::CardTransport;
@@ -156,7 +157,8 @@ impl CommandProcessor for GetResponseProcessor {
             // Process GET RESPONSE chain
             while current_sw1 == 0x61 && chains < self.max_chains {
                 // Build GET RESPONSE command
-                let get_response = Command::new(0x00, 0xC0, 0x00, 0x00).with_le(current_sw2 as u16);
+                let get_response =
+                    Command::new(0x00, 0xC0, 0x00, 0x00).with_le(current_sw2 as ExpectedLength);
                 let get_resp_bytes = get_response.to_bytes();
 
                 trace!(

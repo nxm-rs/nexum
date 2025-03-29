@@ -56,8 +56,9 @@ apdu_pair! {
             variants {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
+                #[payload(field = "fci")]
                 Success {
-                    fci: Option<Vec<u8>>,
+                    fci: Vec<u8>,
                 },
 
                 /// File or application not found (6A82)
@@ -80,15 +81,6 @@ apdu_pair! {
                 }
             }
 
-            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
-                if let Self::Success { fci } = variant {
-                    if !payload.is_empty() {
-                        *fci = Some(payload.to_vec());
-                    }
-                }
-                Ok(())
-            }
-
             methods {
                 /// Returns true if the selection was successful
                 pub const fn is_success(&self) -> bool {
@@ -101,21 +93,21 @@ apdu_pair! {
                 }
 
                 /// Get the File Control Information if available
-                pub fn fci(&self) -> Option<&[u8]> {
+                pub fn fci(&self) -> &[u8] {
                     match self {
-                        Self::Success { fci } => fci.as_deref(),
-                        _ => None,
+                        Self::Success { fci } => fci.as_slice(),
+                        _ => &[],
                     }
                 }
 
                 /// Extract the application label from FCI if available
                 pub fn application_label(&self) -> Option<bytes::Bytes> {
-                    self.fci().and_then(|fci| crate::util::tlv::find_tlv_value(bytes::Bytes::copy_from_slice(fci), crate::constants::tags::APPLICATION_LABEL))
+                    crate::util::tlv::find_tlv_value(bytes::Bytes::copy_from_slice(self.fci()), crate::constants::tags::APPLICATION_LABEL)
                 }
 
                 /// Parse the FCI data into a structured format
                 pub fn parsed_fci(&self) -> Option<FciTemplate> {
-                    self.fci().and_then(|fci| parse_fci(fci).ok())
+                    parse_fci(self.fci()).ok()
                 }
             }
         }
@@ -262,12 +254,11 @@ mod tests {
 
         let response = SelectResponse::from_bytes(&response_data).unwrap();
         assert!(response.is_success());
-        assert_eq!(response.fci(), Some(fci_data.as_ref()));
+        assert_eq!(response.fci(), fci_data.as_slice());
 
         // Test file not found
         let response_data = hex!("6A82");
         let response = SelectResponse::from_bytes(&response_data).unwrap();
         assert!(response.is_not_found());
-        assert_eq!(response.fci(), None);
     }
 }

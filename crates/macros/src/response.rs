@@ -45,6 +45,8 @@ pub(crate) struct ResponseVariant {
     pub fields: Vec<Field>,
     /// Fields that capture SW1/SW2 values
     pub sw_fields: Vec<(String, bool)>, // (field_name, is_sw1)
+    /// Field to receive payload data (if any)
+    pub payload_field: Option<String>,
     /// Documentation attributes
     pub doc_attrs: Vec<Attribute>,
 }
@@ -53,8 +55,8 @@ pub(crate) struct ResponseVariant {
 pub(crate) struct ResponseDef {
     /// Variants in the response enum
     pub variants: Vec<ResponseVariant>,
-    /// Custom payload parser
-    pub payload_parser: Option<ExprClosure>,
+    /// Custom response parser
+    pub custom_parser: Option<ExprClosure>,
     /// Methods
     pub methods: Vec<ItemFn>,
 }
@@ -63,7 +65,7 @@ impl ResponseDef {
     /// Parse a response definition from a ParseStream
     pub(crate) fn parse<'a>(input: &'a ParseStream<'a>) -> syn::Result<Self> {
         let mut variants = Vec::new();
-        let mut payload_parser = None;
+        let mut custom_parser = None;
         let mut methods = Vec::new();
 
         // Parse each field in the response block
@@ -73,7 +75,6 @@ impl ResponseDef {
 
             match key_str.as_str() {
                 "variants" => {
-                    // Support both names for backward compatibility
                     // Parse enum response
                     let content;
                     braced!(content in input);
@@ -85,16 +86,23 @@ impl ResponseDef {
                         let _ = input.parse::<Token![,]>();
                     }
                 }
-                "parse_payload" => {
-                    // Parse custom payload parser
+                "custom_parse" => {
+                    // Parse custom parser
                     input.parse::<Token![=]>()?;
                     let parser: ExprClosure = input.parse()?;
-                    payload_parser = Some(parser);
+                    custom_parser = Some(parser);
 
                     // Try to parse comma if not at end
                     if !input.is_empty() {
                         let _ = input.parse::<Token![,]>();
                     }
+                }
+                "parse_payload" => {
+                    // Legacy parse_payload - generate a warning but ignore
+                    return Err(syn::Error::new(
+                        key.span(),
+                        "parse_payload is deprecated. Use custom_parse instead.",
+                    ));
                 }
                 "methods" => {
                     // Parse methods
@@ -130,7 +138,7 @@ impl ResponseDef {
 
         Ok(Self {
             variants,
-            payload_parser,
+            custom_parser,
             methods,
         })
     }
@@ -152,11 +160,15 @@ impl ResponseDef {
 
             // Look for sw attribute
             let mut sw_pattern = None;
+            let mut payload_field = None;
 
             for attr in &attrs {
                 if attr.path().is_ident("sw") {
                     // Parse SW pattern at the variant level
                     sw_pattern = Some(Self::parse_sw_attribute(attr)?);
+                } else if attr.path().is_ident("payload") {
+                    // Parse payload field attribute
+                    payload_field = Self::parse_payload_attribute(attr)?;
                 }
             }
 
@@ -199,13 +211,29 @@ impl ResponseDef {
                     // Check field name for sw1/sw2 convention
                     let name_str = name.to_string();
                     if name_str == "sw1" {
-                        sw_fields.push((name_str, true));
+                        sw_fields.push((name_str.clone(), true));
                     } else if name_str == "sw2" {
-                        sw_fields.push((name_str, false));
+                        sw_fields.push((name_str.clone(), false));
                     }
 
                     if !content.is_empty() {
                         content.parse::<Token![,]>()?;
+                    }
+                }
+
+                // Validate payload field name if specified
+                if let Some(ref field_name) = payload_field {
+                    if !fields
+                        .iter()
+                        .any(|f| f.ident.as_ref().map_or(false, |ident| ident == field_name))
+                    {
+                        return Err(syn::Error::new(
+                            variant_name.span(),
+                            format!(
+                                "Payload field '{}' not found in variant '{}'",
+                                field_name, variant_name
+                            ),
+                        ));
                     }
                 }
             }
@@ -220,6 +248,7 @@ impl ResponseDef {
                 sw_pattern,
                 fields,
                 sw_fields,
+                payload_field,
                 doc_attrs,
             });
 
@@ -229,6 +258,55 @@ impl ResponseDef {
         }
 
         Ok(variants)
+    }
+
+    /// Parse a payload field attribute
+    fn parse_payload_attribute(attr: &Attribute) -> syn::Result<Option<String>> {
+        // Check for #[payload(field = "name")]
+        let meta = &attr.meta;
+
+        match meta {
+            syn::Meta::List(list) => {
+                let nested_meta = syn::parse2::<syn::Meta>(quote::quote! { #list })?;
+
+                match nested_meta {
+                    syn::Meta::NameValue(nv) => {
+                        if nv.path.is_ident("field") {
+                            match &nv.value {
+                                syn::Expr::Lit(syn::ExprLit {
+                                    lit: syn::Lit::Str(lit_str),
+                                    ..
+                                }) => {
+                                    return Ok(Some(lit_str.value()));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+
+                // Try parsing in a more manual way
+                let content = list.tokens.to_string();
+                let field_str = "field = \"";
+                if let Some(start) = content.find(field_str) {
+                    let start = start + field_str.len();
+                    if let Some(end) = content[start..].find('\"') {
+                        let field_name = content[start..(start + end)].to_string();
+                        return Ok(Some(field_name));
+                    }
+                }
+
+                Err(syn::Error::new(
+                    list.span(),
+                    "Expected #[payload(field = \"field_name\")] format",
+                ))
+            }
+            _ => Err(syn::Error::new(
+                attr.span(),
+                "Expected #[payload(field = \"field_name\")] format",
+            )),
+        }
     }
 
     /// Parse a status word attribute
@@ -558,12 +636,33 @@ pub(crate) fn expand_response(
                 .iter()
                 .any(|(field_name, is_sw1)| field_name == &name_str && !*is_sw1);
 
+            // Check if this field is the payload field
+            let is_payload_field = v.payload_field.as_ref().map_or(false, |f| f == &name_str);
+
             if is_sw1_field {
                 // Capture SW1
                 quote! { #name: sw1 }
             } else if is_sw2_field {
                 // Capture SW2
                 quote! { #name: sw2 }
+            } else if is_payload_field {
+                // Handle payload field based on its type
+                let ty = &f.ty;
+                let ty_str = quote! { #ty }.to_string();
+
+                if ty_str.contains("Vec < u8 >") || ty_str.contains("bytes :: Bytes") {
+                    // For Vec<u8> or bytes::Bytes, copy the payload directly
+                    quote! { #name: payload.to_vec() }
+                } else if ty_str.contains("Option < Vec < u8 > >") || ty_str.contains("Option < bytes :: Bytes >") {
+                    // For Option<Vec<u8>> or Option<bytes::Bytes>, wrap in Some
+                    quote! { #name: if !payload.is_empty() { Some(payload.to_vec()) } else { None } }
+                } else if ty_str.contains("String") {
+                    // For String, try to convert from UTF-8
+                    quote! { #name: core::str::from_utf8(payload).unwrap_or_default().to_string() }
+                } else {
+                    // Default to basic copy for other types
+                    quote! { #name: Default::default() }
+                }
             } else {
                 // Regular field - initialize to default value
                 quote! { #name: Default::default() }
@@ -585,22 +684,24 @@ pub(crate) fn expand_response(
         }
     });
 
-    // Generate payload parsing code if a parser was provided
-    let payload_parsing = &response.payload_parser.as_ref().map_or_else(
-        || {
-            quote! {
-                // No custom parser, just use default values
-            }
-        },
-        |parser| {
-            quote! {
-                // Use the custom payload parser if provided
-                let status_word = nexum_apdu_core::StatusWord::new(sw1, sw2);
-                // Apply the custom parser
-                (#parser)(payload, status_word, &mut response)?;
-            }
-        },
-    );
+    // Custom parser code
+    let parsing_logic = if let Some(custom_parser) = &response.custom_parser {
+        // Use custom parser if provided
+        quote! {
+            let sw = nexum_apdu_core::StatusWord::new(sw1, sw2);
+            (#custom_parser)(payload, sw)
+        }
+    } else {
+        // Use default parsing based on SW matching and payload fields
+        quote! {
+            let response = match (sw1, sw2) {
+                #(#match_arms,)*
+                _ => return Err(nexum_apdu_core::Error::status(sw1, sw2)),
+            };
+
+            Ok(response)
+        }
+    };
 
     // Include all the user-defined methods
     let user_methods = &response.methods;
@@ -630,18 +731,8 @@ pub(crate) fn expand_response(
                     &[]
                 };
 
-                // Create the initial response variant based on status
-                let mut response = match (sw1, sw2) {
-                    #(#match_arms,)*
-                    _ => return Err(nexum_apdu_core::Error::status(sw1, sw2)),
-                };
-
-                // Apply custom payload parsing if payload is present
-                if !payload.is_empty() {
-                    #payload_parsing
-                }
-
-                Ok(response)
+                // Process the response using either custom or default parser
+                #parsing_logic
             }
 
             // Include all user-defined methods

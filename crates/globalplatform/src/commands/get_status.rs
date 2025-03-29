@@ -56,12 +56,14 @@ apdu_pair! {
         response {
             variants {
                 #[sw(status::SUCCESS)]
+                #[payload(field = "tlv_data")]
                 Success {
                     tlv_data: Vec<u8>,
                 },
 
                 /// More data available (61xx)
                 #[sw(0x61, _)]
+                #[payload(field = "tlv_data")]
                 MoreData {
                     sw2: u8,
                     tlv_data: Vec<u8>,
@@ -81,16 +83,6 @@ apdu_pair! {
                     sw1: u8,
                     sw2: u8,
                 }
-            }
-
-            parse_payload = |payload: &[u8], _sw: nexum_apdu_core::StatusWord, variant: &mut Self| -> Result<(), nexum_apdu_core::Error> {
-                match variant {
-                    Self::Success { tlv_data } | Self::MoreData { tlv_data, .. } => {
-                        tlv_data.extend_from_slice(payload);
-                    }
-                    _ => {}
-                }
-                Ok(())
             }
 
             methods {
