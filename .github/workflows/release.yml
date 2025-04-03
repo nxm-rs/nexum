@@ -1,0 +1,92 @@
+name: Release to crates.io
+
+on:
+    release:
+        types: [created]
+
+jobs:
+    publish:
+        name: Publish crates to crates.io
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache dependencies
+              uses: Swatinem/rust-cache@v2
+
+            - name: Extract version from tag
+              id: extract_version
+              run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+            - name: Verify version matches workspace version
+              run: |
+                  CARGO_VERSION=$(grep -m 1 'version = "' apdu/Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
+                  TAG_VERSION=${{ steps.extract_version.outputs.VERSION }}
+                  if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+                    echo "Error: Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
+                    exit 1
+                  fi
+
+            - name: Login to crates.io
+              run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+
+            # Publish crates in dependency order
+            - name: Publish nexum-apdu-core
+              working-directory: apdu/crates/core
+              run: |
+                  cargo publish --no-verify
+                  # Verify the crate is available before proceeding
+                  attempt=1
+                  max_attempts=10
+                  until cargo search nexum-apdu-core | grep -q "nexum-apdu-core = \"${{ steps.extract_version.outputs.VERSION }}\"" || [ $attempt -gt $max_attempts ]
+                  do
+                    echo "Waiting for nexum-apdu-core v${{ steps.extract_version.outputs.VERSION }} to be available on crates.io (attempt $attempt/$max_attempts)..."
+                    sleep 10
+                    attempt=$((attempt+1))
+                  done
+                  if [ $attempt -gt $max_attempts ]; then
+                    echo "Timed out waiting for nexum-apdu-core to be available on crates.io"
+                    exit 1
+                  fi
+
+            - name: Publish nexum-apdu-macros
+              working-directory: apdu/crates/macros
+              run: |
+                  cargo publish --no-verify
+                  # Verify the crate is available before proceeding
+                  attempt=1
+                  max_attempts=10
+                  until cargo search nexum-apdu-macros | grep -q "nexum-apdu-macros = \"${{ steps.extract_version.outputs.VERSION }}\"" || [ $attempt -gt $max_attempts ]
+                  do
+                    echo "Waiting for nexum-apdu-macros v${{ steps.extract_version.outputs.VERSION }} to be available on crates.io (attempt $attempt/$max_attempts)..."
+                    sleep 10
+                    attempt=$((attempt+1))
+                  done
+                  if [ $attempt -gt $max_attempts ]; then
+                    echo "Timed out waiting for nexum-apdu-macros to be available on crates.io"
+                    exit 1
+                  fi
+
+            - name: Publish nexum-apdu-transport-pcsc
+              working-directory: apdu/crates/pcsc
+              run: cargo publish --no-verify
+
+            - name: Publish nexum-apdu-globalplatform
+              working-directory: apdu/crates/globalplatform
+              run: cargo publish --no-verify
+
+            - name: Create summary
+              run: |
+                  echo "# Release Published! 🚀" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "Version: ${{ steps.extract_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "The following crates have been published to crates.io:" >> $GITHUB_STEP_SUMMARY
+                  echo "- nexum-apdu-core" >> $GITHUB_STEP_SUMMARY
+                  echo "- nexum-apdu-macros" >> $GITHUB_STEP_SUMMARY
+                  echo "- nexum-apdu-transport-pcsc" >> $GITHUB_STEP_SUMMARY
+                  echo "- nexum-apdu-globalplatform" >> $GITHUB_STEP_SUMMARY
