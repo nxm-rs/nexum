@@ -15,6 +15,5 @@ pre-release-hook = [
     "-c",
     "$WORKSPACE_ROOT/scripts/changelog.sh --tag v{{version}}",
 ]
-publish-order = ["nexum-apdu-core", "nexum-apdu-macros", "nexum-apdu-transport-pcsc", "nexum-apdu-globalplatform"]
 owners = ["github:nullisxyz:core"]
 rate-limit.existing-packages = 50
