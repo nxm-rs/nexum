@@ -31,7 +31,7 @@ jobs:
             - name: Generate release notes
               run: |
                   # Generate release notes for this specific tag
-                  git cliff --tag v${{ steps.tag_parser.outputs.VERSION }} --strip header > release_notes.md
+                  git cliff --tag v${{ steps.tag_parser.outputs.VERSION }} --output release_notes.md --strip-header
 
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v1

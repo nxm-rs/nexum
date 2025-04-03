@@ -1,4 +1,4 @@
-name: Prepare and Publish Release
+name: Release
 
 on:
     workflow_dispatch:
@@ -17,9 +17,6 @@ on:
                     - minor
                     - major
                     - release
-                    - rc
-                    - beta
-                    - alpha
             dry-run:
                 description: "Dry run (no actual changes)"
                 required: false
@@ -28,6 +25,8 @@ on:
 
 permissions:
     contents: write # For git push, creating tags
+    pull-requests: write # For creating PRs (if needed)
+    packages: write # For publishing packages (if needed)
 
 jobs:
     release:
@@ -38,6 +37,7 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+                  # Use the built-in token which inherits permissions from the workflow
                   token: ${{ github.token }}
 
             - name: Install Rust
@@ -58,30 +58,122 @@ jobs:
               uses: orhun/git-cliff-action@v2
               with:
                   config: cliff.toml
-                  args: --verbose
+                  args: --verbose --unreleased
 
-            - name: Build version arguments
-              id: version_args
+            - name: Create initial CHANGELOG if it doesn't exist
+              run: |
+                  if [ ! -f "CHANGELOG.md" ]; then
+                    cat > CHANGELOG.md << 'EOL'
+                    # Changelog
+
+                    All notable changes to this project will be documented in this file.
+
+                    The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+                    and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+                    ## [Unreleased]
+
+                    ### Features
+                    - Initial release
+                    EOL
+                  fi
+
+            - name: Prepare version info
+              id: version_info
               run: |
                   if [ "${{ inputs.version }}" != "" ]; then
                     # Manual version
+                    echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
                     echo "VERSION_ARG=--version ${{ inputs.version }}" >> $GITHUB_OUTPUT
                   else
                     # Use level
-                    echo "VERSION_ARG=--${{ inputs.level }}" >> $GITHUB_OUTPUT
+                    echo "VERSION_ARG=${{ inputs.level }}" >> $GITHUB_OUTPUT
+
+                    # Calculate next version
+                    CURRENT_VERSION=$(grep -m 1 'version = "' Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
+                    if [ "${{ inputs.level }}" = "patch" ]; then
+                      IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                      NEXT_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$((VERSION_PARTS[2] + 1))"
+                    elif [ "${{ inputs.level }}" = "minor" ]; then
+                      IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                      NEXT_VERSION="${VERSION_PARTS[0]}.$((VERSION_PARTS[1] + 1)).0"
+                    elif [ "${{ inputs.level }}" = "major" ]; then
+                      IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                      NEXT_VERSION="$((VERSION_PARTS[0] + 1)).0.0"
+                    else
+                      NEXT_VERSION="$CURRENT_VERSION"
+                    fi
+                    echo "VERSION=$NEXT_VERSION" >> $GITHUB_OUTPUT
                   fi
 
                   if [ "${{ inputs.dry-run }}" = "true" ]; then
-                    echo "DRY_RUN_ARG=--dry-run" >> $GITHUB_OUTPUT
+                    echo "IS_DRY_RUN=true" >> $GITHUB_OUTPUT
                   else
-                    echo "DRY_RUN_ARG=" >> $GITHUB_OUTPUT
+                    echo "IS_DRY_RUN=false" >> $GITHUB_OUTPUT
                   fi
 
-            - name: Run cargo release
+            - name: Update CHANGELOG for release
+              env:
+                  WORKSPACE_ROOT: ${{ github.workspace }}
+              run: |
+                  VERSION="${{ steps.version_info.outputs.VERSION }}"
+                  # Update changelog with the new version
+                  if [ -f "scripts/changelog.sh" ]; then
+                    chmod +x scripts/changelog.sh
+                    ./scripts/changelog.sh --tag "v$VERSION"
+                  else
+                    git cliff --tag "v$VERSION" --output CHANGELOG.md --unreleased
+                  fi
+
+            - name: Release process (Dry Run)
+              if: ${{ steps.version_info.outputs.IS_DRY_RUN == 'true' }}
+              env:
+                  CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+                  WORKSPACE_ROOT: ${{ github.workspace }}
+              run: |
+                  echo "Dry run - version bump to ${{ steps.version_info.outputs.VERSION }}"
+
+                  # Run individual commands in dry-run mode
+                  cargo release version ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --no-confirm
+                  cargo release replace --workspace
+                  cargo release hook --workspace
+                  cargo release commit --workspace
+                  cargo release publish --workspace
+                  cargo release tag --workspace
+                  cargo release push --workspace
+
+            - name: Release process (Execute)
+              if: ${{ steps.version_info.outputs.IS_DRY_RUN == 'false' }}
               env:
                   CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
                   WORKSPACE_ROOT: ${{ github.workspace }}
                   GIT_CREDENTIALS: https://x-access-token:${{ github.token }}@github.com
               run: |
-                  echo "Running cargo release with args: ${{ steps.version_args.outputs.VERSION_ARG }} ${{ steps.version_args.outputs.DRY_RUN_ARG }}"
-                  cargo release ${{ steps.version_args.outputs.VERSION_ARG }} ${{ steps.version_args.outputs.DRY_RUN_ARG }} --execute
+                  echo "Releasing version ${{ steps.version_info.outputs.VERSION }}"
+
+                  # Execute individual commands to ensure they run
+                  cargo release version ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --execute --no-confirm
+                  cargo release replace --workspace --execute
+                  cargo release hook --workspace --execute
+                  cargo release commit --workspace --execute
+                  cargo release publish --workspace --execute
+                  cargo release tag --workspace --execute
+                  cargo release push --workspace --execute
+
+            - name: Create summary
+              run: |
+                  echo "# Release Process Completed! 🚀" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  if [ "${{ steps.version_info.outputs.IS_DRY_RUN }}" == "true" ]; then
+                    echo "**DRY RUN**: No actual changes were made" >> $GITHUB_STEP_SUMMARY
+                  else
+                    echo "Version: ${{ steps.version_info.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "The following actions were completed:" >> $GITHUB_STEP_SUMMARY
+                    echo "- Version bumped to ${{ steps.version_info.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+                    echo "- CHANGELOG.md updated" >> $GITHUB_STEP_SUMMARY
+                    echo "- Changes committed" >> $GITHUB_STEP_SUMMARY
+                    echo "- Crates published to crates.io" >> $GITHUB_STEP_SUMMARY
+                    echo "- Git tag created" >> $GITHUB_STEP_SUMMARY
+                    echo "- Changes pushed to GitHub" >> $GITHUB_STEP_SUMMARY
+                  fi
