@@ -34,6 +34,7 @@ pub(crate) struct SwAnnotation {
 }
 
 /// Response variant
+#[derive(Clone)]
 pub(crate) struct ResponseVariant {
     /// Variant name
     pub name: Ident,
@@ -47,12 +48,18 @@ pub(crate) struct ResponseVariant {
     pub payload_field: Option<String>,
     /// Documentation attributes
     pub doc_attrs: Vec<Attribute>,
+    /// Error message for error variants
+    pub error_attr: Option<Attribute>,
+    /// Whether this is an error variant
+    pub is_error: bool,
 }
 
 /// Response definition parsed from the `response` block
 pub(crate) struct ResponseDef {
-    /// Variants in the response enum
-    pub variants: Vec<ResponseVariant>,
+    /// Ok variants in the response enum
+    pub ok_variants: Vec<ResponseVariant>,
+    /// Error variants in the response enum
+    pub error_variants: Vec<ResponseVariant>,
     /// Custom response parser
     pub custom_parser: Option<ExprClosure>,
     /// Methods
@@ -62,7 +69,8 @@ pub(crate) struct ResponseDef {
 impl ResponseDef {
     /// Parse a response definition from a ParseStream
     pub(crate) fn parse<'a>(input: &'a ParseStream<'a>) -> syn::Result<Self> {
-        let mut variants = Vec::new();
+        let mut ok_variants = Vec::new();
+        let mut error_variants = Vec::new();
         let mut custom_parser = None;
         let mut methods = Vec::new();
 
@@ -72,17 +80,38 @@ impl ResponseDef {
             let key_str = key.to_string();
 
             match key_str.as_str() {
-                "variants" => {
-                    // Parse enum response
+                "ok" => {
+                    // Parse ok variants (success responses)
                     let content;
                     braced!(content in input);
 
-                    variants = Self::parse_variants(&&content)?;
+                    let parsed_variants = Self::parse_variants(&&content, false)?;
+                    ok_variants.extend(parsed_variants);
 
                     // Try to parse comma if not at end
                     if !input.is_empty() {
                         let _ = input.parse::<Token![,]>();
                     }
+                }
+                "errors" => {
+                    // Parse error variants
+                    let content;
+                    braced!(content in input);
+
+                    let parsed_variants = Self::parse_variants(&&content, true)?;
+                    error_variants.extend(parsed_variants);
+
+                    // Try to parse comma if not at end
+                    if !input.is_empty() {
+                        let _ = input.parse::<Token![,]>();
+                    }
+                }
+                "variants" => {
+                    // Legacy variants section - provide a helpful error
+                    return Err(syn::Error::new(
+                        key.span(),
+                        "The 'variants' section is no longer supported. Use 'ok' and 'errors' sections instead.",
+                    ));
                 }
                 "custom_parse" => {
                     // Parse custom parser
@@ -126,23 +155,27 @@ impl ResponseDef {
             }
         }
 
-        // Ensure variants are specified
-        if variants.is_empty() {
+        // Ensure at least one of ok or errors is specified
+        if ok_variants.is_empty() && error_variants.is_empty() {
             return Err(syn::Error::new(
                 Span::call_site(),
-                "Response must have 'variants' section with at least one variant",
+                "Response must have at least one variant in either 'ok' or 'errors' section",
             ));
         }
 
         Ok(Self {
-            variants,
+            ok_variants,
+            error_variants,
             custom_parser,
             methods,
         })
     }
 
     /// Parse variants for an enum response
-    fn parse_variants<'a>(input: &'a ParseStream<'a>) -> syn::Result<Vec<ResponseVariant>> {
+    fn parse_variants<'a>(
+        input: &'a ParseStream<'a>,
+        is_error: bool,
+    ) -> syn::Result<Vec<ResponseVariant>> {
         let mut variants = Vec::new();
 
         while !input.is_empty() {
@@ -156,9 +189,10 @@ impl ResponseDef {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            // Look for sw attribute
+            // Look for sw attribute and error attribute
             let mut sw_pattern = None;
             let mut payload_field = None;
+            let mut error_message = None;
 
             for attr in &attrs {
                 if attr.path().is_ident("sw") {
@@ -167,6 +201,9 @@ impl ResponseDef {
                 } else if attr.path().is_ident("payload") {
                     // Parse payload field attribute
                     payload_field = Self::parse_payload_attribute(attr)?;
+                } else if attr.path().is_ident("error") && is_error {
+                    // Parse error message attribute for error variants
+                    error_message = Self::parse_error_attribute(attr)?;
                 }
             }
 
@@ -241,6 +278,14 @@ impl ResponseDef {
                 syn::Error::new(variant_name.span(), "Missing #[sw] attribute for variant")
             })?;
 
+            // For error variants, ensure we have an error message unless it's a struct variant
+            if is_error && error_message.is_none() && fields.is_empty() {
+                return Err(syn::Error::new(
+                    variant_name.span(),
+                    "Error variants must have an #[error(\"message\")] attribute",
+                ));
+            }
+
             variants.push(ResponseVariant {
                 name: variant_name,
                 sw_pattern,
@@ -248,6 +293,8 @@ impl ResponseDef {
                 sw_fields,
                 payload_field,
                 doc_attrs,
+                error_attr: error_message,
+                is_error,
             });
 
             if !input.is_empty() {
@@ -298,6 +345,29 @@ impl ResponseDef {
             _ => Err(syn::Error::new(
                 attr.span(),
                 "Expected #[payload(field = \"field_name\")] format",
+            )),
+        }
+    }
+
+    /// Parse an error message attribute
+    fn parse_error_attribute(attr: &Attribute) -> syn::Result<Option<Attribute>> {
+        // Just validate the attribute is formatted correctly
+        let meta = &attr.meta;
+        match meta {
+            syn::Meta::List(list) => {
+                if syn::parse2::<syn::LitStr>(list.tokens.clone()).is_ok() {
+                    // It's valid, return the original attribute
+                    Ok(Some(attr.clone()))
+                } else {
+                    Err(syn::Error::new(
+                        list.span(),
+                        "Expected #[error(\"message\")] format",
+                    ))
+                }
+            }
+            _ => Err(syn::Error::new(
+                attr.span(),
+                "Expected #[error(\"message\")] format",
             )),
         }
     }
@@ -358,7 +428,7 @@ impl ResponseDef {
                 }
                 _ => {
                     // Special handling for underscore
-                    if let Some(lit) = extract_token_str(tokens) {
+                    if let Some(lit) = Self::extract_token_str(tokens) {
                         if lit == "_" {
                             return Ok(SwAnnotation {
                                 sw1: SwPattern::Any,
@@ -377,7 +447,7 @@ impl ResponseDef {
         }
 
         // Last resort: Try to manually parse as comma-separated values
-        if let Some(lit) = extract_token_str(tokens) {
+        if let Some(lit) = Self::extract_token_str(tokens) {
             let parts: Vec<&str> = lit.split(',').map(|s| s.trim()).collect();
 
             if parts.len() == 2 {
@@ -511,30 +581,44 @@ impl ResponseDef {
             )),
         }
     }
-}
 
-/// Extract a token string for fallback parsing
-fn extract_token_str(tokens: &TokenStream) -> Option<String> {
-    let s = tokens.to_string();
-    let s = s.trim();
+    /// Extract a token string for fallback parsing
+    fn extract_token_str(tokens: &TokenStream) -> Option<String> {
+        let s = tokens.to_string();
+        let s = s.trim();
 
-    // Remove outer parentheses if present
-    if s.starts_with('(') && s.ends_with(')') {
-        Some(s[1..s.len() - 1].to_string())
-    } else {
-        Some(s.to_string())
+        // Remove outer parentheses if present
+        if s.starts_with('(') && s.ends_with(')') {
+            Some(s[1..s.len() - 1].to_string())
+        } else {
+            Some(s.to_string())
+        }
     }
 }
 
-/// Expand a response definition into an enum
+/// Expand a response definition into appropriate enums and implementations
 pub(crate) fn expand_response(
     response: &ResponseDef,
     vis: &Visibility,
     response_name: &Ident,
     _command_name: &Ident,
-) -> Result<TokenStream, syn::Error> {
-    // Create variants for the enum
-    let enum_variants = response.variants.iter().map(|v| {
+) -> Result<(TokenStream, Ident, Ident, Ident), syn::Error> {
+    // Generate the base name for the Ok and Error enums
+    let struct_base = response_name
+        .to_string()
+        .trim_end_matches("Response")
+        .to_string();
+    let ok_enum_name = Ident::new(&format!("{}Ok", struct_base), Span::call_site());
+    let error_enum_name = Ident::new(&format!("{}Error", struct_base), Span::call_site());
+    let result_type_name = Ident::new(&format!("{}Result", struct_base), Span::call_site());
+
+    // Collect all variants for the main response enum
+    let mut all_variants = Vec::new();
+    all_variants.extend(response.ok_variants.clone());
+    all_variants.extend(response.error_variants.clone());
+
+    // Generate variants for the main response enum
+    let enum_variants = all_variants.iter().map(|v| {
         let name = &v.name;
         let fields = &v.fields;
         let doc_attrs = &v.doc_attrs;
@@ -552,8 +636,55 @@ pub(crate) fn expand_response(
         }
     });
 
+    // Generate variants for the Ok enum
+    let ok_variants = response.ok_variants.iter().map(|v| {
+        let name = &v.name;
+        let fields = &v.fields;
+        let doc_attrs = &v.doc_attrs;
+
+        if fields.is_empty() {
+            quote! {
+                #(#doc_attrs)*
+                #name
+            }
+        } else {
+            quote! {
+                #(#doc_attrs)*
+                #name { #(#fields,)* }
+            }
+        }
+    });
+
+    // Generate variants for the Error enum
+    let error_variants = response.error_variants.iter().map(|v| {
+        let name = &v.name;
+        let fields = &v.fields;
+        let doc_attrs = &v.doc_attrs;
+
+        // Add #[error("message")] attribute for thiserror
+        let error_attrs = if let Some(ref error_attr) = v.error_attr {
+            quote! { #error_attr }
+        } else {
+            quote! {}
+        };
+
+        if fields.is_empty() {
+            quote! {
+                #(#doc_attrs)*
+                #error_attrs
+                #name
+            }
+        } else {
+            quote! {
+                #(#doc_attrs)*
+                #error_attrs
+                #name { #(#fields,)* }
+            }
+        }
+    });
+
     // Generate match arms for from_bytes
-    let match_arms = response.variants.iter().map(|v| {
+    let match_arms = all_variants.iter().map(|v| {
         let name = &v.name;
         let sw_pattern = &v.sw_pattern;
 
@@ -667,6 +798,40 @@ pub(crate) fn expand_response(
         }
     });
 
+    // Generate to_result() match arms to convert from Response to Result<Ok, Error>
+    let to_result_arms = all_variants.iter().map(|v| {
+        let name = &v.name;
+        let is_error = v.is_error;
+
+        if v.fields.is_empty() {
+            // Handle unit variants
+            if is_error {
+                quote! {
+                    #response_name::#name => Err(#error_enum_name::#name)
+                }
+            } else {
+                quote! {
+                    #response_name::#name => Ok(#ok_enum_name::#name)
+                }
+            }
+        } else {
+            // Handle struct variants
+            let field_names: Vec<_> = v.fields.iter()
+                .map(|f| f.ident.as_ref().unwrap())
+                .collect();
+
+            if is_error {
+                quote! {
+                    #response_name::#name { #(#field_names,)* } => Err(#error_enum_name::#name { #(#field_names,)* })
+                }
+            } else {
+                quote! {
+                    #response_name::#name { #(#field_names,)* } => Ok(#ok_enum_name::#name { #(#field_names,)* })
+                }
+            }
+        }
+    });
+
     // Custom parser code
     let parsing_logic = &response.custom_parser.as_ref().map_or_else(|| quote! {
         let response = match (sw1, sw2) {
@@ -683,12 +848,28 @@ pub(crate) fn expand_response(
     // Include all the user-defined methods
     let user_methods = &response.methods;
 
+    // Generate the code
     let tokens = quote! {
         /// APDU response
         #[derive(Debug, Clone)]
         #vis enum #response_name {
             #(#enum_variants,)*
         }
+
+        /// Successful response variants
+        #[derive(Debug, Clone)]
+        #vis enum #ok_enum_name {
+            #(#ok_variants,)*
+        }
+
+        /// Error response variants
+        #[derive(Debug, Clone, thiserror::Error)]
+        #vis enum #error_enum_name {
+            #(#error_variants,)*
+        }
+
+        /// Type alias for Result with the appropriate success and error types
+        #vis type #result_type_name = Result<#ok_enum_name, #error_enum_name>;
 
         impl #response_name {
             /// Parse response from raw bytes
@@ -710,6 +891,13 @@ pub(crate) fn expand_response(
                 #parsing_logic
             }
 
+            /// Convert the response to a Result
+            pub fn to_result(self) -> #result_type_name {
+                match self {
+                    #(#to_result_arms,)*
+                }
+            }
+
             // Include all user-defined methods
             #(#user_methods)*
         }
@@ -721,7 +909,21 @@ pub(crate) fn expand_response(
                 Self::from_bytes(&bytes)
             }
         }
+
+        impl From<#response_name> for #result_type_name {
+            fn from(response: #response_name) -> Self {
+                response.to_result()
+            }
+        }
+
+        impl From<#error_enum_name> for nexum_apdu_core::Error {
+            fn from(err: #error_enum_name) -> Self {
+                nexum_apdu_core::Error::Response(
+                    nexum_apdu_core::response::error::ResponseError::Message(err.to_string())
+                )
+            }
+        }
     };
 
-    Ok(tokens)
+    Ok((tokens, ok_enum_name, error_enum_name, result_type_name))
 }

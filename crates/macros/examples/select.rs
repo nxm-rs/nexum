@@ -1,8 +1,7 @@
-#![allow(missing_docs)]
-//! Example of using the apdu_pair macro to define a Select command with custom parsing
+//! Example of using the apdu_pair macro with the new Result-based API for Select command
 
-use iso7816_tlv::simple::Tlv;
-use nexum_apdu_core::{ApduCommand, Bytes, StatusWord, response::error::ResponseError};
+use bytes::Bytes;
+use nexum_apdu_core::ApduCommand;
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -32,86 +31,46 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 // Normal success (90 00)
                 #[sw(0x90, 0x00)]
                 #[payload(field = "fci")]
-                Success {
-                    fci: Option<Vec<u8>>,
-                },
+                Selected {
+                    fci: Vec<u8>,
+                }
+            }
 
+            errors {
                 // File or application not found (6A 82)
                 #[sw(0x6A, 0x82)]
+                #[error("File or application not found")]
                 NotFound,
 
                 // Incorrect parameters P1-P2 (6A 86)
                 #[sw(0x6A, 0x86)]
+                #[error("Incorrect parameters P1-P2")]
                 IncorrectParameters,
 
                 // Unknown error
                 #[sw(_, _)]
+                #[error("Unknown error: {sw1:02X}{sw2:02X}")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,
                 }
             }
 
-            // Define custom parser
-            custom_parse = |payload: &[u8], sw: StatusWord| -> Result<SelectResponse, ResponseError> {
-                match (sw.sw1, sw.sw2) {
-                    (0x90, 0x00) => {
-                        if payload.is_empty() {
-                            Ok(SelectResponse::Success { fci: None })
-                        } else {
-                            // Validate FCI format
-                            if payload[0] != 0x6F {
-                                return Err(ResponseError::Parse("Invalid FCI format"));
-                            }
-                            Ok(SelectResponse::Success { fci: Some(payload.to_vec()) })
-                        }
-                    },
-                    (0x6A, 0x82) => Ok(SelectResponse::NotFound),
-                    (0x6A, 0x86) => Ok(SelectResponse::IncorrectParameters),
-                    (sw1, sw2) => Ok(SelectResponse::OtherError { sw1, sw2 }),
-                }
-            }
-
             methods {
                 /// Returns true if selection was successful
                 pub fn is_selected(&self) -> bool {
-                    matches!(self, Self::Success { .. })
+                    matches!(self, Self::Selected { .. })
                 }
 
-                /// Get the application label if present in FCI
-                pub fn application_label(&self) -> Option<Vec<u8>> {
-                    if let Self::Success { fci: Some(data) } = self {
-                        let mut remaining = data.as_slice();
-                        while !remaining.is_empty() {
-                            let (tlv_result, next_remaining) = Tlv::parse(remaining);
-                            match tlv_result {
-                                Ok(tlv) => {
-                                    // Explicitly specify the type for the comparison
-                                    if <iso7816_tlv::simple::Tag as Into<u8>>::into(tlv.tag()) == 0x50 {
-                                        return Some(tlv.value().to_owned());
-                                    }
-                                    remaining = next_remaining;
-                                },
-                                Err(_) => break,
-                            }
-                        }
-                        None
-                    } else {
-                        None
-                    }
-                }
-
-                /// Get the status word
-                pub fn status_word(&self) -> StatusWord {
+                /// Get the File Control Information if available
+                pub fn fci(&self) -> Option<&Vec<u8>> {
                     match self {
-                        Self::Success { .. } => StatusWord::new(0x90, 0x00),
-                        Self::NotFound { .. } => StatusWord::new(0x6A, 0x82),
-                        Self::IncorrectParameters { .. } => StatusWord::new(0x6A, 0x86),
-                        Self::OtherError { sw1, sw2 } => StatusWord::new(*sw1, *sw2),
+                        Self::Selected { fci } => Some(fci),
+                        _ => None,
                     }
                 }
             }
@@ -120,8 +79,9 @@ apdu_pair! {
 }
 
 fn main() {
-    // Example usage of the generated code:
-    let select_cmd = SelectCommand::by_name([0xA0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00].as_slice());
+    // Create a command to select a payment application
+    let aid = [0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10];
+    let select_cmd = SelectCommand::by_name(aid.to_vec());
 
     println!(
         "Select command: CLA={:#04x}, INS={:#04x}, P1={:#04x}, P2={:#04x}",
@@ -131,12 +91,68 @@ fn main() {
         select_cmd.p2()
     );
 
-    // In a real application, you would use an executor to send the command:
-    // let response = executor.execute(&select_cmd).unwrap();
-    // if response.is_selected() {
-    //     println!("Application selected successfully!");
-    //     if let Some(label) = response.application_label() {
-    //         println!("Application label: {:?}", label);
-    //     }
-    // }
+    // Simulate a successful response
+    let fci_data = [
+        0x6F, 0x10, 0x84, 0x08, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x00, 0xA5, 0x04, 0x9F,
+        0x38, 0x01, 0x00,
+    ];
+    let response_bytes = Bytes::from([&fci_data[..], &[0x90, 0x00]].concat());
+
+    let response = SelectResponse::from_bytes(&response_bytes).expect("Failed to parse response");
+
+    // Old way
+    if response.is_selected() {
+        println!("Application selected successfully!");
+        if let Some(fci) = response.fci() {
+            println!("FCI: {:02X?}", fci);
+        }
+    }
+
+    // New Result-based way
+    match response.to_result() {
+        Ok(ok) => match ok {
+            SelectOk::Selected { fci } => {
+                println!("Application selected successfully (via Result)!");
+                println!("FCI data: {:02X?}", fci);
+            }
+        },
+        Err(err) => {
+            println!("Selection failed: {}", err);
+        }
+    }
+
+    // Example function that uses the Result type alias
+    fn select_application(_aid: &[u8]) -> SelectResult {
+        // In a real application, this would use an executor
+        // For example: executor.execute(&SelectCommand::by_name(aid))?.into()
+
+        // Here we'll just simulate a response
+        let fci_data = [
+            0x6F, 0x10, 0x84, 0x08, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x00, 0xA5, 0x04,
+            0x9F, 0x38, 0x01, 0x00,
+        ];
+        let response_bytes = Bytes::from([&fci_data[..], &[0x90, 0x00]].concat());
+
+        let response =
+            SelectResponse::from_bytes(&response_bytes).map_err(|_| SelectError::OtherError {
+                sw1: 0x6F,
+                sw2: 0x00,
+            })?;
+
+        // Convert to Result - this allows us to use ? for error propagation
+        response.into()
+    }
+
+    // Usage of our helper function
+    match select_application(&aid) {
+        Ok(ok) => match ok {
+            SelectOk::Selected { fci } => {
+                println!("Application selected via helper function!");
+                println!("FCI length: {} bytes", fci.len());
+            }
+        },
+        Err(err) => {
+            println!("Selection via helper function failed: {}", err);
+        }
+    }
 }

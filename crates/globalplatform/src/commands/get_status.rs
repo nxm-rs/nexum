@@ -54,7 +54,7 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 #[sw(status::SUCCESS)]
                 #[payload(field = "tlv_data")]
                 Success {
@@ -68,17 +68,22 @@ apdu_pair! {
                     sw2: u8,
                     tlv_data: Vec<u8>,
                 },
+            }
 
+            errors {
                 /// Referenced data not found (6A88)
                 #[sw(status::REFERENCED_DATA_NOT_FOUND)]
+                #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
                 /// Security condition not satisfied (6982)
                 #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
+                #[error("Security condition not satisfied")]
                 SecurityConditionNotSatisfied,
 
                 /// Other error
                 #[sw(_, _)]
+                #[error("Other error")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,

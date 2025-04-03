@@ -67,7 +67,7 @@ des = { version = "0.8", default-features = false }
 block-padding = { version = "0.4.0-rc.3" }
 zeroize = { version = "1.8", features = ["derive"] }
 
-zip = { version = "2.2", default-features = false }
+zip = { version = "2.5", default-features = false }
 
 # For tests and examples
 rand = "0.9"

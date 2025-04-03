@@ -31,7 +31,7 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
                 Success {
@@ -41,17 +41,22 @@ apdu_pair! {
                     card_challenge: [u8; 6],
                     card_cryptogram: [u8; 8],
                 },
+            }
 
+            errors {
                 /// Security condition not satisfied (6982)
                 #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
+                #[error("Security condition not satisfied")]
                 SecurityConditionNotSatisfied,
 
                 /// Authentication method blocked (6983)
                 #[sw(status::AUTHENTICATION_METHOD_BLOCKED)]
+                #[error("Authentication method blocked")]
                 AuthenticationMethodBlocked,
 
                 /// Other error
                 #[sw(_, _)]
+                #[error("Other error")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,

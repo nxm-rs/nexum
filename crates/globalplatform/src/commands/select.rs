@@ -53,28 +53,34 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
                 #[payload(field = "fci")]
                 Success {
                     fci: Vec<u8>,
                 },
+            }
 
+            errors {
                 /// File or application not found (6A82)
                 #[sw(status::FILE_NOT_FOUND)]
+                #[error("File or application not found")]
                 NotFound,
 
                 /// Security condition not satisfied (6982)
                 #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
+                #[error("Security condition not satisfied")]
                 SecurityConditionNotSatisfied,
 
                 /// Incorrect parameters (6A86)
                 #[sw(status::COMMAND_NOT_ALLOWED)]
+                #[error("Incorrect parameters")]
                 IncorrectParameters,
 
                 /// Other error
                 #[sw(_, _)]
+                #[error("Other error")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,

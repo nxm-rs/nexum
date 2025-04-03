@@ -33,25 +33,31 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
                 Success,
+            }
 
+            errors {
                 /// Security condition not satisfied (6982)
                 #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
+                #[error("Security condition not satisfied")]
                 SecurityConditionNotSatisfied,
 
                 /// Wrong data length (6700)
                 #[sw(status::WRONG_LENGTH)]
+                #[error("Wrong data length")]
                 WrongDataLength,
 
                 /// File not found (6A82)
                 #[sw(status::FILE_NOT_FOUND)]
+                #[error("File not found")]
                 FileNotFound,
 
                 /// Other error
                 #[sw(_, _)]
+                #[error("Other error")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,

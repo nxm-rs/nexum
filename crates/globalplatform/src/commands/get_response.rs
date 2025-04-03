@@ -24,7 +24,7 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 /// Success response (9000)
                 #[sw(status::SUCCESS)]
                 #[payload(field = "data")]
@@ -39,13 +39,17 @@ apdu_pair! {
                     sw2: u8, // remaining
                     data: Vec<u8>,
                 },
+            }
 
+            errors {
                 /// Wrong length (6700)
                 #[sw(status::WRONG_LENGTH)]
+                #[error("Wrong length")]
                 WrongLength,
 
                 /// Other error
                 #[sw(_, _)]
+                #[error("Other error")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,

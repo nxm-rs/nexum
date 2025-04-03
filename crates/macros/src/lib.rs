@@ -49,26 +49,25 @@ use utils::error_tokens;
 ///         }
 ///
 ///         response {
-///             variants {
+///             ok {
 ///                 #[sw(0x90, 0x00)]
 ///                 #[payload(field = "fci")]
-///                 Success {
+///                 Selected {
 ///                     fci: Option<Vec<u8>>,
-///                 },
+///                 }
+///             }
 ///
+///             errors {
 ///                 #[sw(0x6A, 0x82)]
+///                 #[error("File not found")]
 ///                 NotFound,
 ///
 ///                 #[sw(_, _)]
+///                 #[error("Other error: {sw1:02X}{sw2:02X}")]
 ///                 OtherError {
 ///                     sw1: u8,
 ///                     sw2: u8,
 ///                 }
-///             }
-///
-///             custom_parse = |payload, sw| -> Result<Self, nexum_apdu_core::Error> {
-///                 // Custom parsing logic here
-///                 Ok(Self::Success { fci: None })
 ///             }
 ///
 ///             methods {
@@ -158,7 +157,8 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         command::expand_command(&pair.command, &pair.vis, &command_name, &response_name)
             .map_err(|e| error_tokens("Error expanding command", e))?;
 
-    let response_tokens =
+    // Get the response tokens and associated type names
+    let (response_tokens, ok_name, error_name, result_name) =
         response::expand_response(&pair.response, &pair.vis, &response_name, &command_name)
             .map_err(|e| error_tokens("Error expanding response", e))?;
 
@@ -175,6 +175,6 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
             #response_tokens
         }
 
-        pub use #module_name::{#command_name, #response_name};
+        pub use #module_name::{#command_name, #response_name, #ok_name, #error_name, #result_name};
     })
 }

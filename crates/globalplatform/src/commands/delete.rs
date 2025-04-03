@@ -36,21 +36,26 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 /// Success in deleting the object
                 #[sw(0x90, 0x00)]
                 Success,
+            }
 
+            errors {
                 /// Referenced data not found
                 #[sw(status::REFERENCED_DATA_NOT_FOUND)]
+                #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
                 /// Security condition not satisfied
                 #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
+                #[error("Security condition not satisfied")]
                 SecurityConditionNotSatisfied,
 
                 /// Other error
                 #[sw(_, _)]
+                #[error("Other error")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,
