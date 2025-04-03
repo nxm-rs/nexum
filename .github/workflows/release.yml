@@ -55,10 +55,7 @@ jobs:
               run: cargo install cargo-release
 
             - name: Install git-cliff
-              uses: orhun/git-cliff-action@v2
-              with:
-                  config: cliff.toml
-                  args: --verbose --unreleased
+              run: cargo install git-cliff
 
             - name: Prepare version info
               id: version_info
@@ -104,7 +101,7 @@ jobs:
                     chmod +x scripts/changelog.sh
                     ./scripts/changelog.sh --tag "v$VERSION"
                   else
-                    git-cliff --tag "v$VERSION" --output CHANGELOG.md --unreleased
+                    git cliff --tag "v$VERSION" --output CHANGELOG.md --unreleased
                   fi
 
             - name: Release process (Dry Run)
