@@ -38,10 +38,10 @@ cargo.features = ["all"]
 
 [workspace.dependencies]
 # apdu crates
-nexum-apdu-core = { path = "crates/core" }
-nexum-apdu-macros = { path = "crates/macros" }
-nexum-apdu-globalplatform = { path = "crates/globalplatform" }
-nexum-apdu-transport-pcsc = { path = "crates/pcsc" }
+nexum-apdu-core = { version = "0.1.0", path = "crates/core" }
+nexum-apdu-macros = { version = "0.1.0", path = "crates/macros" }
+nexum-apdu-globalplatform = { version = "0.1.0", path = "crates/globalplatform" }
+nexum-apdu-transport-pcsc = { version = "0.1.0", path = "crates/pcsc" }
 
 ## pcsc
 pcsc = { version = "2.9.0", default-features = false }
