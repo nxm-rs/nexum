@@ -24,7 +24,8 @@ jobs:
 
             - name: Verify version matches workspace version
               run: |
-                  CARGO_VERSION=$(grep -m 1 'version = "' apdu/Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
+                  # Correct path to workspace Cargo.toml
+                  CARGO_VERSION=$(grep -m 1 'version = "' Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
                   TAG_VERSION=${{ steps.extract_version.outputs.VERSION }}
                   if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
                     echo "Error: Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
@@ -36,7 +37,7 @@ jobs:
 
             # Publish crates in dependency order
             - name: Publish nexum-apdu-core
-              working-directory: apdu/crates/core
+              working-directory: crates/core
               run: |
                   cargo publish --no-verify
                   # Verify the crate is available before proceeding
@@ -54,7 +55,7 @@ jobs:
                   fi
 
             - name: Publish nexum-apdu-macros
-              working-directory: apdu/crates/macros
+              working-directory: crates/macros
               run: |
                   cargo publish --no-verify
                   # Verify the crate is available before proceeding
@@ -72,11 +73,11 @@ jobs:
                   fi
 
             - name: Publish nexum-apdu-transport-pcsc
-              working-directory: apdu/crates/pcsc
+              working-directory: crates/pcsc
               run: cargo publish --no-verify
 
             - name: Publish nexum-apdu-globalplatform
-              working-directory: apdu/crates/globalplatform
+              working-directory: crates/globalplatform
               run: cargo publish --no-verify
 
             - name: Create summary
