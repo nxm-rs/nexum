@@ -1,6 +1,5 @@
 //! Tests for the PcscTransport implementation
 
-#[cfg(feature = "std")]
 mod tests {
     use apdu_core::Bytes;
     use apdu_core::transport::CardTransport;

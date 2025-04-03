@@ -1,11 +1,6 @@
 //! Configuration options for PC/SC transport
 
-#[cfg(feature = "std")]
 use pcsc::{Protocols as PcscProtocols, ShareMode as PcscShareMode};
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::string::String;
-use alloc::vec::Vec;
 
 /// Sharing mode for card connections
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,7 +13,6 @@ pub enum ShareMode {
     Direct,
 }
 
-#[cfg(feature = "std")]
 impl From<ShareMode> for PcscShareMode {
     fn from(mode: ShareMode) -> Self {
         match mode {
@@ -42,14 +36,12 @@ pub enum TransactionMode {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConnectStrategy {
     /// Connect to a specific reader by name
-    #[cfg(any(feature = "std", feature = "alloc"))]
     Reader(String),
 
     /// Connect to any reader with a card
     AnyCard,
 
     /// Connect to reader with a card matching this ATR pattern
-    #[cfg(any(feature = "std", feature = "alloc"))]
     CardWithAtr(Vec<u8>, Option<Vec<u8>>), // (ATR, mask)
 
     /// Connect to the first available reader
@@ -63,7 +55,6 @@ pub struct PcscConfig {
     pub share_mode: ShareMode,
 
     /// Preferred protocols for card communication
-    #[cfg(feature = "std")]
     pub protocols: PcscProtocols,
 
     /// Automatically reconnect if the card is reset
@@ -73,23 +64,11 @@ pub struct PcscConfig {
     pub transaction_mode: TransactionMode,
 }
 
-#[cfg(feature = "std")]
 impl Default for PcscConfig {
     fn default() -> Self {
         Self {
             share_mode: ShareMode::Shared,
             protocols: PcscProtocols::ANY,
-            auto_reconnect: true,
-            transaction_mode: TransactionMode::PerCommand,
-        }
-    }
-}
-
-#[cfg(not(feature = "std"))]
-impl Default for PcscConfig {
-    fn default() -> Self {
-        Self {
-            share_mode: ShareMode::Shared,
             auto_reconnect: true,
             transaction_mode: TransactionMode::PerCommand,
         }
@@ -109,7 +88,6 @@ impl PcscConfig {
     }
 
     /// Set the preferred protocols
-    #[cfg(feature = "std")]
     pub const fn with_protocols(mut self, protocols: PcscProtocols) -> Self {
         self.protocols = protocols;
         self

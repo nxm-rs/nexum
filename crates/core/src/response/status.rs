@@ -1,6 +1,7 @@
 //! Status word definitions for APDU responses
 
-use core::fmt;
+use std::fmt;
+
 use tracing::Level;
 
 /// Status Word (SW1-SW2) from an APDU response

@@ -1,6 +1,5 @@
 //! Utility functions for APDU response handling
 
-use crate::Error;
 use crate::response::error::ResponseError;
 use crate::response::status::StatusWord;
 use tracing::debug;
@@ -13,10 +12,10 @@ use tracing::debug;
 ///
 /// # Errors
 /// Returns an error if the data is too short to contain a valid status word.
-pub fn extract_response_parts(data: &[u8]) -> Result<((u8, u8), &[u8]), Error> {
+pub fn extract_response_parts(data: &[u8]) -> Result<((u8, u8), &[u8]), ResponseError> {
     if data.len() < 2 {
         debug!("Response too short: {} bytes", data.len());
-        return Err(Error::Response(ResponseError::Incomplete));
+        return Err(ResponseError::Incomplete);
     }
 
     let len = data.len();
@@ -35,7 +34,7 @@ pub fn extract_response_parts(data: &[u8]) -> Result<((u8, u8), &[u8]), Error> {
 ///
 /// # Errors
 /// Returns an error if the data is too short to contain a valid status word.
-pub fn extract_status_and_payload(data: &[u8]) -> Result<(StatusWord, &[u8]), Error> {
+pub fn extract_status_and_payload(data: &[u8]) -> Result<(StatusWord, &[u8]), ResponseError> {
     let ((sw1, sw2), payload) = extract_response_parts(data)?;
     Ok((StatusWord::new(sw1, sw2), payload))
 }

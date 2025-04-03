@@ -2,7 +2,7 @@
 //! Example of using the apdu_pair macro to define a Select command with custom parsing
 
 use iso7816_tlv::simple::Tlv;
-use nexum_apdu_core::{ApduCommand, Bytes, Error, StatusWord};
+use nexum_apdu_core::{ApduCommand, Bytes, StatusWord, response::error::ResponseError};
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -57,7 +57,7 @@ apdu_pair! {
             }
 
             // Define custom parser
-            custom_parse = |payload: &[u8], sw: StatusWord| -> Result<SelectResponse, Error> {
+            custom_parse = |payload: &[u8], sw: StatusWord| -> Result<SelectResponse, ResponseError> {
                 match (sw.sw1, sw.sw2) {
                     (0x90, 0x00) => {
                         if payload.is_empty() {
@@ -65,7 +65,7 @@ apdu_pair! {
                         } else {
                             // Validate FCI format
                             if payload[0] != 0x6F {
-                                return Err(Error::Parse("Invalid FCI format"));
+                                return Err(ResponseError::Parse("Invalid FCI format"));
                             }
                             Ok(SelectResponse::Success { fci: Some(payload.to_vec()) })
                         }

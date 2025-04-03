@@ -1,13 +1,10 @@
 //! Common test utilities
 
-#[cfg(feature = "std")]
 use pcsc::{Context, Scope};
 
-#[cfg(feature = "std")]
 use apdu_transport_pcsc::{PcscConfig, PcscDeviceManager, PcscTransport};
 
 /// Try to get a real PC/SC context for tests
-#[cfg(feature = "std")]
 pub fn get_pcsc_context() -> Option<Context> {
     match Context::establish(Scope::User) {
         Ok(context) => Some(context),
@@ -16,7 +13,6 @@ pub fn get_pcsc_context() -> Option<Context> {
 }
 
 /// Try to get a real reader with a card for tests
-#[cfg(feature = "std")]
 pub fn get_reader_with_card() -> Option<String> {
     let context = get_pcsc_context()?;
     let readers = context.list_readers_owned().ok()?;
@@ -30,7 +26,6 @@ pub fn get_reader_with_card() -> Option<String> {
 }
 
 /// Try to get a real transport for tests
-#[cfg(feature = "std")]
 pub fn get_test_transport() -> Option<PcscTransport> {
     let manager = PcscDeviceManager::new().ok()?;
     let reader_name = get_reader_with_card()?;

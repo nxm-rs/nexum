@@ -138,7 +138,7 @@ pub(crate) fn expand_command(
 
         impl nexum_apdu_core::ApduCommand for #command_name {
             type Response = #response_name;
-            type Error = nexum_apdu_core::Error;
+            type Error = nexum_apdu_core::response::error::ResponseError;
 
             fn class(&self) -> u8 {
                 #cla

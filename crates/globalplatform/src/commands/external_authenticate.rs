@@ -6,7 +6,6 @@
 use nexum_apdu_macros::apdu_pair;
 
 use crate::{
-    Result,
     constants::{cla, external_auth_p1, ins, status},
     crypto::calculate_cryptogram,
 };
@@ -31,10 +30,10 @@ apdu_pair! {
                     sequence_counter: &[u8; 2],
                     card_challenge: &[u8; 6],
                     host_challenge: &[u8; 8],
-                ) -> Result<Self> {
+                ) -> Self {
                     let host_cryptogram = calculate_cryptogram(
                         enc_key, sequence_counter, card_challenge, host_challenge, true);
-                    Ok(Self::with_host_cryptogram(host_cryptogram.to_vec()))
+                    Self::with_host_cryptogram(host_cryptogram.to_vec())
                 }
             }
         }
@@ -102,8 +101,7 @@ mod tests {
             &sequence_counter,
             &card_challenge,
             &host_challenge,
-        )
-        .unwrap();
+        );
 
         assert_eq!(cmd.class(), cla::MAC);
         assert_eq!(cmd.instruction(), ins::EXTERNAL_AUTHENTICATE);

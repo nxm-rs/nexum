@@ -7,26 +7,28 @@
 pub mod error;
 pub mod secure;
 
+use std::fmt;
+
 use bytes::Bytes;
-use core::fmt;
 use dyn_clone::DynClone;
 use secure::SecurityLevel;
 use tracing::{debug, trace};
-
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
 
 use crate::command::Command;
 use crate::command::ExpectedLength;
 use crate::response::Response;
 use crate::response::utils;
 use crate::transport::CardTransport;
+use crate::transport::error::TransportError;
 use crate::{ApduCommand, ApduResponse};
-use error::ProcessorError;
+pub use error::{ProcessorError, SecureProtocolError};
 
 /// Trait for command processors which transform commands
 /// before sending them to the transport
 pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
+    /// Error type returned by the processor
+    type Error: Into<crate::Error> + fmt::Debug;
+
     /// Process a command through this processor
     ///
     /// This method takes a command, potentially transforms it, sends it through
@@ -34,8 +36,8 @@ pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
     fn process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError> {
+        transport: &mut dyn CardTransport<Error = TransportError>,
+    ) -> Result<Response, Self::Error> {
         trace!(
             command = ?command,
             processor = std::any::type_name::<Self>(),
@@ -66,12 +68,12 @@ pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
     fn do_process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError>;
+        transport: &mut dyn CardTransport<Error = TransportError>,
+    ) -> Result<Response, Self::Error>;
 
     /// Get the security level provided by this processor
     fn security_level(&self) -> SecurityLevel {
-        SecurityLevel::NoSecurity
+        SecurityLevel::None
     }
 
     /// Check if this processor is active/ready
@@ -81,27 +83,26 @@ pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
 }
 
 // Enable cloning for boxed processors
-dyn_clone::clone_trait_object!(CommandProcessor);
+dyn_clone::clone_trait_object!(CommandProcessor<Error = ProcessorError>);
 
 /// Identity processor that doesn't modify commands
 #[derive(Debug, Clone)]
 pub struct IdentityProcessor;
 
 impl CommandProcessor for IdentityProcessor {
+    type Error = ProcessorError;
+
     fn do_process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError> {
+        transport: &mut dyn CardTransport<Error = TransportError>,
+    ) -> Result<Response, Self::Error> {
         // Convert command to bytes and send
         let command_bytes = command.to_bytes();
-        let response_bytes = transport
-            .transmit_raw(&command_bytes)
-            .map_err(ProcessorError::from)?;
+        let response_bytes = transport.transmit_raw(&command_bytes)?;
 
         // Parse response
-        Response::from_bytes(&response_bytes)
-            .map_err(|_| ProcessorError::InvalidResponse("Failed to parse response"))
+        Response::from_bytes(&response_bytes).map_err(ProcessorError::from)
     }
 }
 
@@ -126,22 +127,21 @@ impl Default for GetResponseProcessor {
 }
 
 impl CommandProcessor for GetResponseProcessor {
+    type Error = ProcessorError;
+
     fn do_process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError> {
+        transport: &mut dyn CardTransport<Error = TransportError>,
+    ) -> Result<Response, Self::Error> {
         // Convert command to bytes
         let command_bytes = command.to_bytes();
 
         // First send the original command
-        let response_bytes = transport
-            .transmit_raw(&command_bytes)
-            .map_err(ProcessorError::from)?;
+        let response_bytes = transport.transmit_raw(&command_bytes)?;
 
         // Extract status and payload
-        let ((sw1, sw2), payload) = utils::extract_response_parts(&response_bytes)
-            .map_err(|_| ProcessorError::InvalidResponse("Response too short"))?;
+        let ((sw1, sw2), payload) = utils::extract_response_parts(&response_bytes)?;
 
         // If SW1=61, use GET RESPONSE to fetch more data
         if sw1 == 0x61 {
@@ -168,15 +168,11 @@ impl CommandProcessor for GetResponseProcessor {
                 );
 
                 // Send GET RESPONSE
-                let response_bytes = transport
-                    .transmit_raw(&get_resp_bytes)
-                    .map_err(ProcessorError::from)?;
+                let response_bytes = transport.transmit_raw(&get_resp_bytes)?;
 
                 // Extract status and payload from response
                 let ((new_sw1, new_sw2), new_payload) =
-                    utils::extract_response_parts(&response_bytes).map_err(|_| {
-                        ProcessorError::InvalidResponse("GET RESPONSE returned incomplete data")
-                    })?;
+                    utils::extract_response_parts(&response_bytes)?;
 
                 // Add payload to buffer
                 buffer.extend_from_slice(new_payload);

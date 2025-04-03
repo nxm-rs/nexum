@@ -2,6 +2,7 @@
 //!
 //! This command is used to start a secure channel session.
 
+use nexum_apdu_core::response::error::ResponseError;
 use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, status};
@@ -57,11 +58,11 @@ apdu_pair! {
                 }
             }
 
-            custom_parse = |payload: &[u8], sw| -> Result<Self, nexum_apdu_core::Error> {
+            custom_parse = |payload: &[u8], sw| -> Result<Self, ResponseError> {
                 match sw {
                     status::SUCCESS => {
                         if payload.len() != 28 {
-                            return Err(nexum_apdu_core::Error::Parse("Response data incorrect length"));
+                            return Err(ResponseError::Parse("Response data incorrect length"));
                         }
 
                         // Key diversification data (10 bytes)

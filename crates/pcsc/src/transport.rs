@@ -1,26 +1,18 @@
 // apdu-rs/crates/pcsc/src/transport.rs
 //! PC/SC transport implementation
 
-use core::fmt;
-
 use nexum_apdu_core::Bytes;
-use nexum_apdu_core::transport::{CardTransport, error::TransportError};
+use nexum_apdu_core::transport::CardTransport;
+use nexum_apdu_core::transport::error::TransportError;
 
-#[cfg(feature = "std")]
 use pcsc::{Card, Context, Disposition};
-#[cfg(feature = "std")]
 use std::ffi::CString;
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::string::{String, ToString};
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::vec::Vec;
+use std::fmt;
 
 use crate::config::PcscConfig;
 use crate::error::PcscError;
 
 /// Transport implementation using PC/SC
-#[cfg(feature = "std")]
 pub struct PcscTransport {
     /// PC/SC context
     context: Context,
@@ -34,7 +26,6 @@ pub struct PcscTransport {
     transaction_active: bool,
 }
 
-#[cfg(feature = "std")]
 impl fmt::Debug for PcscTransport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PcscTransport")
@@ -46,17 +37,7 @@ impl fmt::Debug for PcscTransport {
     }
 }
 
-/// Transport implementation for no_std environments
-#[derive(Debug)]
-#[cfg(not(feature = "std"))]
-pub struct PcscTransport {
-    // Placeholder implementation for no_std
-    #[cfg(any(feature = "alloc", feature = "wasm"))]
-    reader_name: String,
-}
-
 // Implementation for standard library environments
-#[cfg(feature = "std")]
 impl PcscTransport {
     /// Create a new PC/SC transport for the specified reader
     pub(crate) fn new(
@@ -165,9 +146,10 @@ impl PcscTransport {
     }
 }
 
-#[cfg(feature = "std")]
 impl CardTransport for PcscTransport {
-    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, TransportError> {
+    type Error = TransportError;
+
+    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, Self::Error> {
         // Direct transmission without transaction handling
         self.transmit_command(command).map_err(TransportError::from)
     }
@@ -176,7 +158,7 @@ impl CardTransport for PcscTransport {
         self.card.is_some()
     }
 
-    fn reset(&mut self) -> Result<(), TransportError> {
+    fn reset(&mut self) -> Result<(), Self::Error> {
         // End any active transaction
         self.transaction_active = false;
 
@@ -190,7 +172,6 @@ impl CardTransport for PcscTransport {
     }
 }
 
-#[cfg(feature = "std")]
 impl Drop for PcscTransport {
     fn drop(&mut self) {
         // End any active transaction
@@ -200,43 +181,5 @@ impl Drop for PcscTransport {
         if let Some(card) = self.card.take() {
             let _ = card.disconnect(Disposition::LeaveCard);
         }
-    }
-}
-
-// Minimal implementation for no_std
-#[cfg(not(feature = "std"))]
-impl PcscTransport {
-    /// Create a new PC/SC transport (stub implementation for no_std)
-    #[cfg(any(feature = "alloc", feature = "wasm"))]
-    pub(crate) fn new(reader_name: &str, _config: PcscConfig) -> Result<Self, PcscError> {
-        Ok(Self {
-            reader_name: reader_name.to_string(),
-        })
-    }
-
-    /// Get the reader name
-    #[cfg(any(feature = "alloc", feature = "wasm"))]
-    pub fn reader_name(&self) -> &str {
-        &self.reader_name
-    }
-
-    /// Check if the transport is connected to a card (always false in no_std)
-    pub fn has_card(&self) -> bool {
-        false
-    }
-}
-
-#[cfg(not(feature = "std"))]
-impl CardTransport for PcscTransport {
-    fn do_transmit_raw(&mut self, _command: &[u8]) -> Result<Bytes, TransportError> {
-        Err(TransportError::Device)
-    }
-
-    fn is_connected(&self) -> bool {
-        false
-    }
-
-    fn reset(&mut self) -> Result<(), TransportError> {
-        Err(TransportError::Device)
     }
 }

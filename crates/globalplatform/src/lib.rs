@@ -7,14 +7,6 @@
 //! The main entry point is the `GlobalPlatform` struct, which provides
 //! high-level methods for common card management operations.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
-#[cfg(not(feature = "std"))]
-use alloc::{string::String, vec::Vec};
-
 pub mod application;
 pub mod commands;
 pub mod constants;
@@ -47,18 +39,17 @@ pub use commands::{
 
 /// Convenience functions for common operations
 pub mod operations {
-    use nexum_apdu_core::CardExecutor;
     use nexum_apdu_core::prelude::Executor;
     use nexum_apdu_core::{ResponseAwareExecutor, SecureChannelExecutor};
 
     use crate::{Error, GlobalPlatform, Result};
 
     /// Connect to a card, select the card manager, and establish a secure channel
-    pub fn connect_and_setup<T>(
-        executor: CardExecutor<T>,
-    ) -> Result<GlobalPlatform<CardExecutor<T>>>
+    pub fn connect_and_setup<E>(executor: E) -> Result<GlobalPlatform<E>>
     where
-        T: nexum_apdu_core::transport::CardTransport,
+        E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+        nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
+        Error: From<E::Error>,
     {
         // Create GlobalPlatform instance
         let mut gp = GlobalPlatform::new(executor);
@@ -78,6 +69,8 @@ pub mod operations {
     ) -> Result<Vec<crate::commands::get_status::ApplicationInfo>>
     where
         E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+        nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
+        Error: From<E::Error>,
     {
         let response = gp.get_applications_status()?;
         Ok(response.parse_applications())
@@ -89,6 +82,8 @@ pub mod operations {
     ) -> Result<Vec<crate::commands::get_status::LoadFileInfo>>
     where
         E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+        nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
+        Error: From<E::Error>,
     {
         let response = gp.get_load_files_status()?;
         Ok(response.parse_load_files())
@@ -98,6 +93,8 @@ pub mod operations {
     pub fn delete_package<E>(gp: &mut GlobalPlatform<E>, aid: &[u8]) -> Result<()>
     where
         E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+        nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
+        Error: From<E::Error>,
     {
         // Delete the package and all related applications
         let response = gp.delete_object_and_related(aid)?;
@@ -119,6 +116,8 @@ pub mod operations {
     ) -> Result<()>
     where
         E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+        nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
+        Error: From<E::Error>,
     {
         // First analyze the CAP file to extract package and applet AIDs
         let cap_info = gp.analyze_cap_file(&cap_path)?;

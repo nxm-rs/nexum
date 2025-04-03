@@ -5,30 +5,26 @@
 
 pub mod error;
 
-use bytes::{BufMut, Bytes, BytesMut};
-use core::fmt;
-use tracing::trace;
+use std::fmt;
 
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
+use bytes::{BufMut, Bytes, BytesMut};
 
 #[cfg(feature = "longer_payloads")]
+/// Expected length type for APDU commands
 pub type ExpectedLength = u16;
 #[cfg(not(feature = "longer_payloads"))]
+/// Expected length type for APDU commands
 pub type ExpectedLength = u8;
 
-use crate::Error;
 use error::CommandError;
 
 /// Core trait for APDU commands
 pub trait ApduCommand {
     /// Response type returned when this command is executed
-    type Response;
+    type Response: TryFrom<Bytes>;
 
     /// Error type that can occur during execution
-    type Error: fmt::Debug;
+    type Error: Into<crate::Error> + fmt::Debug;
 
     /// Command class (CLA)
     fn class(&self) -> u8;
@@ -112,10 +108,10 @@ pub trait ApduCommand {
         }
 
         // Add Le if present
-        if let Some(le) = self.expected_length() {
+        if let Some(_le) = self.expected_length() {
             #[cfg(feature = "longer_payloads")]
             {
-                if le > 256 {
+                if _le > 256 {
                     // For extended length, add 2 bytes or 3 bytes if no data
                     length += if self.data().is_some() { 2 } else { 3 };
                 } else {
@@ -136,22 +132,6 @@ pub trait ApduCommand {
     /// Whether this command requires a secure channel
     fn requires_secure_channel(&self) -> bool {
         false
-    }
-
-    /// Command description for debugging/logging
-    fn describe(&self) -> String {
-        #[cfg(feature = "std")]
-        return format!(
-            "APDU Command: CLA={:#04x}, INS={:#04x}, P1={:#04x}, P2={:#04x}, Data={} bytes",
-            self.class(),
-            self.instruction(),
-            self.p1(),
-            self.p2(),
-            self.data().map_or(0, |d| d.len())
-        );
-
-        #[cfg(not(feature = "std"))]
-        return "APDU Command".into();
     }
 
     /// Convert to a generic Command
@@ -297,7 +277,7 @@ impl Command {
 
 impl ApduCommand for Command {
     type Response = Bytes;
-    type Error = Error;
+    type Error = CommandError;
 
     fn class(&self) -> u8 {
         self.cla

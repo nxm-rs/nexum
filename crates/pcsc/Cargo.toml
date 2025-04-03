@@ -16,17 +16,15 @@ workspace = true
 [dependencies]
 nexum-apdu-core = { workspace = true }
 pcsc.workspace = true
-
-hex.workspace = true
+thiserror.workspace = true
 
 crossbeam-channel = { version = "0.5", optional = true }
-heapless = { version = "0.7", optional = true, default-features = false }
 
 [features]
 default = ["std"]
-std = ["crossbeam-channel", "nexum-apdu-core/std", "hex/std"]
-alloc = ["hex/alloc"]
+std = ["crossbeam-channel", "nexum-apdu-core/std"]
 
 [dev-dependencies]
 nexum-apdu-macros.workspace = true
 pcsc.workspace = true
+hex.workspace = true

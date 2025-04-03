@@ -5,28 +5,26 @@
 
 pub mod error;
 
+use std::fmt;
+
 use bytes::Bytes;
-use core::fmt;
+pub use error::TransportError;
 use tracing::{debug, trace};
-
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
-use error::TransportError;
 
 /// Trait for basic card transports
 ///
 /// A transport is responsible for sending and receiving raw APDU bytes.
 /// It has no knowledge of command structure, secure channels, or protocol details.
 pub trait CardTransport: Send + Sync + fmt::Debug {
+    /// Error type returned by the transport
+    type Error: Into<crate::Error> + fmt::Debug;
+
     /// Send raw APDU bytes to card and return response bytes
     ///
     /// This method should handle the low-level communication with the card
     /// but should not interpret the contents or handle protocol-specific
     /// operations like GET RESPONSE.
-    fn transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, TransportError> {
+    fn transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, Self::Error> {
         trace!(command = ?hex::encode(command), "Transmitting raw command");
         let result = self.do_transmit_raw(command);
         match &result {
@@ -42,13 +40,13 @@ pub trait CardTransport: Send + Sync + fmt::Debug {
 
     /// Internal implementation of transmit_raw
     /// This is the method that concrete implementations should override
-    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, TransportError>;
+    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, Self::Error>;
 
     /// Check if the transport is connected to a physical card
     fn is_connected(&self) -> bool;
 
     /// Reset the transport connection
-    fn reset(&mut self) -> Result<(), TransportError>;
+    fn reset(&mut self) -> Result<(), Self::Error>;
 }
 
 #[cfg(test)]
@@ -91,7 +89,9 @@ impl MockTransport {
 
 #[cfg(test)]
 impl CardTransport for MockTransport {
-    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, TransportError> {
+    type Error = TransportError;
+
+    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, Self::Error> {
         if !self.connected {
             return Err(TransportError::Connection);
         }
@@ -99,7 +99,7 @@ impl CardTransport for MockTransport {
         self.commands.push(Bytes::copy_from_slice(command));
 
         if self.responses.is_empty() {
-            return Err(TransportError::Transmission);
+            return Err(TransportError::Transmission)?;
         }
 
         // Either clone the single response or take the next one
@@ -114,7 +114,7 @@ impl CardTransport for MockTransport {
         self.connected
     }
 
-    fn reset(&mut self) -> Result<(), TransportError> {
+    fn reset(&mut self) -> Result<(), Self::Error> {
         self.connected = true;
         self.commands.clear();
         Ok(())

@@ -20,8 +20,8 @@ proc-macro2.workspace = true
 quote.workspace = true
 syn.workspace = true
 heck.workspace = true
-iso7816-tlv.workspace = true
 
 [dev-dependencies]
 nexum-apdu-core.workspace = true
 bytes.workspace = true
+iso7816-tlv.workspace = true

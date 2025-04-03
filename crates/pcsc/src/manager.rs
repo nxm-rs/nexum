@@ -1,10 +1,6 @@
 //! Device manager for PC/SC operations
 
-#[cfg(feature = "std")]
 use pcsc::{Context, Scope};
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::vec::Vec;
 
 use crate::config::{ConnectStrategy, PcscConfig};
 use crate::error::PcscError;
@@ -14,22 +10,13 @@ use crate::transport::PcscTransport;
 use crate::util::match_atr;
 
 /// Manager for PC/SC device operations
-#[cfg(feature = "std")]
 #[allow(missing_debug_implementations)]
 pub struct PcscDeviceManager {
     /// PC/SC context
     context: Context,
 }
 
-/// Stub manager for no_std environments
-#[derive(Debug)]
-#[cfg(not(feature = "std"))]
-pub struct PcscDeviceManager {
-    // Empty placeholder for no_std
-}
-
 // Implementation for standard library environments
-#[cfg(feature = "std")]
 impl PcscDeviceManager {
     /// Create a new PC/SC device manager
     pub fn new() -> Result<Self, PcscError> {
@@ -138,49 +125,5 @@ impl PcscDeviceManager {
         // Create a new context for the monitor to avoid conflicts
         let context = self.context.clone();
         PcscMonitor::new(context)
-    }
-}
-
-// Minimal implementation for no_std
-#[cfg(not(feature = "std"))]
-impl PcscDeviceManager {
-    /// Create a new PC/SC device manager (stub for no_std)
-    pub fn new() -> Result<Self, PcscError> {
-        Err(PcscError::Other)
-    }
-
-    /// List all available card readers (stub for no_std)
-    pub fn list_readers(&self) -> Result<Vec<PcscReader>, PcscError> {
-        Err(PcscError::NoReadersAvailable)
-    }
-
-    /// Open a connection to a specific reader (stub for no_std)
-    #[cfg(any(feature = "alloc", feature = "wasm"))]
-    pub fn open_reader(&self, reader_name: &str) -> Result<PcscTransport, PcscError> {
-        Err(PcscError::ReaderNotFound(reader_name.to_string()))
-    }
-
-    /// Open a connection with config (stub for no_std)
-    #[cfg(any(feature = "alloc", feature = "wasm"))]
-    pub fn open_reader_with_config(
-        &self,
-        reader_name: &str,
-        _config: PcscConfig,
-    ) -> Result<PcscTransport, PcscError> {
-        Err(PcscError::ReaderNotFound(reader_name.to_string()))
-    }
-
-    /// Connect with strategy (stub for no_std)
-    pub fn connect_strategy(
-        &self,
-        _strategy: ConnectStrategy,
-        _config: PcscConfig,
-    ) -> Result<PcscTransport, PcscError> {
-        Err(PcscError::NoReadersAvailable)
-    }
-
-    /// Create a monitor (stub for no_std)
-    pub fn monitor(&self) -> Result<PcscMonitor, PcscError> {
-        Err(PcscError::Other)
     }
 }

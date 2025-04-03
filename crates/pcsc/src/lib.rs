@@ -52,11 +52,7 @@
 //! # fn main() {}
 //! ```
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
-#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-extern crate alloc;
 
 // Core modules
 mod config;
@@ -78,5 +74,4 @@ pub use reader::PcscReader;
 pub use transport::PcscTransport;
 
 // Re-export some pcsc types for convenience
-#[cfg(feature = "std")]
 pub use pcsc::{Protocol, Protocols, Status};

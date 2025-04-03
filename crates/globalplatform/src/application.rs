@@ -43,7 +43,10 @@ impl DefaultKeys {
 
 /// GlobalPlatform card management application
 #[allow(missing_debug_implementations)]
-pub struct GlobalPlatform<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> {
+pub struct GlobalPlatform<E>
+where
+    E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+{
     /// Card executor
     executor: E,
     /// Current session
@@ -52,7 +55,12 @@ pub struct GlobalPlatform<E: Executor + ResponseAwareExecutor + SecureChannelExe
     last_response: Option<Bytes>,
 }
 
-impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform<E> {
+impl<E> GlobalPlatform<E>
+where
+    E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+    nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
+    Error: From<E::Error>,
+{
     /// Create a new GlobalPlatform instance
     pub const fn new(executor: E) -> Self {
         Self {
@@ -72,7 +80,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
         // Create SELECT command
         let cmd = SelectCommand::with_aid(aid.to_vec());
 
-        // Execute command
+        // Execute command and map errors
         match self.executor.execute(&cmd) {
             Ok(response) => {
                 // Store response for possible later use
@@ -92,37 +100,33 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
 
     /// Open a secure channel with specific keys and security level
     pub fn open_secure_channel_with_keys(&mut self, keys: &Keys) -> Result<()> {
-        // Create secure channel provider
         let provider = create_secure_channel_provider(keys.clone());
 
-        // Open secure channel (this handles both INITIALIZE UPDATE and EXTERNAL AUTHENTICATE)
-        self.executor.open_secure_channel(&provider)?;
-
-        Ok(())
+        Ok(self.executor.open_secure_channel(&provider)?)
     }
 
     /// Delete an object
     pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteResponse> {
         let cmd = DeleteCommand::delete_object(aid);
-        self.executor.execute(&cmd).map_err(Error::from)
+        Ok(self.executor.execute(&cmd)?)
     }
 
     /// Delete an object and related objects
     pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteResponse> {
         let cmd = DeleteCommand::delete_object_and_related(aid);
-        self.executor.execute(&cmd).map_err(Error::from)
+        Ok(self.executor.execute(&cmd)?)
     }
 
     /// Get the status of applications
     pub fn get_applications_status(&mut self) -> Result<GetStatusResponse> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::APPLICATIONS);
-        self.executor.execute(&cmd).map_err(Error::from)
+        Ok(self.executor.execute(&cmd)?)
     }
 
     /// Get the status of load files
     pub fn get_load_files_status(&mut self) -> Result<GetStatusResponse> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::EXEC_LOAD_FILES);
-        self.executor.execute(&cmd).map_err(Error::from)
+        Ok(self.executor.execute(&cmd)?)
     }
 
     /// Install a package for load
@@ -135,7 +139,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
         let sd_aid = security_domain_aid.unwrap_or(SECURITY_DOMAIN_AID);
 
         let cmd = InstallCommand::for_load(package_aid, sd_aid);
-        self.executor.execute(&cmd).map_err(Error::from)
+        Ok(self.executor.execute(&cmd)?)
     }
 
     /// Install for install and make selectable
@@ -158,7 +162,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
             &[] as &[u8], // Empty token
         );
 
-        self.executor.execute(&cmd).map_err(Error::from)
+        Ok(self.executor.execute(&cmd)?)
     }
 
     /// Load a CAP file
@@ -299,7 +303,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
     /// Close the secure channel
     pub fn close_secure_channel(&mut self) -> Result<()> {
         // Reset the executor (will drop any secure channel processors)
-        self.executor.reset().map_err(Error::from)?;
+        self.executor.reset()?;
         self.session = None;
         Ok(())
     }
@@ -356,7 +360,7 @@ impl<E: Executor + ResponseAwareExecutor + SecureChannelExecutor> GlobalPlatform
 mod tests {
     use super::*;
     use hex_literal::hex;
-    use nexum_apdu_core::CardExecutor;
+    use nexum_apdu_core::{CardExecutor, transport::error::TransportError};
 
     // Custom mock transport for tests
     #[derive(Debug)]
@@ -377,12 +381,11 @@ mod tests {
     }
 
     impl nexum_apdu_core::transport::CardTransport for TestTransport {
-        fn do_transmit_raw(
-            &mut self,
-            _command: &[u8],
-        ) -> std::result::Result<Bytes, nexum_apdu_core::transport::error::TransportError> {
+        type Error = TransportError;
+
+        fn do_transmit_raw(&mut self, _command: &[u8]) -> std::result::Result<Bytes, Self::Error> {
             if self.responses.is_empty() {
-                return Err(nexum_apdu_core::transport::error::TransportError::Transmission);
+                return Err(TransportError::Transmission)?;
             }
 
             if self.responses.len() == 1 {
@@ -396,9 +399,7 @@ mod tests {
             true
         }
 
-        fn reset(
-            &mut self,
-        ) -> std::result::Result<(), nexum_apdu_core::transport::error::TransportError> {
+        fn reset(&mut self) -> std::result::Result<(), Self::Error> {
             Ok(())
         }
     }

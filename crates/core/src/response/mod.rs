@@ -7,18 +7,19 @@ pub mod error;
 pub mod status;
 pub mod utils;
 
+use std::fmt;
+
 use bytes::{BufMut, Bytes, BytesMut};
 use tracing::trace;
 
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-
-use crate::Error;
-use error::StatusError;
+use error::{ResponseError, StatusError};
 use status::StatusWord;
 
 /// Trait for APDU responses
 pub trait ApduResponse: Sized {
+    /// Error type returned by the response
+    type Error: Into<crate::Error> + fmt::Debug;
+
     /// Get the response payload data
     fn payload(&self) -> &[u8];
 
@@ -31,26 +32,13 @@ pub trait ApduResponse: Sized {
     }
 
     /// Create from raw APDU response data
-    fn from_bytes(data: &[u8]) -> Result<Self, Error>;
-
-    /// Response description for debugging
-    fn describe(&self) -> String {
-        #[cfg(feature = "std")]
-        return format!(
-            "APDU Response: Status={}, Data={} bytes",
-            self.status(),
-            self.payload().len()
-        );
-
-        #[cfg(not(feature = "std"))]
-        return "APDU Response".into();
-    }
+    fn from_bytes(data: &[u8]) -> Result<Self, Self::Error>;
 }
 
 /// Trait for types that can be created from APDU response data
 pub trait FromApduResponse: Sized {
     /// Error that can occur during conversion
-    type Error;
+    type Error: Into<crate::Error> + fmt::Debug;
 
     /// Convert raw APDU response data to this type
     fn from_response(data: &[u8]) -> core::result::Result<Self, Self::Error>;
@@ -91,7 +79,7 @@ impl Response {
     }
 
     /// Parse response from raw bytes (including status word)
-    pub fn from_bytes(data: &[u8]) -> Result<Self, Error> {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, ResponseError> {
         let (status, payload) = utils::extract_status_and_payload(data)?;
 
         trace!(
@@ -132,6 +120,8 @@ impl Response {
 }
 
 impl ApduResponse for Response {
+    type Error = ResponseError;
+
     fn payload(&self) -> &[u8] {
         &self.payload
     }
@@ -140,13 +130,13 @@ impl ApduResponse for Response {
         self.status
     }
 
-    fn from_bytes(data: &[u8]) -> Result<Self, Error> {
+    fn from_bytes(data: &[u8]) -> Result<Self, Self::Error> {
         Self::from_bytes(data)
     }
 }
 
 impl TryFrom<&[u8]> for Response {
-    type Error = Error;
+    type Error = ResponseError;
 
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
         Self::from_bytes(data)
@@ -155,7 +145,7 @@ impl TryFrom<&[u8]> for Response {
 
 // Allow creating Response from Bytes for compatibility with executor
 impl TryFrom<Bytes> for Response {
-    type Error = Error;
+    type Error = ResponseError;
 
     fn try_from(data: Bytes) -> Result<Self, Self::Error> {
         Self::from_bytes(&data)
@@ -173,7 +163,6 @@ impl From<Response> for Bytes {
 }
 
 // Support converting to Vec for compatibility
-#[cfg(feature = "std")]
 impl From<Response> for Vec<u8> {
     fn from(response: Response) -> Self {
         let bytes: Bytes = response.into();

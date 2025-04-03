@@ -18,8 +18,6 @@ pub(crate) enum SwPattern {
     Exact(u8),
     /// Match any value except a specific one
     Not(u8),
-    /// Match a range of values
-    Range(u8, u8),
     /// Match a path expression (constant)
     Path(TokenStream),
 }
@@ -225,7 +223,7 @@ impl ResponseDef {
                 if let Some(ref field_name) = payload_field {
                     if !fields
                         .iter()
-                        .any(|f| f.ident.as_ref().map_or(false, |ident| ident == field_name))
+                        .any(|f| f.ident.as_ref().is_some_and(|ident| ident == field_name))
                     {
                         return Err(syn::Error::new(
                             variant_name.span(),
@@ -269,21 +267,16 @@ impl ResponseDef {
             syn::Meta::List(list) => {
                 let nested_meta = syn::parse2::<syn::Meta>(quote::quote! { #list })?;
 
-                match nested_meta {
-                    syn::Meta::NameValue(nv) => {
-                        if nv.path.is_ident("field") {
-                            match &nv.value {
-                                syn::Expr::Lit(syn::ExprLit {
-                                    lit: syn::Lit::Str(lit_str),
-                                    ..
-                                }) => {
-                                    return Ok(Some(lit_str.value()));
-                                }
-                                _ => {}
-                            }
+                if let syn::Meta::NameValue(nv) = nested_meta {
+                    if nv.path.is_ident("field") {
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Str(lit_str),
+                            ..
+                        }) = &nv.value
+                        {
+                            return Ok(Some(lit_str.value()));
                         }
                     }
-                    _ => {}
                 }
 
                 // Try parsing in a more manual way
@@ -579,11 +572,6 @@ pub(crate) fn expand_response(
                         let lit = byte_lit(*val);
                         quote! { sw1 if sw1 != #lit }
                     }
-                    SwPattern::Range(start, end) => {
-                        let start_lit = byte_lit(*start);
-                        let end_lit = byte_lit(*end);
-                        quote! { sw1 if sw1 >= #start_lit && sw1 <= #end_lit }
-                    }
                     SwPattern::Path(path) => {
                         quote! { sw1 if sw1 == #path }
                     }
@@ -599,11 +587,6 @@ pub(crate) fn expand_response(
                     SwPattern::Not(val) => {
                         let lit = byte_lit(*val);
                         quote! { sw2 if sw2 != #lit }
-                    }
-                    SwPattern::Range(start, end) => {
-                        let start_lit = byte_lit(*start);
-                        let end_lit = byte_lit(*end);
-                        quote! { sw2 if sw2 >= #start_lit && sw2 <= #end_lit }
                     }
                     SwPattern::Path(path) => {
                         quote! { sw2 if sw2 == #path }
@@ -637,7 +620,7 @@ pub(crate) fn expand_response(
                 .any(|(field_name, is_sw1)| field_name == &name_str && !*is_sw1);
 
             // Check if this field is the payload field
-            let is_payload_field = v.payload_field.as_ref().map_or(false, |f| f == &name_str);
+            let is_payload_field = v.payload_field.as_ref() == Some(&name_str);
 
             if is_sw1_field {
                 // Capture SW1
@@ -685,23 +668,17 @@ pub(crate) fn expand_response(
     });
 
     // Custom parser code
-    let parsing_logic = if let Some(custom_parser) = &response.custom_parser {
-        // Use custom parser if provided
-        quote! {
-            let sw = nexum_apdu_core::StatusWord::new(sw1, sw2);
-            (#custom_parser)(payload, sw)
-        }
-    } else {
-        // Use default parsing based on SW matching and payload fields
-        quote! {
-            let response = match (sw1, sw2) {
-                #(#match_arms,)*
-                _ => return Err(nexum_apdu_core::Error::status(sw1, sw2)),
-            };
+    let parsing_logic = &response.custom_parser.as_ref().map_or_else(|| quote! {
+        let response = match (sw1, sw2) {
+            #(#match_arms,)*
+            _ => return Err(nexum_apdu_core::response::error::ResponseError::status(sw1, sw2)),
+        };
 
-            Ok(response)
-        }
-    };
+        Ok(response)
+    }, |custom_parser| quote! {
+        let sw = nexum_apdu_core::StatusWord::new(sw1, sw2);
+        (#custom_parser)(payload, sw)
+    });
 
     // Include all the user-defined methods
     let user_methods = &response.methods;
@@ -715,11 +692,9 @@ pub(crate) fn expand_response(
 
         impl #response_name {
             /// Parse response from raw bytes
-            pub fn from_bytes(bytes: &[u8]) -> core::result::Result<Self, nexum_apdu_core::Error> {
+            pub fn from_bytes(bytes: &[u8]) -> core::result::Result<Self, nexum_apdu_core::response::error::ResponseError> {
                 if bytes.len() < 2 {
-                    return Err(nexum_apdu_core::Error::Response(
-                        nexum_apdu_core::response::error::ResponseError::Incomplete
-                    ));
+                    return Err(nexum_apdu_core::response::error::ResponseError::Incomplete);
                 }
 
                 let sw1 = bytes[bytes.len() - 2];
@@ -740,7 +715,7 @@ pub(crate) fn expand_response(
         }
 
         impl TryFrom<bytes::Bytes> for #response_name {
-            type Error = nexum_apdu_core::Error;
+            type Error = nexum_apdu_core::response::error::ResponseError;
 
             fn try_from(bytes: bytes::Bytes) -> core::result::Result<Self, Self::Error> {
                 Self::from_bytes(&bytes)

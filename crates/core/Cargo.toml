@@ -17,7 +17,6 @@ workspace = true
 thiserror = { workspace = true, optional = true }
 bytes.workspace = true
 dyn-clone.workspace = true
-cfg-if.workspace = true
 tracing = { workspace = true, features = ["attributes"] }
 hex.workspace = true
 

@@ -1,31 +1,19 @@
 // apdu-rs/crates/pcsc/src/monitor.rs
 //! Monitor implementation for PC/SC events
 
-#[cfg(feature = "std")]
 use pcsc::{Context, ReaderState, Scope, State};
-#[cfg(feature = "std")]
 use std::collections::HashMap;
-#[cfg(feature = "std")]
 use std::sync::{Arc, Mutex};
-#[cfg(feature = "std")]
 use std::thread;
-#[cfg(feature = "std")]
 use std::time::Duration;
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::string::String;
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::vec::Vec;
 
 use crate::error::PcscError;
 use crate::event::callback::{CardEventHandler, CardStatusEventHandler, ReaderEventHandler};
 use crate::event::{CardEvent, CardState, CardStatusEvent, ReaderEvent};
 
-#[cfg(feature = "std")]
 use crate::event::channel::{CardEventSender, CardStatusEventSender, ReaderEventSender};
 
 /// Monitor for PC/SC reader and card events
-#[cfg(feature = "std")]
 #[allow(missing_debug_implementations)]
 pub struct PcscMonitor {
     /// PC/SC context
@@ -36,17 +24,7 @@ pub struct PcscMonitor {
     previous_states: Arc<Mutex<HashMap<String, (State, Vec<u8>)>>>,
 }
 
-/// Stub monitor for no_std environments
-#[derive(Debug)]
-#[cfg(not(feature = "std"))]
-pub struct PcscMonitor {
-    // Empty placeholder for no_std
-    #[allow(dead_code)]
-    dummy: (),
-}
-
 // Implementation for standard library environments
-#[cfg(feature = "std")]
 impl PcscMonitor {
     /// Create a new monitor
     pub(crate) fn new(context: Context) -> Result<Self, PcscError> {
@@ -476,24 +454,5 @@ impl PcscMonitor {
         self.monitor_card_status(move |event| {
             let _ = sender.send(event);
         })
-    }
-}
-
-// Minimal implementation for no_std
-#[cfg(not(feature = "std"))]
-impl PcscMonitor {
-    /// Create a new monitor (stub for no_std)
-    pub fn create() -> Result<Self, PcscError> {
-        Err(PcscError::Other)
-    }
-
-    /// Wait for card events (stub for no_std)
-    pub fn wait_for_card_events(&mut self, _timeout: u64) -> Result<Vec<CardEvent>, PcscError> {
-        Err(PcscError::Other)
-    }
-
-    /// Check for reader changes (stub for no_std)
-    pub fn check_reader_changes(&mut self) -> Result<Vec<ReaderEvent>, PcscError> {
-        Err(PcscError::Other)
     }
 }

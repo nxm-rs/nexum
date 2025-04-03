@@ -3,35 +3,34 @@
 //! This module provides executors that combine card transports with
 //! command processors to handle APDU command execution.
 
-pub mod error;
 pub mod ext;
 
+use std::fmt;
+
 use bytes::Bytes;
-use core::fmt;
 use tracing::{debug, instrument, trace};
 
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
 use crate::command::{ApduCommand, Command};
-use crate::processor::CommandProcessor;
-use crate::processor::secure::SecurityLevel;
-use crate::transport::CardTransport;
-use crate::{Error, Result};
+use crate::processor::{
+    CommandProcessor, ProcessorError,
+    secure::{SecureChannelProvider, SecurityLevel},
+};
+use crate::transport::{CardTransport, TransportError};
 
 // Re-export extension traits
 pub use ext::{ResponseAwareExecutor, SecureChannelExecutor};
 
 /// Trait for APDU command execution
 pub trait Executor: Send + Sync + fmt::Debug {
+    /// Error type returned by the executor
+    type Error: Into<crate::Error> + fmt::Debug;
+
     /// Transmit an APDU command
     ///
     /// This method handles protocol details including routing through
     /// command processors and secure channels if established.
     #[instrument(level = "trace", skip(self), fields(executor = std::any::type_name::<Self>()))]
-    fn transmit(&mut self, command: &[u8]) -> Result<Bytes> {
+    fn transmit(&mut self, command: &[u8]) -> Result<Bytes, Self::Error> {
         trace!(command = ?hex::encode(command), "Transmitting command");
         let response = self.do_transmit(command);
         match &response {
@@ -46,27 +45,26 @@ pub trait Executor: Send + Sync + fmt::Debug {
     }
 
     /// Internal implementation of transmit
-    fn do_transmit(&mut self, command: &[u8]) -> Result<Bytes>;
+    fn do_transmit(&mut self, command: &[u8]) -> Result<Bytes, Self::Error>;
 
     /// Execute a typed APDU command
-    fn execute<C: ApduCommand>(
-        &mut self,
-        command: &C,
-    ) -> core::result::Result<C::Response, C::Error>
+    fn execute<C>(&mut self, command: &C) -> core::result::Result<C::Response, Self::Error>
     where
-        Error: Into<C::Error>,
-        C::Response: TryFrom<Bytes, Error = C::Error>,
+        C: ApduCommand,
+        C::Response: TryFrom<Bytes>,
+        <C::Response as TryFrom<Bytes>>::Error: Into<Self::Error>,
+        Self::Error: Into<Self::Error>,
     {
         let command_bytes = command.to_bytes();
-        let response_bytes = self.transmit(&command_bytes).map_err(Into::into)?;
-        C::Response::try_from(response_bytes)
+        let response_bytes = self.transmit(&command_bytes)?;
+        C::Response::try_from(response_bytes).map_err(Into::into)
     }
 
     /// Get current security level
     fn security_level(&self) -> SecurityLevel;
 
     /// Reset the executor, including the transport
-    fn reset(&mut self) -> Result<()>;
+    fn reset(&mut self) -> Result<(), Self::Error>;
 }
 
 /// Card executor implementation that combines a transport with optional command processors
@@ -75,12 +73,12 @@ pub struct CardExecutor<T: CardTransport> {
     /// The transport used for communication
     transport: T,
     /// Command processors chain (last one processes first)
-    processors: Vec<Box<dyn CommandProcessor>>,
+    processors: Vec<Box<dyn CommandProcessor<Error = ProcessorError>>>,
     /// The last response received
     last_response: Option<Bytes>,
 }
 
-impl<T: CardTransport> CardExecutor<T> {
+impl<T: CardTransport<Error = TransportError>> CardExecutor<T> {
     /// Create a new card executor with the given transport
     pub fn new(transport: T) -> Self {
         Self {
@@ -114,17 +112,19 @@ impl<T: CardTransport> CardExecutor<T> {
     }
 
     /// Add a command processor to the chain
-    pub fn add_processor(&mut self, processor: Box<dyn CommandProcessor>) {
+    pub fn add_processor(&mut self, processor: Box<dyn CommandProcessor<Error = ProcessorError>>) {
         self.processors.push(processor);
     }
 
     /// Get the active command processors
-    pub fn processors(&self) -> &[Box<dyn CommandProcessor>] {
+    pub fn processors(&self) -> &[Box<dyn CommandProcessor<Error = ProcessorError>>] {
         &self.processors
     }
 
     /// Get mutable access to the command processors
-    pub fn processors_mut(&mut self) -> &mut Vec<Box<dyn CommandProcessor>> {
+    pub fn processors_mut(
+        &mut self,
+    ) -> &mut Vec<Box<dyn CommandProcessor<Error = ProcessorError>>> {
         &mut self.processors
     }
 
@@ -141,29 +141,26 @@ impl<T: CardTransport> CardExecutor<T> {
     /// Open a secure channel using the provided secure channel provider
     pub fn open_secure_channel(
         &mut self,
-        provider: &dyn crate::processor::secure::SecureChannelProvider,
-    ) -> Result<()> {
+        provider: &dyn SecureChannelProvider<Error = ProcessorError>,
+    ) -> Result<(), ProcessorError> {
         debug!("Opening secure channel");
 
         // Create the secure channel
-        let secure_channel = provider
-            .create_secure_channel(&mut self.transport)
-            .map_err(Error::Processor)?;
+        let secure_channel = provider.create_secure_channel(&mut self.transport)?;
 
-        // Add it to our processors
-        self.add_processor(secure_channel);
+        // Now secure_channel is Box<dyn SecureChannel>, which implements CommandProcessor
+        self.processors.push(secure_channel);
 
         Ok(())
     }
 }
 
-impl<T: CardTransport> Executor for CardExecutor<T> {
-    fn do_transmit(&mut self, command: &[u8]) -> Result<Bytes> {
+impl<T: CardTransport<Error = TransportError>> Executor for CardExecutor<T> {
+    type Error = crate::Error;
+
+    fn do_transmit(&mut self, command: &[u8]) -> Result<Bytes, Self::Error> {
         // Parse the command bytes into a Command
-        let command = match Command::from_bytes(command) {
-            Ok(cmd) => cmd,
-            Err(e) => return Err(Error::Command(e)),
-        };
+        let command = Command::from_bytes(command)?;
 
         // If we have processors, use them
         if !self.processors.is_empty() {
@@ -174,9 +171,7 @@ impl<T: CardTransport> Executor for CardExecutor<T> {
                     let processor = &mut self.processors[i];
 
                     // Process the command through this processor
-                    let response = processor
-                        .process_command(&command, &mut self.transport)
-                        .map_err(Error::Processor)?;
+                    let response = processor.process_command(&command, &mut self.transport)?;
 
                     // Convert Response to Bytes for compatibility with existing API
                     let response_bytes: Bytes = response.into();
@@ -190,10 +185,7 @@ impl<T: CardTransport> Executor for CardExecutor<T> {
 
         // If no processors or none active, use transport directly
         let command_bytes = command.to_bytes();
-        let response = self
-            .transport
-            .transmit_raw(&command_bytes)
-            .map_err(Error::Transport)?;
+        let response = self.transport.transmit_raw(&command_bytes)?;
         self.last_response = Some(response.clone());
         Ok(response)
     }
@@ -205,12 +197,12 @@ impl<T: CardTransport> Executor for CardExecutor<T> {
             .filter(|p| p.is_active())
             .map(|p| p.security_level())
             .max()
-            .unwrap_or(SecurityLevel::NoSecurity)
+            .unwrap_or(SecurityLevel::None)
     }
 
-    fn reset(&mut self) -> Result<()> {
+    fn reset(&mut self) -> Result<(), Self::Error> {
         // Reset the transport
-        self.transport.reset().map_err(Error::Transport)?;
+        self.transport.reset()?;
 
         // Clear processors that depend on session state
         self.processors.clear();

@@ -1,29 +1,20 @@
 //! Reader representation for PC/SC devices
 
-#[cfg(feature = "std")]
 use pcsc::{ReaderState, State};
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::string::String;
-#[cfg(any(feature = "std", feature = "alloc"))]
-use alloc::vec::Vec;
 
 /// Representation of a PC/SC card reader
 #[derive(Debug, Clone)]
 pub struct PcscReader {
     /// Name of the reader
-    #[cfg(any(feature = "std", feature = "alloc"))]
     name: String,
 
     /// Whether a card is present
     has_card: bool,
 
     /// Answer To Reset of the card (if present)
-    #[cfg(any(feature = "std", feature = "alloc"))]
     atr: Option<Vec<u8>>,
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 impl PcscReader {
     /// Create a new reader
     pub const fn new(name: String, has_card: bool, atr: Option<Vec<u8>>) -> Self {
@@ -50,7 +41,6 @@ impl PcscReader {
     }
 }
 
-#[cfg(feature = "std")]
 impl PcscReader {
     /// Create a reader from a reader state
     pub(crate) fn from_reader_state(reader_state: &ReaderState) -> Self {

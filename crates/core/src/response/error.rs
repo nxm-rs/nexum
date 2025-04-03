@@ -1,22 +1,9 @@
 //! Error types specific to APDU responses
 
-use cfg_if::cfg_if;
-
-cfg_if! {
-    if #[cfg(feature = "std")] {
-        use thiserror::Error;
-        use std::string::String;
-    } else {
-        use alloc::string::String;
-        use core::fmt;
-    }
-}
-
 use super::status::StatusWord;
 
 /// Error for status words in APDU responses
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "std", derive(Error))]
+#[derive(Debug, Clone, thiserror::Error)]
 pub struct StatusError {
     /// Status word that caused the error
     pub status: StatusWord,
@@ -24,20 +11,8 @@ pub struct StatusError {
     pub message: Option<&'static str>,
 }
 
-#[cfg(feature = "std")]
 impl std::fmt::Display for StatusError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Status error {}", self.status)?;
-        if let Some(msg) = self.message {
-            write!(f, ": {}", msg)?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg(not(feature = "std"))]
-impl fmt::Display for StatusError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Status error {}", self.status)?;
         if let Some(msg) = self.message {
             write!(f, ": {}", msg)?;
@@ -70,46 +45,31 @@ impl StatusError {
 }
 
 /// Error for APDU response processing
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum ResponseError {
     /// Incomplete response (less than 2 bytes)
-    #[cfg_attr(feature = "std", error("Incomplete response"))]
+    #[error("Incomplete response")]
     Incomplete,
 
     /// Parse error
-    #[cfg_attr(feature = "std", error("Parse error: {0}"))]
+    #[error("Parse error: {0}")]
     Parse(&'static str),
 
     /// Status error
-    #[cfg_attr(feature = "std", error(transparent))]
+    #[error(transparent)]
     Status(#[from] StatusError),
 
     /// Buffer too small
-    #[cfg_attr(feature = "std", error("Buffer too small"))]
+    #[error("Buffer too small")]
     BufferTooSmall,
 
     /// Status word error with custom message
-    #[cfg(feature = "std")]
-    #[cfg_attr(feature = "std", error("Response error: {0}"))]
+    #[error("Response error: {0}")]
     Message(String),
 
     /// Other error
-    #[cfg_attr(feature = "std", error("Unknown response error"))]
+    #[error("Unknown response error")]
     Other,
-}
-
-#[cfg(not(feature = "std"))]
-impl fmt::Display for ResponseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Incomplete => write!(f, "Incomplete response"),
-            Self::Parse(msg) => write!(f, "Parse error: {}", msg),
-            Self::Status(e) => write!(f, "{}", e),
-            Self::BufferTooSmall => write!(f, "Buffer too small"),
-            Self::Other => write!(f, "Unknown response error"),
-        }
-    }
 }
 
 impl ResponseError {
@@ -128,6 +88,11 @@ impl ResponseError {
         Self::Parse(message)
     }
 
+    /// Create an invalid response error with a message
+    pub const fn invalid_response(message: &'static str) -> Self {
+        Self::Parse(message)
+    }
+
     /// Check if this error has the given status word
     pub const fn has_status(&self, sw: u16) -> bool {
         if let Self::Status(status_error) = self {
@@ -138,7 +103,6 @@ impl ResponseError {
     }
 
     /// Create a message error
-    #[cfg(feature = "std")]
     pub fn message<S: Into<String>>(message: S) -> Self {
         Self::Message(message.into())
     }
