@@ -1,0 +1,18 @@
+# Configuration file for [`cargo-release`](https://github.com/crate-ci/cargo-release)
+# See: https://github.com/crate-ci/cargo-release/blob/master/docs/reference.md
+
+allow-branch = ["main"]
+sign-commit = true
+sign-tag = true
+shared-version = true
+publish = true  # Enable publishing to crates.io
+pre-release-commit-message = "chore: release {{version}}"
+tag-prefix = "v"  # Use v prefix for tags
+rate-limit.existing-packages = 50
+pre-release-hook = [
+    "bash",
+    "-c",
+    "$WORKSPACE_ROOT/scripts/changelog.sh --tag v{{version}}",
+]
+publish-order = ["nexum-apdu-core", "nexum-apdu-macros", "nexum-apdu-transport-pcsc", "nexum-apdu-globalplatform"]
+owners = ["github:nullisxyz:core"]

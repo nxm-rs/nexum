@@ -1,16 +1,37 @@
-name: Release to crates.io
+name: Release
 
 on:
-    release:
-        types: [created]
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Release version (without v prefix)"
+                required: false
+                type: string
+            level:
+                description: "Release level (if version not specified)"
+                required: false
+                default: "patch"
+                type: choice
+                options:
+                    - patch
+                    - minor
+                    - major
+            dry-run:
+                description: "Dry run (no actual changes)"
+                required: false
+                default: false
+                type: boolean
 
 jobs:
-    publish:
-        name: Publish crates to crates.io
+    release:
+        name: Prepare and Publish Release
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  token: ${{ secrets.RELEASE_TOKEN }}
 
             - name: Install Rust
               uses: dtolnay/rust-toolchain@stable
@@ -18,73 +39,87 @@ jobs:
             - name: Cache dependencies
               uses: Swatinem/rust-cache@v2
 
-            - name: Extract version from tag
-              id: extract_version
-              run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-            - name: Verify version matches workspace version
+            - name: Set Git identity
               run: |
-                  # Correct path to workspace Cargo.toml
-                  CARGO_VERSION=$(grep -m 1 'version = "' Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
-                  TAG_VERSION=${{ steps.extract_version.outputs.VERSION }}
-                  if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
-                    echo "Error: Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
-                    exit 1
+                  git config --global user.name "Nullis Release Bot"
+                  git config --global user.email "github-actions@nullis.xyz"
+
+            - name: Install cargo-release
+              run: cargo install cargo-release
+
+            - name: Install git-cliff
+              uses: orhun/git-cliff-action@v2
+              with:
+                  config: cliff.toml
+                  args: --verbose
+
+            - name: Set version arguments
+              id: version_args
+              run: |
+                  if [ "${{ inputs.version }}" != "" ]; then
+                    # Manual version
+                    echo "VERSION_ARG=--version ${{ inputs.version }}" >> $GITHUB_OUTPUT
+                    echo "TAG_VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+                  else
+                    # Automatic version bump
+                    echo "VERSION_ARG=--${{ inputs.level }}" >> $GITHUB_OUTPUT
+
+                    # Extract the current version from Cargo.toml and calculate the next version
+                    CURRENT_VERSION=$(grep -m 1 'version = "' Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
+
+                    # Simple version calculation (this is a basic implementation)
+                    if [ "${{ inputs.level }}" = "patch" ]; then
+                      IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                      NEXT_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$((VERSION_PARTS[2] + 1))"
+                    elif [ "${{ inputs.level }}" = "minor" ]; then
+                      IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                      NEXT_VERSION="${VERSION_PARTS[0]}.$((VERSION_PARTS[1] + 1)).0"
+                    elif [ "${{ inputs.level }}" = "major" ]; then
+                      IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+                      NEXT_VERSION="$((VERSION_PARTS[0] + 1)).0.0"
+                    fi
+
+                    echo "TAG_VERSION=$NEXT_VERSION" >> $GITHUB_OUTPUT
                   fi
 
-            - name: Login to crates.io
-              run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
-
-            # Publish crates in dependency order
-            - name: Publish nexum-apdu-core
-              working-directory: crates/core
-              run: |
-                  cargo publish --no-verify
-                  # Verify the crate is available before proceeding
-                  attempt=1
-                  max_attempts=10
-                  until cargo search nexum-apdu-core | grep -q "nexum-apdu-core = \"${{ steps.extract_version.outputs.VERSION }}\"" || [ $attempt -gt $max_attempts ]
-                  do
-                    echo "Waiting for nexum-apdu-core v${{ steps.extract_version.outputs.VERSION }} to be available on crates.io (attempt $attempt/$max_attempts)..."
-                    sleep 10
-                    attempt=$((attempt+1))
-                  done
-                  if [ $attempt -gt $max_attempts ]; then
-                    echo "Timed out waiting for nexum-apdu-core to be available on crates.io"
-                    exit 1
+                  if [ "${{ inputs.dry-run }}" = "true" ]; then
+                    echo "DRY_RUN_ARG=--dry-run" >> $GITHUB_OUTPUT
+                    echo "IS_DRY_RUN=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "DRY_RUN_ARG=" >> $GITHUB_OUTPUT
+                    echo "IS_DRY_RUN=false" >> $GITHUB_OUTPUT
                   fi
 
-            - name: Publish nexum-apdu-macros
-              working-directory: crates/macros
+            - name: Run cargo-release
+              env:
+                  CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+                  WORKSPACE_ROOT: ${{ github.workspace }}
               run: |
-                  cargo publish --no-verify
-                  # Verify the crate is available before proceeding
-                  attempt=1
-                  max_attempts=10
-                  until cargo search nexum-apdu-macros | grep -q "nexum-apdu-macros = \"${{ steps.extract_version.outputs.VERSION }}\"" || [ $attempt -gt $max_attempts ]
-                  do
-                    echo "Waiting for nexum-apdu-macros v${{ steps.extract_version.outputs.VERSION }} to be available on crates.io (attempt $attempt/$max_attempts)..."
-                    sleep 10
-                    attempt=$((attempt+1))
-                  done
-                  if [ $attempt -gt $max_attempts ]; then
-                    echo "Timed out waiting for nexum-apdu-macros to be available on crates.io"
-                    exit 1
-                  fi
+                  echo "Running cargo release with args: ${{ steps.version_args.outputs.VERSION_ARG }} ${{ steps.version_args.outputs.DRY_RUN_ARG }}"
+                  cargo release ${{ steps.version_args.outputs.VERSION_ARG }} ${{ steps.version_args.outputs.DRY_RUN_ARG }} --execute
 
-            - name: Publish nexum-apdu-transport-pcsc
-              working-directory: crates/pcsc
-              run: cargo publish --no-verify
+            - name: Create GitHub Release
+              if: ${{ steps.version_args.outputs.IS_DRY_RUN == 'false' }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  VERSION="${{ steps.version_args.outputs.TAG_VERSION }}"
 
-            - name: Publish nexum-apdu-globalplatform
-              working-directory: crates/globalplatform
-              run: cargo publish --no-verify
+                  # Get the content of the latest entry in CHANGELOG.md
+                  CHANGELOG_CONTENT=$(awk '/^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ {if (p) {exit}; p=1; next} p' CHANGELOG.md | sed '/^## /q' | sed '$d')
+
+                  # Create GitHub release
+                  gh release create "v$VERSION" \
+                    --title "v$VERSION" \
+                    --notes "$CHANGELOG_CONTENT" \
+                    --verify-tag
 
             - name: Create summary
+              if: ${{ steps.version_args.outputs.IS_DRY_RUN == 'false' }}
               run: |
                   echo "# Release Published! 🚀" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
-                  echo "Version: ${{ steps.extract_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+                  echo "Version: ${{ steps.version_args.outputs.TAG_VERSION }}" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "The following crates have been published to crates.io:" >> $GITHUB_STEP_SUMMARY
                   echo "- nexum-apdu-core" >> $GITHUB_STEP_SUMMARY

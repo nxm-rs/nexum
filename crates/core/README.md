@@ -120,15 +120,6 @@ You can implement custom processors to handle:
 - Response post-processing
 - Protocol-specific translations
 
-## No-std Support
-
-This crate supports `no_std` environments. To use it without the standard library, disable the default features:
-
-```toml
-[dependencies]
-apdu-core = { version = "0.1.0", default-features = false }
-```
-
 ## Feature Flags
 
 - `std` (default): Enable standard library support
