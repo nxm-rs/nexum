@@ -57,18 +57,18 @@ jobs:
             - name: Install git-cliff
               run: cargo install git-cliff
 
-            - name: Prepare version info
-              id: version_info
+            - name: Prepare release arguments
+              id: release_args
               run: |
                   if [ "${{ inputs.version }}" != "" ]; then
-                    # Manual version
+                    # Manual version - pass directly as positional argument
+                    echo "RELEASE_ARG=${{ inputs.version }}" >> $GITHUB_OUTPUT
                     echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-                    echo "VERSION_ARG=--version ${{ inputs.version }}" >> $GITHUB_OUTPUT
                   else
-                    # Use level
-                    echo "VERSION_ARG=${{ inputs.level }}" >> $GITHUB_OUTPUT
+                    # Use level directly as positional argument
+                    echo "RELEASE_ARG=${{ inputs.level }}" >> $GITHUB_OUTPUT
 
-                    # Calculate next version
+                    # Calculate the next version for summary
                     CURRENT_VERSION=$(grep -m 1 'version = "' Cargo.toml | sed 's/.*version = "\(.*\)".*/\1/')
                     if [ "${{ inputs.level }}" = "patch" ]; then
                       IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
@@ -92,39 +92,35 @@ jobs:
                   fi
 
             - name: Release process (Dry Run)
-              if: ${{ steps.version_info.outputs.IS_DRY_RUN == 'true' }}
+              if: ${{ steps.release_args.outputs.IS_DRY_RUN == 'true' }}
               env:
                   CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
                   WORKSPACE_ROOT: ${{ github.workspace }}
               run: |
-                  echo "Dry run - version bump to ${{ steps.version_info.outputs.VERSION }}"
-
-                  # Run individual commands in dry-run mode
-                  cargo release ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --no-confirm
+                  echo "Dry run - version using '${{ steps.release_args.outputs.RELEASE_ARG }}'"
+                  cargo release ${{ steps.release_args.outputs.RELEASE_ARG }} --workspace --no-confirm
 
             - name: Release process (Execute)
-              if: ${{ steps.version_info.outputs.IS_DRY_RUN == 'false' }}
+              if: ${{ steps.release_args.outputs.IS_DRY_RUN == 'false' }}
               env:
                   CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
                   WORKSPACE_ROOT: ${{ github.workspace }}
                   GIT_CREDENTIALS: https://x-access-token:${{ github.token }}@github.com
               run: |
-                  echo "Releasing version ${{ steps.version_info.outputs.VERSION }}"
-
-                  # Execute individual commands to ensure they run
-                  cargo release ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --execute --no-confirm
+                  echo "Releasing with argument: ${{ steps.release_args.outputs.RELEASE_ARG }}"
+                  cargo release ${{ steps.release_args.outputs.RELEASE_ARG }} --workspace --execute --no-confirm
 
             - name: Create summary
               run: |
                   echo "# Release Process Completed! 🚀" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
-                  if [ "${{ steps.version_info.outputs.IS_DRY_RUN }}" == "true" ]; then
+                  if [ "${{ steps.release_args.outputs.IS_DRY_RUN }}" == "true" ]; then
                     echo "**DRY RUN**: No actual changes were made" >> $GITHUB_STEP_SUMMARY
                   else
-                    echo "Version: ${{ steps.version_info.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+                    echo "Version: ${{ steps.release_args.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
                     echo "" >> $GITHUB_STEP_SUMMARY
                     echo "The following actions were completed:" >> $GITHUB_STEP_SUMMARY
-                    echo "- Version bumped to ${{ steps.version_info.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+                    echo "- Version bumped to ${{ steps.release_args.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
                     echo "- CHANGELOG.md updated" >> $GITHUB_STEP_SUMMARY
                     echo "- Changes committed" >> $GITHUB_STEP_SUMMARY
                     echo "- Crates published to crates.io" >> $GITHUB_STEP_SUMMARY
