@@ -107,6 +107,10 @@ jobs:
                   WORKSPACE_ROOT: ${{ github.workspace }}
                   GIT_CREDENTIALS: https://x-access-token:${{ github.token }}@github.com
               run: |
+                  # Configure Git to automatically sign commits
+                  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+                  git config --global user.name "GitHub Actions"
+                  git config --global commit.gpgSign true
                   echo "Releasing with argument: ${{ steps.release_args.outputs.RELEASE_ARG }}"
                   cargo release ${{ steps.release_args.outputs.RELEASE_ARG }} --workspace --execute --no-confirm
 
