@@ -8,7 +8,8 @@ shared-version = true
 publish = true  # Enable publishing to crates.io
 pre-release-commit-message = "chore: release {{version}}"
 tag-prefix = "v"  # Use v prefix for tags
-rate-limit.existing-packages = 50
+tag-message = "Release {{version}}"
+push = true  # Make sure we push the tag
 pre-release-hook = [
     "bash",
     "-c",
@@ -16,3 +17,4 @@ pre-release-hook = [
 ]
 publish-order = ["nexum-apdu-core", "nexum-apdu-macros", "nexum-apdu-transport-pcsc", "nexum-apdu-globalplatform"]
 owners = ["github:nullisxyz:core"]
+rate-limit.existing-packages = 50
