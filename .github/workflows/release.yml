@@ -91,19 +91,6 @@ jobs:
                     echo "IS_DRY_RUN=false" >> $GITHUB_OUTPUT
                   fi
 
-            - name: Update CHANGELOG for release
-              env:
-                  WORKSPACE_ROOT: ${{ github.workspace }}
-              run: |
-                  VERSION="${{ steps.version_info.outputs.VERSION }}"
-                  # Update changelog with the new version
-                  if [ -f "scripts/changelog.sh" ]; then
-                    chmod +x scripts/changelog.sh
-                    ./scripts/changelog.sh --tag "v$VERSION"
-                  else
-                    git cliff --tag "v$VERSION" --output CHANGELOG.md --unreleased
-                  fi
-
             - name: Release process (Dry Run)
               if: ${{ steps.version_info.outputs.IS_DRY_RUN == 'true' }}
               env:
@@ -113,13 +100,7 @@ jobs:
                   echo "Dry run - version bump to ${{ steps.version_info.outputs.VERSION }}"
 
                   # Run individual commands in dry-run mode
-                  cargo release version ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --no-confirm
-                  cargo release replace --workspace
-                  cargo release hook --workspace
-                  cargo release commit --workspace
-                  cargo release publish --workspace
-                  cargo release tag --workspace
-                  cargo release push --workspace
+                  cargo release ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --no-confirm
 
             - name: Release process (Execute)
               if: ${{ steps.version_info.outputs.IS_DRY_RUN == 'false' }}
@@ -131,13 +112,7 @@ jobs:
                   echo "Releasing version ${{ steps.version_info.outputs.VERSION }}"
 
                   # Execute individual commands to ensure they run
-                  cargo release version ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --execute --no-confirm
-                  cargo release replace --workspace --execute
-                  cargo release hook --workspace --execute
-                  cargo release commit --workspace --execute
-                  cargo release publish --workspace --execute
-                  cargo release tag --workspace --execute
-                  cargo release push --workspace --execute
+                  cargo release ${{ steps.version_info.outputs.VERSION_ARG }} --workspace --execute --no-confirm
 
             - name: Create summary
               run: |
