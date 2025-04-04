@@ -19,7 +19,7 @@ apdu_pair! {
         command {
             cla: cla::GP,
             ins: ins::PUT_KEY,
-            secure: true,
+            required_security_level: SecurityLevel::mac_protected(),
 
             builders {
                 /// Create a PUT KEY command for loading a new key version

@@ -12,7 +12,7 @@ apdu_pair! {
         command {
             cla: cla::GP,
             ins: ins::INSTALL,
-            secure: true,
+            required_security_level: SecurityLevel::mac_protected(),
 
             builders {
                 /// Create an INSTALL command with parameters

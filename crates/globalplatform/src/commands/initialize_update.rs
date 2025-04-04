@@ -13,7 +13,6 @@ apdu_pair! {
         command {
             cla: cla::GP,
             ins: ins::INITIALIZE_UPDATE,
-            secure: false,
 
             builders {
                 /// Create a new INITIALIZE UPDATE command with a host challenge

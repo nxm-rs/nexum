@@ -188,7 +188,7 @@ impl GPSecureChannel {
         }
 
         // Set security level
-        self.security_level = SecurityLevel::MACProtection;
+        self.security_level = SecurityLevel::mac_protected();
 
         // Mark channel as established
         self.established = true;
@@ -240,7 +240,7 @@ impl SecureChannel for GPSecureChannel {
     fn close(&mut self) -> Result<(), ProcessorError> {
         debug!("Closing GlobalPlatform SCP02 secure channel");
         self.established = false;
-        self.security_level = SecurityLevel::None;
+        self.security_level = SecurityLevel::none();
         Ok(())
     }
 

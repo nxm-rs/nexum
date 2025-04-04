@@ -197,7 +197,7 @@ impl<T: CardTransport<Error = TransportError>> Executor for CardExecutor<T> {
             .filter(|p| p.is_active())
             .map(|p| p.security_level())
             .max()
-            .unwrap_or(SecurityLevel::None)
+            .unwrap_or(SecurityLevel::none())
     }
 
     fn reset(&mut self) -> Result<(), Self::Error> {

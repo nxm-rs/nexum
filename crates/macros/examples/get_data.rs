@@ -11,7 +11,6 @@ apdu_pair! {
         command {
             cla: 0x00,
             ins: 0xCA,
-            secure: false,
 
             builders {
                 /// Get data for a specific tag (P1-P2 are the tag)

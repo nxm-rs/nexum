@@ -10,7 +10,6 @@ apdu_pair! {
         command {
             cla: 0x00,
             ins: 0xA4,
-            secure: false,
 
             builders {
                 /// Select by name (AID)

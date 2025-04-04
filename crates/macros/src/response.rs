@@ -662,11 +662,10 @@ pub(crate) fn expand_response(
         let doc_attrs = &v.doc_attrs;
 
         // Add #[error("message")] attribute for thiserror
-        let error_attrs = if let Some(ref error_attr) = v.error_attr {
-            quote! { #error_attr }
-        } else {
-            quote! {}
-        };
+        let error_attrs = v
+            .error_attr
+            .as_ref()
+            .map_or_else(|| quote! {}, |error_attr| quote! { #error_attr });
 
         if fields.is_empty() {
             quote! {

@@ -5,6 +5,7 @@
 use bytes::Bytes;
 use core::fmt;
 use dyn_clone::DynClone;
+use std::cmp::Ordering;
 use tracing::{debug, warn};
 
 #[cfg(test)]
@@ -18,18 +19,146 @@ use crate::response::Response;
 use crate::transport::CardTransport;
 use crate::transport::error::TransportError;
 
-/// Security level for communication
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub enum SecurityLevel {
+/// Security level flags for communication
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SecurityLevel {
+    /// Whether authentication has been established
+    authenticated: bool,
+    /// Whether MAC protection is active
+    mac_protection: bool,
+    /// Whether full encryption is active (implies MAC protection)
+    encrypted: bool,
+}
+
+impl SecurityLevel {
     /// No security (plain communication)
-    #[default]
-    None,
+    pub fn none() -> Self {
+        Self::default()
+    }
+
     /// Authentication only
-    Authenticated,
-    /// Message Authentication Codes (data integrity)
-    MACProtection,
-    /// Full encryption (data confidentiality and integrity)
-    FullEncryption,
+    pub const fn authenticated() -> Self {
+        Self {
+            authenticated: true,
+            mac_protection: false,
+            encrypted: false,
+        }
+    }
+
+    /// Message Authentication Codes (data integrity) only
+    pub const fn mac_protected() -> Self {
+        Self {
+            authenticated: false,
+            mac_protection: true,
+            encrypted: false,
+        }
+    }
+
+    /// Authentication with MAC protection
+    pub const fn authenticated_mac() -> Self {
+        Self {
+            authenticated: true,
+            mac_protection: true,
+            encrypted: false,
+        }
+    }
+
+    /// Full encryption (automatically includes MAC protection)
+    pub const fn encrypted() -> Self {
+        Self {
+            authenticated: false,
+            mac_protection: true, // Encryption implies MAC protection
+            encrypted: true,
+        }
+    }
+
+    /// Full encryption with authentication
+    pub const fn authenticated_encrypted() -> Self {
+        Self {
+            authenticated: true,
+            mac_protection: true, // Encryption implies MAC protection
+            encrypted: true,
+        }
+    }
+
+    /// Full security - authentication, MAC protection, and encryption
+    pub const fn full_security() -> Self {
+        Self {
+            authenticated: true,
+            mac_protection: true,
+            encrypted: true,
+        }
+    }
+
+    /// Check if a security level satisfies required security properties
+    pub const fn satisfies(&self, required: &Self) -> bool {
+        (!required.authenticated || self.authenticated)
+            && (!required.mac_protection || self.mac_protection || self.encrypted)
+            && (!required.encrypted || self.encrypted)
+    }
+
+    /// Check if the security level is authenticated (such as a PIN verified)
+    pub const fn is_authenticated(&self) -> bool {
+        self.authenticated
+    }
+
+    /// Check if the security level has MAC protection
+    pub const fn has_mac_protection(&self) -> bool {
+        self.mac_protection || self.encrypted // Encryption implies MAC protection
+    }
+
+    /// Check if the security level is encrypted
+    pub const fn is_encrypted(&self) -> bool {
+        self.encrypted
+    }
+
+    // Builder methods to add security properties
+
+    /// Builder method to add authentication
+    pub const fn with_authentication(mut self) -> Self {
+        self.authenticated = true;
+        self
+    }
+
+    /// Builder method to add MAC protection
+    pub const fn with_mac_protection(mut self) -> Self {
+        self.mac_protection = true;
+        self
+    }
+
+    /// Builder method to add encryption
+    pub const fn with_encryption(mut self) -> Self {
+        // Encryption implies MAC protection
+        self.mac_protection = true;
+        self.encrypted = true;
+        self
+    }
+}
+
+impl PartialOrd for SecurityLevel {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SecurityLevel {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Calculate a numeric value representing the security strength
+        // Each security feature adds a specific weight to the total:
+        // - Authentication: 1
+        // - MAC Protection: 2
+        // - Encryption: 4
+        let self_value = (self.authenticated as u8)
+            + (self.has_mac_protection() as u8) * 2
+            + (self.encrypted as u8) * 4;
+
+        let other_value = (other.authenticated as u8)
+            + (other.has_mac_protection() as u8) * 2
+            + (other.encrypted as u8) * 4;
+
+        // Compare the calculated security strengths
+        self_value.cmp(&other_value)
+    }
 }
 
 /// Trait for secure channel providers
@@ -96,7 +225,7 @@ impl BaseSecureChannel {
     }
 
     /// Mark the channel as established
-    pub fn set_established(&mut self, established: bool) {
+    pub const fn set_established(&mut self, established: bool) {
         self.established = established;
     }
 }

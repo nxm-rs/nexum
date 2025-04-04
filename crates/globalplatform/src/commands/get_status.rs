@@ -15,7 +15,7 @@ apdu_pair! {
         command {
             cla: cla::GP,
             ins: ins::GET_STATUS,
-            secure: true,
+            required_security_level: SecurityLevel::mac_protected(),
 
             builders {
                 /// Create a new GET STATUS command with specific P1 and AID filter

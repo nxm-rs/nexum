@@ -73,7 +73,7 @@ pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
 
     /// Get the security level provided by this processor
     fn security_level(&self) -> SecurityLevel {
-        SecurityLevel::None
+        SecurityLevel::none()
     }
 
     /// Check if this processor is active/ready

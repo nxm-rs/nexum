@@ -35,7 +35,7 @@ apdu_pair! {
         command {
             cla: cla::ISO7816,
             ins: ins::SELECT,
-            secure: false,
+            required_security_level: SecurityLevel::none(),
 
             builders {
                 /// Create a new SELECT command with AID

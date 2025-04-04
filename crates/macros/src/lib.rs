@@ -30,7 +30,7 @@ use utils::error_tokens;
 ///
 /// ```
 /// use nexum_apdu_macros::apdu_pair;
-/// use nexum_apdu_core::{Error, StatusWord};
+/// use nexum_apdu_core::{Error, StatusWord, processor::secure::SecurityLevel};
 ///
 /// apdu_pair! {
 ///     /// Select command for applications
@@ -38,7 +38,7 @@ use utils::error_tokens;
 ///         command {
 ///             cla: 0x00,
 ///             ins: 0xA4,
-///             secure: false,
+///             required_security_level: SecurityLevel::none(),
 ///
 ///             builders {
 ///                 /// Select by AID
@@ -169,6 +169,7 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         mod #module_name {
             use super::*;
             use nexum_apdu_core::command::ExpectedLength;
+            use nexum_apdu_core::processor::secure::SecurityLevel;
 
             #command_tokens
 

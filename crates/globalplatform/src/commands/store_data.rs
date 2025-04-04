@@ -19,7 +19,7 @@ apdu_pair! {
         command {
             cla: cla::GP,
             ins: ins::STORE_DATA,
-            secure: true,
+            required_security_level: SecurityLevel::mac_protected(),
 
             builders {
                 /// Create a STORE DATA command

@@ -18,6 +18,8 @@ pub type ExpectedLength = u8;
 
 use error::CommandError;
 
+use crate::prelude::SecurityLevel;
+
 /// Core trait for APDU commands
 pub trait ApduCommand {
     /// Response type returned when this command is executed
@@ -130,8 +132,8 @@ pub trait ApduCommand {
     }
 
     /// Whether this command requires a secure channel
-    fn requires_secure_channel(&self) -> bool {
-        false
+    fn required_security_level(&self) -> SecurityLevel {
+        SecurityLevel::none()
     }
 
     /// Convert to a generic Command

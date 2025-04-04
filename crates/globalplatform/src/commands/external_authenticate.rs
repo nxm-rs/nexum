@@ -16,7 +16,6 @@ apdu_pair! {
         command {
             cla: cla::MAC,
             ins: ins::EXTERNAL_AUTHENTICATE,
-            secure: false,
 
             builders {
                 /// Create a new EXTERNAL AUTHENTICATE command with host cryptogram

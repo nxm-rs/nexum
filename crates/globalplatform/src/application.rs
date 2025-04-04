@@ -291,7 +291,7 @@ where
     }
 
     /// Get a mutable reference to the executor
-    pub fn executor_mut(&mut self) -> &mut E {
+    pub const fn executor_mut(&mut self) -> &mut E {
         &mut self.executor
     }
 

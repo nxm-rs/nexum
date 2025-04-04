@@ -48,6 +48,7 @@ pub mod prelude {
         executor::Executor,
         executor::ext::{ResponseAwareExecutor, SecureChannelExecutor},
         processor::CommandProcessor,
+        processor::secure::SecurityLevel,
         response::status::StatusWord,
         response::{ApduResponse, FromApduResponse},
         transport::CardTransport,

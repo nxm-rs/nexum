@@ -10,7 +10,6 @@ apdu_pair! {
         command {
             cla: 0x00,
             ins: 0x20,
-            secure: false,
 
             builders {
                 /// Verify PIN with the given data

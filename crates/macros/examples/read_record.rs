@@ -11,7 +11,6 @@ apdu_pair! {
         command {
             cla: 0x00,
             ins: 0xB2,
-            secure: false,
 
             builders {
                 /// Read a specific record by number from the current file

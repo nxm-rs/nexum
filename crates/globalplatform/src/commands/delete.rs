@@ -13,7 +13,7 @@ apdu_pair! {
         command {
             cla: cla::GP,
             ins: ins::DELETE,
-            secure: true,
+            required_security_level: SecurityLevel::mac_protected(),
 
             builders {
                 /// Create a DELETE command for an object with specified parameters

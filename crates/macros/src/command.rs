@@ -1,3 +1,5 @@
+// File: apdu/crates/macros/src/command.rs
+
 //! Command parsing and expansion logic
 
 use proc_macro2::{Span, TokenStream};
@@ -10,8 +12,8 @@ pub(crate) struct CommandDef {
     pub cla: Expr,
     /// Instruction byte (INS)
     pub ins: Expr,
-    /// Whether the command requires a secure channel
-    pub secure: Expr,
+    /// Required security level for the command
+    pub required_security_level: Option<Expr>,
     /// Builder methods
     pub builders: Vec<ItemFn>,
 }
@@ -21,7 +23,7 @@ impl CommandDef {
     pub(crate) fn parse<'a>(input: &'a ParseStream<'a>) -> syn::Result<Self> {
         let mut cla = None;
         let mut ins = None;
-        let mut secure = None;
+        let mut required_security_level = None;
         let mut builders = Vec::new();
 
         // Parse each field in the command block
@@ -41,8 +43,15 @@ impl CommandDef {
                     input.parse::<Token![,]>()?;
                 }
                 "secure" => {
+                    // Provide a helpful error for users of the old API
+                    return Err(syn::Error::new(
+                        key.span(),
+                        "The 'secure' field is no longer supported. Use 'required_security_level' instead, e.g., required_security_level: SecurityLevel::none()",
+                    ));
+                }
+                "required_security_level" => {
                     input.parse::<Token![:]>()?;
-                    secure = Some(input.parse()?);
+                    required_security_level = Some(input.parse()?);
                     input.parse::<Token![,]>()?;
                 }
                 "builders" => {
@@ -73,14 +82,11 @@ impl CommandDef {
             cla.ok_or_else(|| syn::Error::new(Span::call_site(), "Missing CLA field in command"))?;
         let ins =
             ins.ok_or_else(|| syn::Error::new(Span::call_site(), "Missing INS field in command"))?;
-        let secure = secure.unwrap_or_else(|| {
-            syn::parse_str::<Expr>("false").expect("Failed to create default 'false' expression")
-        });
 
         Ok(Self {
             cla,
             ins,
-            secure,
+            required_security_level,
             builders,
         })
     }
@@ -95,7 +101,12 @@ pub(crate) fn expand_command(
 ) -> Result<TokenStream, syn::Error> {
     let cla = &command.cla;
     let ins = &command.ins;
-    let secure = &command.secure;
+
+    // Use the provided security level or default to SecurityLevel::none()
+    let required_security_level = command
+        .required_security_level
+        .as_ref()
+        .map_or_else(|| quote! { SecurityLevel::none() }, |expr| quote! { #expr });
 
     // Generate builder methods
     let builder_methods = &command.builders;
@@ -164,8 +175,8 @@ pub(crate) fn expand_command(
                 self.le
             }
 
-            fn requires_secure_channel(&self) -> bool {
-                #secure
+            fn required_security_level(&self) -> SecurityLevel {
+                #required_security_level
             }
         }
     };

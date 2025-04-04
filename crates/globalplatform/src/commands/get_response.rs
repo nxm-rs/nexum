@@ -13,7 +13,6 @@ apdu_pair! {
         command {
             cla: cla::ISO7816,
             ins: ins::GET_RESPONSE,
-            secure: false,
 
             builders {
                 /// Create a GET RESPONSE command with expected length
