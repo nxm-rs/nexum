@@ -39,21 +39,21 @@ apdu_pair! {
 
         response {
             ok {
-                /// Success response (9000)
-                #[sw(status::SUCCESS)]
+                /// Success response
+                #[sw(status::SW_NO_ERROR)]
                 Success,
             }
 
             errors {
-                /// Security condition not satisfied (6982)
-                #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
-                #[error("Security condition not satisfied")]
-                SecurityConditionNotSatisfied,
+                /// Security status not satisfied
+                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[error("Security status not satisfied")]
+                SecurityStatusNotSatisfied,
 
-                /// Authentication method blocked (6983)
-                #[sw(status::AUTHENTICATION_METHOD_BLOCKED)]
-                #[error("Authentication method blocked")]
-                AuthenticationMethodBlocked,
+                /// Record not found
+                #[sw(status::SW_RECORD_NOT_FOUND)]
+                #[error("Record not found")]
+                RecordNotFound,
 
                 /// Other error
                 #[sw(_, _)]
@@ -128,7 +128,7 @@ mod tests {
         let response = ExternalAuthenticateResponse::from_bytes(&response_data).unwrap();
         assert!(matches!(
             response,
-            ExternalAuthenticateResponse::SecurityConditionNotSatisfied
+            ExternalAuthenticateResponse::SecurityStatusNotSatisfied
         ));
     }
 }

@@ -111,24 +111,60 @@ pub mod delete_p2 {
 pub mod status {
     use nexum_apdu_core::StatusWord;
 
-    /// Success
-    pub const SUCCESS: StatusWord = StatusWord::new(0x90, 0x00);
-    /// Response data incomplete (SW1 = 0x61)
-    pub const RESPONSE_DATA_INCOMPLETE: u8 = 0x61;
-    /// Wrong length
-    pub const WRONG_LENGTH: StatusWord = StatusWord::new(0x67, 0x00);
-    /// Wrong data
-    pub const WRONG_DATA: StatusWord = StatusWord::new(0x6A, 0x80);
-    /// File not found
-    pub const FILE_NOT_FOUND: StatusWord = StatusWord::new(0x6A, 0x82);
-    /// Referenced data not found
-    pub const REFERENCED_DATA_NOT_FOUND: StatusWord = StatusWord::new(0x6A, 0x88);
-    /// Security condition not satisfied
-    pub const SECURITY_CONDITION_NOT_SATISFIED: StatusWord = StatusWord::new(0x69, 0x82);
-    /// Authentication method blocked
-    pub const AUTHENTICATION_METHOD_BLOCKED: StatusWord = StatusWord::new(0x69, 0x83);
-    /// Command not allowed
-    pub const COMMAND_NOT_ALLOWED: StatusWord = StatusWord::new(0x69, 0x86);
+    pub use gp::*;
+    pub use iso7816::*;
+
+    pub mod iso7816 {
+        use super::StatusWord;
+
+        /// Success (No Error)
+        pub const SW_NO_ERROR: StatusWord = StatusWord::new(0x90, 0x00);
+        /// Response data incomplete (SW1 = 0x61)
+        pub const SW_BYTES_REMAINING_00: StatusWord = StatusWord::new(0x61, 0x00);
+        /// Wrong length
+        pub const SW_WRONG_LENGTH: StatusWord = StatusWord::new(0x67, 0x00);
+        /// Wrong data
+        pub const SW_WRONG_DATA: StatusWord = StatusWord::new(0x6A, 0x80);
+        /// File not found
+        pub const SW_FILE_NOT_FOUND: StatusWord = StatusWord::new(0x6A, 0x82);
+        /// Referenced data not found (changed to RECORD_NOT_FOUND for compatibility)
+        pub const SW_RECORD_NOT_FOUND: StatusWord = StatusWord::new(0x6A, 0x83);
+        /// Security condition not satisfied
+        pub const SW_SECURITY_STATUS_NOT_SATISFIED: StatusWord = StatusWord::new(0x69, 0x82);
+        /// Authentication method blocked (changed to FILE_INVALID for compatibility)
+        pub const SW_FILE_INVALID: StatusWord = StatusWord::new(0x69, 0x83);
+        /// Command not allowed
+        pub const SW_COMMAND_NOT_ALLOWED: StatusWord = StatusWord::new(0x69, 0x86);
+        /// Incorrect parameters (P1,P2)
+        pub const SW_INCORRECT_P1P2: StatusWord = StatusWord::new(0x6A, 0x86);
+        /// Wrong parameters P1-P2
+        pub const SW_WRONG_P1P2: StatusWord = StatusWord::new(0x6B, 0x00);
+        /// Function not supported
+        pub const SW_FUNC_NOT_SUPPORTED: StatusWord = StatusWord::new(0x6A, 0x81);
+        /// Conditions of use not satisfied
+        pub const SW_CONDITIONS_NOT_SATISFIED: StatusWord = StatusWord::new(0x69, 0x85);
+        /// CLA value not supported
+        pub const SW_CLA_NOT_SUPPORTED: StatusWord = StatusWord::new(0x6E, 0x00);
+        /// INS value not supported
+        pub const SW_INS_NOT_SUPPORTED: StatusWord = StatusWord::new(0x6D, 0x00);
+        /// No precise diagnosis
+        pub const SW_UNKNOWN: StatusWord = StatusWord::new(0x6F, 0x00);
+        /// Warning, card state unchanged
+        pub const SW_WARNING_STATE_UNCHANGED: StatusWord = StatusWord::new(0x62, 0x00);
+        /// Data invalid
+        pub const SW_DATA_INVALID: StatusWord = StatusWord::new(0x69, 0x84);
+        /// Not enough memory space in the file
+        pub const SW_FILE_FULL: StatusWord = StatusWord::new(0x6A, 0x84);
+        /// Applet selection failed
+        pub const SW_APPLET_SELECT_FAILED: StatusWord = StatusWord::new(0x69, 0x99);
+    }
+
+    pub mod gp {
+        use super::StatusWord;
+
+        /// Referenced data not found
+        pub const SW_REFERENCED_DATA_NOT_FOUND: StatusWord = StatusWord::new(0x6A, 0x88);
+    }
 }
 
 /// Tags used in GlobalPlatform commands and responses

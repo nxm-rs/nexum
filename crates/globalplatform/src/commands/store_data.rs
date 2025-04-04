@@ -6,13 +6,6 @@ use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, status};
 
-/// STORE DATA command P1 parameter: More blocks
-pub const P1_MORE_BLOCKS: u8 = 0x00;
-/// STORE DATA command P1 parameter: Last block
-pub const P1_LAST_BLOCK: u8 = 0x80;
-/// STORE DATA command P1 parameter: DGI format
-pub const P1_DGI_FORMAT: u8 = 0x40;
-
 apdu_pair! {
     /// STORE DATA command for GlobalPlatform
     pub struct StoreData {
@@ -29,17 +22,17 @@ apdu_pair! {
 
                 /// Create a STORE DATA command for more blocks (not the last one)
                 pub fn more_blocks(block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new_with_data(P1_MORE_BLOCKS, block_number, data)
+                    Self::new_with_data(0x00, block_number, data)
                 }
 
                 /// Create a STORE DATA command for the last block
                 pub fn last_block(block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new_with_data(P1_LAST_BLOCK, block_number, data)
+                    Self::new_with_data(0x80, block_number, data)
                 }
 
                 /// Create a STORE DATA command with DGI format
                 pub fn with_dgi_format(is_last: bool, block_number: u8, data: impl Into<bytes::Bytes>) -> Self {
-                    let p1 = if is_last { P1_LAST_BLOCK | P1_DGI_FORMAT } else { P1_DGI_FORMAT };
+                    let p1 = if is_last { 0x80 | 0x40 } else { 0x40 };
                     Self::new_with_data(p1, block_number, data)
                 }
             }
@@ -47,24 +40,24 @@ apdu_pair! {
 
         response {
             ok {
-                /// Success response (9000)
-                #[sw(status::SUCCESS)]
+                /// Success response
+                #[sw(status::SW_NO_ERROR)]
                 Success,
             }
 
             errors {
-                /// Referenced data not found (6A88)
-                #[sw(status::REFERENCED_DATA_NOT_FOUND)]
+                /// Referenced data not found
+                #[sw(status::SW_REFERENCED_DATA_NOT_FOUND)]
                 #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
-                /// Security condition not satisfied (6982)
-                #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
-                #[error("Security condition not satisfied")]
-                SecurityConditionNotSatisfied,
+                /// Security status not satisfied
+                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[error("Security status not satisfied")]
+                SecurityStatusNotSatisfied,
 
-                /// Wrong data (6A80)
-                #[sw(status::WRONG_DATA)]
+                /// Wrong data
+                #[sw(status::SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
 
@@ -93,7 +86,7 @@ mod tests {
 
         assert_eq!(cmd.class(), cla::GP);
         assert_eq!(cmd.instruction(), ins::STORE_DATA);
-        assert_eq!(cmd.p1(), P1_MORE_BLOCKS);
+        assert_eq!(cmd.p1(), 0x00);
         assert_eq!(cmd.p2(), 0x00);
         assert_eq!(cmd.data(), Some(data.as_ref()));
 
@@ -107,7 +100,7 @@ mod tests {
         let data = hex!("8402FE0304");
         let cmd = StoreDataCommand::last_block(0x01, data.to_vec());
 
-        assert_eq!(cmd.p1(), P1_LAST_BLOCK);
+        assert_eq!(cmd.p1(), 0x80);
         assert_eq!(cmd.p2(), 0x01);
 
         // Test command serialization
@@ -120,7 +113,7 @@ mod tests {
         let data = hex!("0101020304");
         let cmd = StoreDataCommand::with_dgi_format(true, 0x02, data.to_vec());
 
-        assert_eq!(cmd.p1(), P1_LAST_BLOCK | P1_DGI_FORMAT);
+        assert_eq!(cmd.p1(), 0x80 | 0x40);
         assert_eq!(cmd.p2(), 0x02);
     }
 

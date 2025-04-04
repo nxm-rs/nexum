@@ -47,8 +47,10 @@ pub mod prelude {
         command::ApduCommand,
         executor::Executor,
         executor::ext::{ResponseAwareExecutor, SecureChannelExecutor},
-        processor::CommandProcessor,
-        processor::secure::SecurityLevel,
+        processor::{
+            CommandProcessor,
+            secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
+        },
         response::status::StatusWord,
         response::{ApduResponse, FromApduResponse},
         transport::CardTransport,

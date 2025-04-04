@@ -31,8 +31,8 @@ apdu_pair! {
 
         response {
             ok {
-                /// Success response (9000)
-                #[sw(status::SUCCESS)]
+                /// Success response
+                #[sw(status::SW_NO_ERROR)]
                 Success {
                     key_diversification_data: [u8; 10],
                     key_info: [u8; 2],
@@ -43,15 +43,10 @@ apdu_pair! {
             }
 
             errors {
-                /// Security condition not satisfied (6982)
-                #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
-                #[error("Security condition not satisfied")]
-                SecurityConditionNotSatisfied,
-
-                /// Authentication method blocked (6983)
-                #[sw(status::AUTHENTICATION_METHOD_BLOCKED)]
-                #[error("Authentication method blocked")]
-                AuthenticationMethodBlocked,
+                /// Security status not satisfied
+                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[error("Security status not satisfied")]
+                SecurityStatusNotSatisfied,
 
                 /// Other error
                 #[sw(_, _)]
@@ -64,7 +59,7 @@ apdu_pair! {
 
             custom_parse = |payload: &[u8], sw| -> Result<Self, ResponseError> {
                 match sw {
-                    status::SUCCESS => {
+                    status::SW_NO_ERROR => {
                         if payload.len() != 28 {
                             return Err(ResponseError::Parse("Response data incorrect length"));
                         }
@@ -92,8 +87,7 @@ apdu_pair! {
                             card_cryptogram,
                         })
                     }
-                    status::SECURITY_CONDITION_NOT_SATISFIED => Ok(Self::SecurityConditionNotSatisfied),
-                    status::AUTHENTICATION_METHOD_BLOCKED => Ok(Self::AuthenticationMethodBlocked),
+                    status::SW_SECURITY_STATUS_NOT_SATISFIED => Ok(Self::SecurityStatusNotSatisfied),
                     _ => Ok(Self::OtherError {
                         sw1,
                         sw2
@@ -218,7 +212,7 @@ mod tests {
         let response = InitializeUpdateResponse::from_bytes(&response_data).unwrap();
         assert!(matches!(
             response,
-            InitializeUpdateResponse::SecurityConditionNotSatisfied
+            InitializeUpdateResponse::SecurityStatusNotSatisfied
         ));
     }
 }

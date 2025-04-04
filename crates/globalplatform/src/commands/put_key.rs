@@ -6,13 +6,6 @@ use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::{cla, ins, status};
 
-/// PUT KEY command P1 parameter: New key in a new version
-pub const P1_NEW_KEY_VERSION: u8 = 0x00;
-/// PUT KEY command P1 parameter: Includes key-derivation data
-pub const P1_INCLUDES_KEY_DERIVATION_DATA: u8 = 0x01;
-/// PUT KEY command P1 parameter: Key for multiple versions
-pub const P1_MULTIPLE_KEYS: u8 = 0x02;
-
 apdu_pair! {
     /// PUT KEY command for GlobalPlatform
     pub struct PutKey {
@@ -24,47 +17,47 @@ apdu_pair! {
             builders {
                 /// Create a PUT KEY command for loading a new key version
                 pub fn new_key_version(key_version: u8, key_data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new(P1_NEW_KEY_VERSION, key_version).with_data(key_data.into())
+                    Self::new(0x00, key_version).with_data(key_data.into())
                 }
 
                 /// Create a PUT KEY command for replacing an existing key
                 pub fn replace_key(key_version: u8, key_data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new(P1_NEW_KEY_VERSION, key_version).with_data(key_data.into())
+                    Self::new(0x00, key_version).with_data(key_data.into())
                 }
 
                 /// Create a PUT KEY command with key derivation data
                 pub fn with_derivation_data(key_version: u8, key_data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new(P1_INCLUDES_KEY_DERIVATION_DATA, key_version).with_data(key_data.into())
+                    Self::new(0x01, key_version).with_data(key_data.into())
                 }
 
                 /// Create a PUT KEY command for loading multiple keys
                 pub fn multiple_keys(key_version: u8, key_data: impl Into<bytes::Bytes>) -> Self {
-                    Self::new(P1_MULTIPLE_KEYS, key_version).with_data(key_data.into())
+                    Self::new(0x02, key_version).with_data(key_data.into())
                 }
             }
         }
 
         response {
             ok {
-                /// Success response (9000)
-                #[sw(status::SUCCESS)]
+                /// Success response
+                #[sw(status::SW_NO_ERROR)]
                 Success,
             }
 
             errors {
-                /// Referenced data not found (6A88)
-                #[sw(status::REFERENCED_DATA_NOT_FOUND)]
+                /// Referenced data not found
+                #[sw(status::SW_REFERENCED_DATA_NOT_FOUND)]
                 #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
-                /// Security condition not satisfied (6982)
-                #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
-                #[error("Security condition not satisfied")]
-                SecurityConditionNotSatisfied,
+                /// Security status not satisfied
+                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[error("Security status not satisfied")]
+                SecurityStatusNotSatisfied,
 
-                /// Incorrect parameters in data field (6A80)
-                #[sw(status::WRONG_DATA)]
-                #[error("Incorrect parameters in data field")]
+                /// Wrong data
+                #[sw(status::SW_WRONG_DATA)]
+                #[error("Wrong data")]
                 WrongData,
 
                 /// Other error
@@ -93,7 +86,7 @@ mod tests {
 
         assert_eq!(cmd.class(), cla::GP);
         assert_eq!(cmd.instruction(), ins::PUT_KEY);
-        assert_eq!(cmd.p1(), P1_NEW_KEY_VERSION);
+        assert_eq!(cmd.p1(), 0x00);
         assert_eq!(cmd.p2(), 0x01);
         assert_eq!(cmd.data(), Some(key_data.as_ref()));
 
@@ -114,7 +107,7 @@ mod tests {
         let response = PutKeyResponse::from_bytes(&response_data).unwrap();
         assert!(matches!(
             response,
-            PutKeyResponse::SecurityConditionNotSatisfied
+            PutKeyResponse::SecurityStatusNotSatisfied
         ));
     }
 }

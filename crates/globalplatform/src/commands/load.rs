@@ -34,26 +34,21 @@ apdu_pair! {
 
         response {
             ok {
-                /// Success response (9000)
-                #[sw(status::SUCCESS)]
+                /// Success response
+                #[sw(status::SW_NO_ERROR)]
                 Success,
             }
 
             errors {
-                /// Security condition not satisfied (6982)
-                #[sw(status::SECURITY_CONDITION_NOT_SATISFIED)]
-                #[error("Security condition not satisfied")]
-                SecurityConditionNotSatisfied,
+                /// Security status not satisfied
+                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[error("Security status not satisfied")]
+                SecurityStatusNotSatisfied,
 
-                /// Wrong data length (6700)
-                #[sw(status::WRONG_LENGTH)]
-                #[error("Wrong data length")]
-                WrongDataLength,
-
-                /// File not found (6A82)
-                #[sw(status::FILE_NOT_FOUND)]
-                #[error("File not found")]
-                FileNotFound,
+                /// Wrong length
+                #[sw(status::SW_WRONG_LENGTH)]
+                #[error("Wrong length")]
+                WrongLength,
 
                 /// Other error
                 #[sw(_, _)]
@@ -108,9 +103,6 @@ mod tests {
         // Test error response
         let response_data = hex!("6982");
         let response = LoadResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(
-            response,
-            LoadResponse::SecurityConditionNotSatisfied
-        ));
+        assert!(matches!(response, LoadResponse::SecurityStatusNotSatisfied));
     }
 }
