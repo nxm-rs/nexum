@@ -5,7 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 description = "GlobalPlatform implementation for smart card management"
@@ -14,31 +13,34 @@ description = "GlobalPlatform implementation for smart card management"
 workspace = true
 
 [dependencies]
-## apdu
+## nexum-apdu
 nexum-apdu-core.workspace = true
 nexum-apdu-macros.workspace = true
 nexum-apdu-transport-pcsc.workspace = true
-hex.workspace = true
-rand.workspace = true
-thiserror = { workspace = true, optional = true }
-zip = { workspace = true, features = ["deflate"] }
 
 ## bytes
 bytes.workspace = true
 iso7816-tlv.workspace = true
+hex.workspace = true
 
 ## crypto
-block-padding.workspace = true
 cbc.workspace = true
 cbc-mac.workspace = true
-cipher.workspace = true
+cipher = { workspace = true, features = ["block-padding"] }
 des.workspace = true
 zeroize = { workspace = true, optional = true }
 
-## misc
+## cli
 clap = { workspace = true, features = ["derive"] }
-tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
+
+## misc
+rand.workspace = true
+thiserror = { workspace = true, optional = true }
+zip = { workspace = true, features = ["deflate"] }
+
+## tracing
+tracing.workspace = true
 
 [features]
 default = ["std", "zeroize"]

@@ -4,10 +4,10 @@
 //! required for the SCP02 protocol, including key derivation, MAC calculation,
 //! and cryptogram verification.
 
-use block_padding::{Iso7816, Padding, RawPadding, array::Array};
 use cbc_mac::{CbcMac, Mac};
 use cipher::{
     BlockEncrypt, BlockEncryptMut, Iv, IvSizeUser, Key, KeyInit, KeyIvInit, KeySizeUser,
+    block_padding::{Iso7816, Padding, RawPadding},
     consts::{U8, U16, U256},
     generic_array::GenericArray,
 };
@@ -145,7 +145,7 @@ pub fn mac_full_3des(key: &Key<Scp02>, iv: &Iv<Scp02>, data: &[u8]) -> Scp02Mac 
     let padded_len = data.len() + padding_bytes;
 
     // Create a buffer with at least the minimum needed size
-    let mut block = Array::<u8, U256>::default();
+    let mut block = GenericArray::<u8, U256>::default();
     block[..data.len()].copy_from_slice(data);
 
     // Apply ISO 7816 padding using the provided function

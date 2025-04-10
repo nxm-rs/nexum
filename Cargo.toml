@@ -8,7 +8,6 @@ edition = "2024"
 rust-version = "1.85"
 authors = ["Nullis Contributors"]
 license = "AGPL-3.0-or-later"
-homepage = "https://nullisxyz.github.io/apdu"
 repository = "https://github.com/nullisxyz/apdu"
 keywords = ["apdu", "globalplatform", "smart-card", "cryptography", "iso7816"]
 exclude = ["benches/", "tests/", "crates/**/examples/*"]
@@ -49,11 +48,10 @@ pcsc = { version = "2.9.0", default-features = false }
 ## misc
 bytes = { version = "1.9.0", default-features = false }
 thiserror = { version = "2.0", default-features = false }
-once_cell = { version = "1.19", default-features = false, features = ["critical-section"] }
 iso7816-tlv = { version = "0.4.4" }
 
 ## sync
-parking_lot = { version = "0.12", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false }
 
 # Trait helpers
 auto_impl = "1"
@@ -64,10 +62,7 @@ cipher = { version = "0.4", default-features = false }
 cbc = { version = "0.1", default-features = false }
 cbc-mac = { version = "0.1", default-features = false }
 des = { version = "0.8", default-features = false }
-block-padding = { version = "0.4.0-rc.3" }
 zeroize = { version = "1.8", features = ["derive"] }
-
-zip = { version = "2.5", default-features = false }
 
 # For tests and examples
 rand = "0.9"
@@ -81,8 +76,10 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 heck = "0.5"
 derive_more = { version = "2", default-features = false }
 
-##
+## tracing
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 
+## misc
 clap = { version = "4.5" }
+zip = { version = "2.5", default-features = false }

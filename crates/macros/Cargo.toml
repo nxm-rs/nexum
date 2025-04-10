@@ -5,7 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 description = "Procedural macros for defining APDU commands and responses"
@@ -23,7 +22,12 @@ syn.workspace = true
 heck.workspace = true
 
 [dev-dependencies]
+## nexum-apdu
 nexum-apdu-core.workspace = true
+
+## bytes
 bytes.workspace = true
 iso7816-tlv.workspace = true
+
+## misc
 thiserror.workspace = true

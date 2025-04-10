@@ -5,7 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 description = "PC/SC transport implementation for APDU operations"
@@ -18,13 +17,12 @@ nexum-apdu-core = { workspace = true }
 pcsc.workspace = true
 thiserror.workspace = true
 
-crossbeam-channel = { version = "0.5", optional = true }
+crossbeam-channel = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
-std = ["crossbeam-channel", "nexum-apdu-core/std"]
+std = ["crossbeam-channel/std", "nexum-apdu-core/std"]
 
 [dev-dependencies]
 nexum-apdu-macros.workspace = true
-pcsc.workspace = true
 hex.workspace = true

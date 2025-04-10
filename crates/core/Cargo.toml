@@ -5,7 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 description = "Core traits and types for APDU (Application Protocol Data Unit) operations"
@@ -14,12 +13,19 @@ description = "Core traits and types for APDU (Application Protocol Data Unit) o
 workspace = true
 
 [dependencies]
-thiserror = { workspace = true, optional = true }
+## bytes
 bytes.workspace = true
-dyn-clone.workspace = true
-tracing = { workspace = true, features = ["attributes"] }
-hex.workspace = true
+
+## derivations
 derive_more = { workspace = true, features = ["display"] }
+dyn-clone.workspace = true
+
+## misc
+hex.workspace = true
+thiserror = { workspace = true, optional = true }
+
+## tracing
+tracing = { workspace = true, features = ["attributes"] }
 
 [features]
 default = ["std"]
