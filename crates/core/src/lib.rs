@@ -67,9 +67,10 @@ mod tests {
         assert_eq!(cmd.p1(), 0x04);
         assert_eq!(cmd.p2(), 0x00);
 
-        let resp = Response::success(Bytes::from_static(&[0x01, 0x02, 0x03]));
+        let data = Bytes::from_static(&[0x01, 0x02, 0x03]);
+        let resp = Response::success(Some(data.clone()));
         assert!(resp.is_success());
-        assert_eq!(resp.payload(), &[0x01, 0x02, 0x03]);
+        assert_eq!(resp.payload(), &Some(data));
         assert_eq!(resp.status(), StatusWord::new(0x90, 0x00));
     }
 }

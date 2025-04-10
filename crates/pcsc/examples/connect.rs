@@ -64,19 +64,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("\nSending {}: {}", name, hex);
 
         match executor.transmit_raw(&cmd_bytes) {
-            Ok(response_bytes) => {
-                let response_data = response_bytes.to_vec();
-                match Response::from_bytes(&response_data) {
-                    Ok(response) => {
-                        println!("Response:");
-                        println!("  Status: {}", response.status());
-                        if !response.payload().is_empty() {
-                            println!("  Data: {}", hex::encode_upper(response.payload()));
-                        }
+            Ok(response_bytes) => match Response::from_bytes(&response_bytes) {
+                Ok(response) => {
+                    println!("Response:");
+                    println!("  Status: {}", response.status());
+                    if let Some(payload) = response.payload() {
+                        println!("  Data: {}", hex::encode_upper(payload));
                     }
-                    Err(e) => println!("Error parsing response: {:?}", e),
                 }
-            }
+                Err(e) => println!("Error parsing response: {:?}", e),
+            },
             Err(e) => println!("Command failed: {:?}", e),
         }
 

@@ -52,7 +52,7 @@ fn select_aid(
     if resp.is_success() {
         Ok(format!(
             "Selected successfully, {} data bytes returned",
-            resp.payload().len()
+            resp.payload().as_ref().map_or(0, |payload| payload.len())
         ))
     } else {
         Ok(format!("Selection failed: {}", resp.status()))

@@ -144,18 +144,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // Execute command
                 match executor.transmit_raw(&select_cmd.to_bytes()) {
-                    Ok(response_bytes) => {
-                        // Clone to avoid borrow issues with Response::from_bytes
-                        let response_data = response_bytes.to_vec();
-                        match Response::from_bytes(&response_data) {
-                            Ok(response) => {
-                                println!("Response:");
-                                println!("  Status: {}", response.status());
-                                println!("  Data: {}", hex::encode_upper(response.payload()));
+                    Ok(response_bytes) => match Response::from_bytes(&response_bytes) {
+                        Ok(response) => {
+                            println!("Response:");
+                            println!("  Status: {}", response.status());
+                            match response.payload() {
+                                Some(payload) => println!("  Data: {}", hex::encode_upper(payload)),
+                                None => println!("  Data: None"),
                             }
-                            Err(e) => println!("Error parsing response: {:?}", e),
                         }
-                    }
+                        Err(e) => println!("Error parsing response: {:?}", e),
+                    },
                     Err(e) => println!("Command failed: {:?}", e),
                 }
             }
@@ -177,16 +176,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         match executor.transmit_raw(&command_bytes) {
                             Ok(response_bytes) => {
                                 // Clone to avoid borrow issues with Response::from_bytes
-                                let response_data = response_bytes.to_vec();
-                                match Response::from_bytes(&response_data) {
+                                match Response::from_bytes(&response_bytes) {
                                     Ok(response) => {
                                         println!("Response:");
                                         println!("  Status: {}", response.status());
-                                        if !response.payload().is_empty() {
-                                            println!(
-                                                "  Data: {}",
-                                                hex::encode_upper(response.payload())
-                                            );
+                                        if let Some(payload) = response.payload() {
+                                            println!("  Data: {}", hex::encode_upper(payload));
                                         }
                                     }
                                     Err(e) => println!("Error parsing response: {:?}", e),

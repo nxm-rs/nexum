@@ -53,7 +53,7 @@ impl DefaultGlobalPlatform {
             .open_reader_with_config(reader_name, config)
             .map_err(TransportError::from)?;
         let executor = CardExecutor::new(transport);
-        Ok(GlobalPlatform::new(executor))
+        Ok(Self::new(executor))
     }
 }
 

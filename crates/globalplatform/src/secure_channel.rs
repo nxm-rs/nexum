@@ -231,6 +231,10 @@ impl CommandProcessor for GPSecureChannel {
     fn is_active(&self) -> bool {
         self.established
     }
+
+    fn security_level(&self) -> SecurityLevel {
+        self.security_level
+    }
 }
 
 impl SecureChannel for GPSecureChannel {
@@ -249,8 +253,7 @@ impl SecureChannel for GPSecureChannel {
         warn!("Reestablish not implemented for GlobalPlatform SCP02");
         Err(SecureProtocolError::Session(
             "Cannot reestablish GlobalPlatform SCP02 channel - a new session must be created",
-        )
-        .into())
+        ))
     }
 }
 

@@ -9,7 +9,7 @@ pub mod secure;
 
 use std::fmt;
 
-use bytes::Bytes;
+use bytes::{BufMut, BytesMut};
 use dyn_clone::DynClone;
 use secure::SecurityLevel;
 use tracing::{debug, trace};
@@ -135,10 +135,12 @@ impl CommandProcessor for GetResponseProcessor {
 
         // If SW1=61, use GET RESPONSE to fetch more data
         if sw1 == 0x61 {
-            let mut buffer = Vec::new();
+            let mut buffer = BytesMut::new();
 
             // Save any payload data from initial response
-            buffer.extend_from_slice(payload);
+            if let Some(payload) = payload {
+                buffer.put(payload);
+            }
 
             let mut chains = 0;
             let mut current_sw1 = sw1;
@@ -165,7 +167,9 @@ impl CommandProcessor for GetResponseProcessor {
                     utils::extract_response_parts(&response_bytes)?;
 
                 // Add payload to buffer
-                buffer.extend_from_slice(new_payload);
+                if let Some(payload) = new_payload {
+                    buffer.put(payload);
+                }
 
                 // Update status for potential next iteration
                 current_sw1 = new_sw1;
@@ -178,10 +182,13 @@ impl CommandProcessor for GetResponseProcessor {
             }
 
             // Construct final response with accumulated data and final status word
-            let response = Response::new(Bytes::from(buffer), (current_sw1, current_sw2));
+            let response = Response::new(Some(buffer.freeze()), (current_sw1, current_sw2));
 
             trace!(
-                total_data_len = response.payload().len(),
+                total_data_len = response
+                    .payload()
+                    .as_ref()
+                    .map_or(0, |payload| payload.len()),
                 final_sw = format!("{:02X}{:02X}", current_sw1, current_sw2),
                 "Completed response chaining"
             );
@@ -190,7 +197,7 @@ impl CommandProcessor for GetResponseProcessor {
         }
 
         // If no chaining needed, create response directly
-        Ok(Response::new(Bytes::copy_from_slice(payload), (sw1, sw2)))
+        Ok(Response::new(payload, (sw1, sw2)))
     }
 }
 
@@ -198,6 +205,7 @@ impl CommandProcessor for GetResponseProcessor {
 mod tests {
     use super::*;
     use crate::{ApduCommand, ApduResponse, transport::MockTransport};
+    use bytes::Bytes;
 
     #[test]
     fn test_identity_processor() {
@@ -229,7 +237,10 @@ mod tests {
         let response = processor.process_command(&command, &mut transport).unwrap();
 
         // Should have the combined data with final status
-        assert_eq!(response.payload(), &[0x01, 0x02, 0x03, 0x04, 0x05]);
+        assert_eq!(
+            response.payload(),
+            &Some(Bytes::from_static(&[0x01, 0x02, 0x03, 0x04, 0x05]))
+        );
         assert_eq!(response.status().to_u16(), 0x9000);
 
         // Should have sent the original command and the GET RESPONSE command
