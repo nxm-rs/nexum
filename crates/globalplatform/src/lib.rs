@@ -75,7 +75,7 @@ pub mod operations {
         let mut gp = GlobalPlatform::new(executor);
 
         // Select the Card Manager
-        gp.select_card_manager()??;
+        gp.select_card_manager()?;
 
         // Open secure channel with default keys
         gp.open_secure_channel()?;
@@ -92,7 +92,7 @@ pub mod operations {
         Error: From<<E as ApduExecutorErrors>::Error>,
     {
         let response = gp.get_applications_status()?;
-        Ok(parse_applications(response?))
+        Ok(parse_applications(response))
     }
 
     /// List all packages on the card
@@ -104,7 +104,7 @@ pub mod operations {
         Error: From<<E as ApduExecutorErrors>::Error>,
     {
         let response = gp.get_load_files_status()?;
-        Ok(parse_load_files(response?))
+        Ok(parse_load_files(response))
     }
 
     /// Delete a package and all of its applications
@@ -137,7 +137,7 @@ pub mod operations {
             .ok_or(Error::CapFile("Missing package AID"))?;
 
         // Install for load
-        gp.install_for_load(&package_aid, None)??;
+        gp.install_for_load(&package_aid, None)?;
 
         // Load the CAP file
         gp.load_cap_file(&cap_path, None)?;
@@ -151,7 +151,7 @@ pub mod operations {
                     applet_aid,
                     applet_aid,
                     install_params,
-                )??;
+                )?;
             }
         }
 

@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Select the Card Manager
     println!("Selecting Card Manager...");
-    let _ = gp.select_card_manager()??;
+    let _ = gp.select_card_manager()?;
     println!("Card Manager selected successfully.");
 
     // Open secure channel

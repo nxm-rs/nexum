@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Select the Card Manager
     println!("Selecting Card Manager...");
-    let select_response = gp.select_card_manager()??;
+    let select_response = gp.select_card_manager()?;
 
     let SelectOk::Success { fci } = select_response;
     println!("Card Manager selected successfully.");

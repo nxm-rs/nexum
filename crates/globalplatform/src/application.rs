@@ -10,10 +10,10 @@ use nexum_apdu_core::{ApduCommand, ApduExecutorErrors};
 use nexum_apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
 use nexum_apdu_core::{Bytes, Command, StatusWord};
 
-use crate::commands::delete::DeleteResult;
-use crate::commands::get_status::GetStatusResult;
-use crate::commands::install::InstallResult;
-use crate::commands::select::SelectResult;
+use crate::commands::delete::DeleteOk;
+use crate::commands::get_status::GetStatusOk;
+use crate::commands::install::InstallOk;
+use crate::commands::select::SelectOk;
 use crate::{
     Error, Result,
     commands::{DeleteCommand, GetStatusCommand, InstallCommand, LoadCommand, SelectCommand},
@@ -53,12 +53,12 @@ where
     }
 
     /// Select the card manager (ISD)
-    pub fn select_card_manager(&mut self) -> Result<SelectResult> {
+    pub fn select_card_manager(&mut self) -> Result<SelectOk> {
         self.select_application(SECURITY_DOMAIN_AID)
     }
 
     /// Select an application by AID
-    pub fn select_application(&mut self, aid: &[u8]) -> Result<SelectResult> {
+    pub fn select_application(&mut self, aid: &[u8]) -> Result<SelectOk> {
         // Create SELECT command
         let cmd = SelectCommand::with_aid(aid.to_vec());
 
@@ -70,7 +70,7 @@ where
             self.last_response = Some(Bytes::copy_from_slice(raw_response));
         }
 
-        Ok(response)
+        response.map_err(Into::into)
     }
 
     /// Open a secure channel with default keys
@@ -82,31 +82,33 @@ where
     pub fn open_secure_channel_with_keys(&mut self, keys: &Keys) -> Result<()> {
         let provider = create_secure_channel_provider(keys.clone());
 
-        Ok(self.executor.open_secure_channel(&provider)?)
+        self.executor
+            .open_secure_channel(&provider)
+            .map_err(Into::into)
     }
 
     /// Delete an object
-    pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteResult> {
+    pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteOk> {
         let cmd = DeleteCommand::delete_object(aid);
-        Ok(self.executor.execute(&cmd)?)
+        self.executor.execute(&cmd)?.map_err(Into::into)
     }
 
     /// Delete an object and related objects
-    pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteResult> {
+    pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteOk> {
         let cmd = DeleteCommand::delete_object_and_related(aid);
-        Ok(self.executor.execute(&cmd)?)
+        self.executor.execute(&cmd)?.map_err(Into::into)
     }
 
     /// Get the status of applications
-    pub fn get_applications_status(&mut self) -> Result<GetStatusResult> {
+    pub fn get_applications_status(&mut self) -> Result<GetStatusOk> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::APPLICATIONS);
-        Ok(self.executor.execute(&cmd)?)
+        self.executor.execute(&cmd)?.map_err(Into::into)
     }
 
     /// Get the status of load files
-    pub fn get_load_files_status(&mut self) -> Result<GetStatusResult> {
+    pub fn get_load_files_status(&mut self) -> Result<GetStatusOk> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::EXEC_LOAD_FILES);
-        Ok(self.executor.execute(&cmd)?)
+        self.executor.execute(&cmd)?.map_err(Into::into)
     }
 
     /// Install a package for load
@@ -114,12 +116,12 @@ where
         &mut self,
         package_aid: &[u8],
         security_domain_aid: Option<&[u8]>,
-    ) -> Result<InstallResult> {
+    ) -> Result<InstallOk> {
         // Use ISD if no security domain AID provided
         let sd_aid = security_domain_aid.unwrap_or(SECURITY_DOMAIN_AID);
 
         let cmd = InstallCommand::for_load(package_aid, sd_aid);
-        Ok(self.executor.execute(&cmd)?)
+        self.executor.execute(&cmd)?.map_err(Into::into)
     }
 
     /// Install for install and make selectable
@@ -129,7 +131,7 @@ where
         applet_aid: &[u8],
         instance_aid: &[u8],
         params: &[u8],
-    ) -> Result<InstallResult> {
+    ) -> Result<InstallOk> {
         // Use empty privileges
         let privileges = &[0x00];
 
@@ -142,7 +144,7 @@ where
             &[] as &[u8], // Empty token
         );
 
-        Ok(self.executor.execute(&cmd)?)
+        self.executor.execute(&cmd)?.map_err(Into::into)
     }
 
     /// Load a CAP file
@@ -205,7 +207,7 @@ where
         let applet_aid = &info.applet_aids[applet_index];
 
         // First, install the package
-        self.install_for_load(&package_aid, None)??;
+        self.install_for_load(&package_aid, None)?;
 
         // Then load the CAP file
         self.load_cap_file(cap_file, callback)?;
@@ -216,7 +218,7 @@ where
             applet_aid,
             applet_aid, // using same AID for instance
             &[],        // empty params
-        )??;
+        )?;
 
         Ok(())
     }
@@ -239,7 +241,7 @@ where
         }
 
         // First, install the package
-        self.install_for_load(&package_aid, None)??;
+        self.install_for_load(&package_aid, None)?;
 
         // Then load the CAP file
         self.load_cap_file(&cap_file, callback)?;
@@ -252,7 +254,7 @@ where
                 applet_aid,
                 applet_aid, // using same AID for instance
                 &[],        // empty params
-            )??;
+            )?;
         }
 
         Ok(())
@@ -403,9 +405,5 @@ mod tests {
         // Try to select card manager
         let result = gp.select_card_manager();
         assert!(result.is_ok());
-
-        // Validate the response
-        let response = result.unwrap();
-        assert!(response.is_ok());
     }
 }
