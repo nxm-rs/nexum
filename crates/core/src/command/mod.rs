@@ -5,8 +5,6 @@
 
 pub mod error;
 
-use std::fmt;
-
 use bytes::{BufMut, Bytes, BytesMut};
 
 #[cfg(feature = "longer_payloads")]
@@ -22,11 +20,11 @@ use crate::prelude::SecurityLevel;
 
 /// Core trait for APDU commands
 pub trait ApduCommand {
-    /// Response type returned when this command is executed
+    /// Response enum type returned when this command is executed
     type Response: TryFrom<Bytes>;
 
-    /// Error type that can occur during execution
-    type Error: Into<crate::Error> + fmt::Debug;
+    /// Result type for this command (like SelectResult = Result<SelectOk, SelectError>)
+    type ResultType;
 
     /// Command class (CLA)
     fn class(&self) -> u8;
@@ -279,7 +277,7 @@ impl Command {
 
 impl ApduCommand for Command {
     type Response = Bytes;
-    type Error = CommandError;
+    type ResultType = Result<Bytes, CommandError>;
 
     fn class(&self) -> u8 {
         self.cla

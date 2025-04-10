@@ -15,7 +15,7 @@ use tracing::debug;
 pub fn extract_response_parts(data: &[u8]) -> Result<((u8, u8), &[u8]), ResponseError> {
     if data.len() < 2 {
         debug!("Response too short: {} bytes", data.len());
-        return Err(ResponseError::Incomplete);
+        return Err(ResponseError::BufferTooSmall);
     }
 
     let len = data.len();

@@ -25,6 +25,18 @@ pub struct Keys {
     mac: Key<Scp02>,
 }
 
+impl Default for Keys {
+    fn default() -> Self {
+        // Default GlobalPlatform test key
+        let key = [
+            0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D,
+            0x4E, 0x4F,
+        ];
+        let key = Key::<Scp02>::from_slice(&key);
+        Self::from_single_key(*key)
+    }
+}
+
 impl Keys {
     /// Create a new key set with the specified encryption and MAC keys
     pub const fn new(enc: Key<Scp02>, mac: Key<Scp02>) -> Self {

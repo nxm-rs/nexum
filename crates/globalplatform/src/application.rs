@@ -5,47 +5,30 @@
 
 use std::path::Path;
 
-use nexum_apdu_core::ApduCommand;
+use nexum_apdu_core::{ApduCommand, ApduExecutorErrors};
 
-use cipher::Key;
 use nexum_apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
 use nexum_apdu_core::{Bytes, Command, StatusWord};
 
-use crate::crypto::Scp02;
+use crate::commands::delete::DeleteResult;
+use crate::commands::get_status::GetStatusResult;
+use crate::commands::install::InstallResult;
+use crate::commands::select::SelectResult;
 use crate::{
     Error, Result,
-    commands::{
-        DeleteCommand, DeleteResponse, GetStatusCommand, GetStatusResponse, InstallCommand,
-        InstallResponse, LoadCommand, LoadResponse, SelectCommand, SelectResponse,
-    },
+    commands::{DeleteCommand, GetStatusCommand, InstallCommand, LoadCommand, SelectCommand},
     constants::{SECURITY_DOMAIN_AID, get_status_p1, load_p1},
     load::{CapFileInfo, LoadCommandStream},
     secure_channel::create_secure_channel_provider,
     session::{Keys, Session},
 };
 
-/// Default GlobalPlatform keys
-#[derive(Debug, Clone, Copy)]
-pub struct DefaultKeys;
-
-impl DefaultKeys {
-    /// Create a new set of default GlobalPlatform keys
-    pub fn new() -> Keys {
-        // Default GlobalPlatform test key
-        let key = [
-            0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D,
-            0x4E, 0x4F,
-        ];
-        let key = Key::<Scp02>::from_slice(&key);
-        Keys::from_single_key(*key)
-    }
-}
-
 /// GlobalPlatform card management application
 #[allow(missing_debug_implementations)]
 pub struct GlobalPlatform<E>
 where
     E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
+    Error: From<<E as ApduExecutorErrors>::Error>,
 {
     /// Card executor
     executor: E,
@@ -58,8 +41,7 @@ where
 impl<E> GlobalPlatform<E>
 where
     E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
-    nexum_apdu_core::response::error::ResponseError: Into<E::Error>,
-    Error: From<E::Error>,
+    Error: From<<E as ApduExecutorErrors>::Error>,
 {
     /// Create a new GlobalPlatform instance
     pub const fn new(executor: E) -> Self {
@@ -71,31 +53,29 @@ where
     }
 
     /// Select the card manager (ISD)
-    pub fn select_card_manager(&mut self) -> Result<SelectResponse> {
+    pub fn select_card_manager(&mut self) -> Result<SelectResult> {
         self.select_application(SECURITY_DOMAIN_AID)
     }
 
     /// Select an application by AID
-    pub fn select_application(&mut self, aid: &[u8]) -> Result<SelectResponse> {
+    pub fn select_application(&mut self, aid: &[u8]) -> Result<SelectResult> {
         // Create SELECT command
         let cmd = SelectCommand::with_aid(aid.to_vec());
 
-        // Execute command and map errors
-        match self.executor.execute(&cmd) {
-            Ok(response) => {
-                // Store response for possible later use
-                if let Ok(raw_response) = self.executor.last_response() {
-                    self.last_response = Some(Bytes::copy_from_slice(raw_response));
-                }
-                Ok(response)
-            }
-            Err(e) => Err(Error::from(e)),
+        // Execute command using typed execution flow
+        let response = self.executor.execute(&cmd)?;
+
+        // Store response for possible later use
+        if let Ok(raw_response) = self.executor.last_response() {
+            self.last_response = Some(Bytes::copy_from_slice(raw_response));
         }
+
+        Ok(response)
     }
 
     /// Open a secure channel with default keys
     pub fn open_secure_channel(&mut self) -> Result<()> {
-        self.open_secure_channel_with_keys(&DefaultKeys::new())
+        self.open_secure_channel_with_keys(&Keys::default())
     }
 
     /// Open a secure channel with specific keys and security level
@@ -106,25 +86,25 @@ where
     }
 
     /// Delete an object
-    pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteResponse> {
+    pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteResult> {
         let cmd = DeleteCommand::delete_object(aid);
         Ok(self.executor.execute(&cmd)?)
     }
 
     /// Delete an object and related objects
-    pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteResponse> {
+    pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteResult> {
         let cmd = DeleteCommand::delete_object_and_related(aid);
         Ok(self.executor.execute(&cmd)?)
     }
 
     /// Get the status of applications
-    pub fn get_applications_status(&mut self) -> Result<GetStatusResponse> {
+    pub fn get_applications_status(&mut self) -> Result<GetStatusResult> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::APPLICATIONS);
         Ok(self.executor.execute(&cmd)?)
     }
 
     /// Get the status of load files
-    pub fn get_load_files_status(&mut self) -> Result<GetStatusResponse> {
+    pub fn get_load_files_status(&mut self) -> Result<GetStatusResult> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::EXEC_LOAD_FILES);
         Ok(self.executor.execute(&cmd)?)
     }
@@ -134,7 +114,7 @@ where
         &mut self,
         package_aid: &[u8],
         security_domain_aid: Option<&[u8]>,
-    ) -> Result<InstallResponse> {
+    ) -> Result<InstallResult> {
         // Use ISD if no security domain AID provided
         let sd_aid = security_domain_aid.unwrap_or(SECURITY_DOMAIN_AID);
 
@@ -149,7 +129,7 @@ where
         applet_aid: &[u8],
         instance_aid: &[u8],
         params: &[u8],
-    ) -> Result<InstallResponse> {
+    ) -> Result<InstallResult> {
         // Use empty privileges
         let privileges = &[0x00];
 
@@ -190,16 +170,14 @@ where
             let cmd = LoadCommand::with_block_data(p1, block_number, block_data.to_vec());
 
             // Execute command
-            let response = self.executor.execute(&cmd)?;
+            let _ = self
+                .executor
+                .execute(&cmd)?
+                .map_err(|_| Error::Other("Load failed"))?;
 
             // Call callback if provided
             if let Some(cb) = &mut callback {
                 cb(stream.current_block(), stream.blocks_count())?;
-            }
-
-            // Check response
-            if !matches!(response, LoadResponse::Success) {
-                return Err(Error::Other("Load failed"));
             }
         }
 
@@ -227,7 +205,7 @@ where
         let applet_aid = &info.applet_aids[applet_index];
 
         // First, install the package
-        self.install_for_load(&package_aid, None)?;
+        self.install_for_load(&package_aid, None)??;
 
         // Then load the CAP file
         self.load_cap_file(cap_file, callback)?;
@@ -238,7 +216,7 @@ where
             applet_aid,
             applet_aid, // using same AID for instance
             &[],        // empty params
-        )?;
+        )??;
 
         Ok(())
     }
@@ -261,7 +239,7 @@ where
         }
 
         // First, install the package
-        self.install_for_load(&package_aid, None)?;
+        self.install_for_load(&package_aid, None)??;
 
         // Then load the CAP file
         self.load_cap_file(&cap_file, callback)?;
@@ -274,7 +252,7 @@ where
                 applet_aid,
                 applet_aid, // using same AID for instance
                 &[],        // empty params
-            )?;
+            )??;
         }
 
         Ok(())
@@ -324,7 +302,7 @@ where
         let get_data_cmd = Command::new(0x80, 0xCA, 0x00, 0x66).with_le(0x00);
 
         // Execute and get the response
-        let response = self.executor.transmit(&get_data_cmd.to_bytes())?;
+        let response = self.executor.transmit_raw(&get_data_cmd.to_bytes())?;
 
         // Check if the command was successful
         if response.len() >= 2 {
@@ -345,12 +323,10 @@ where
         let cmd = InstallCommand::for_personalization(app_aid, data);
 
         // Execute the command
-        let response = self.executor.execute(&cmd)?;
-
-        // Check if successful
-        if !matches!(response, InstallResponse::Success) {
-            return Err(Error::Other("Personalization failed"));
-        }
+        let _ = self
+            .executor
+            .execute(&cmd)?
+            .map_err(|_| Error::Other("Personalization failed"))?;
 
         Ok(())
     }
@@ -381,9 +357,10 @@ mod tests {
     }
 
     impl nexum_apdu_core::transport::CardTransport for TestTransport {
-        type Error = TransportError;
-
-        fn do_transmit_raw(&mut self, _command: &[u8]) -> std::result::Result<Bytes, Self::Error> {
+        fn do_transmit_raw(
+            &mut self,
+            _command: &[u8],
+        ) -> std::result::Result<Bytes, TransportError> {
             if self.responses.is_empty() {
                 return Err(TransportError::Transmission)?;
             }
@@ -399,7 +376,7 @@ mod tests {
             true
         }
 
-        fn reset(&mut self) -> std::result::Result<(), Self::Error> {
+        fn reset(&mut self) -> std::result::Result<(), TransportError> {
             Ok(())
         }
     }
@@ -418,7 +395,7 @@ mod tests {
         transport.add_response(mock_select_response());
 
         // Create executor with the transport
-        let executor = CardExecutor::new(transport);
+        let executor: CardExecutor<TestTransport, Error> = CardExecutor::new(transport);
 
         // Create GlobalPlatform instance
         let mut gp = GlobalPlatform::new(executor);
@@ -429,6 +406,6 @@ mod tests {
 
         // Validate the response
         let response = result.unwrap();
-        assert!(response.is_success());
+        assert!(response.is_ok());
     }
 }

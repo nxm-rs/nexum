@@ -57,7 +57,7 @@ apdu_pair! {
 
             methods {
                 /// Get the response data
-                pub fn data(&self) -> Option<&[u8]> {
+                pub const fn data(&self) -> Option<&Vec<u8>> {
                     match self {
                         Self::Success { data } | Self::MoreData { data, .. } => Some(data),
                         _ => None,
@@ -110,7 +110,10 @@ mod tests {
         let response = GetResponseResponse::from_bytes(&response_data).unwrap();
 
         assert!(matches!(response, GetResponseResponse::Success { .. }));
-        assert_eq!(response.data(), Some(&hex!("01020304")[..]));
+        assert_eq!(
+            response.data(),
+            Some(hex!("01020304")[..].to_vec().as_ref())
+        );
         assert!(!response.has_more_data());
         assert_eq!(response.remaining_bytes(), None);
 
@@ -119,7 +122,10 @@ mod tests {
         let response = GetResponseResponse::from_bytes(&response_data).unwrap();
 
         assert!(matches!(response, GetResponseResponse::MoreData { .. }));
-        assert_eq!(response.data(), Some(&hex!("01020304")[..]));
+        assert_eq!(
+            response.data(),
+            Some(hex!("01020304")[..].to_vec().as_ref())
+        );
         assert!(response.has_more_data());
         assert_eq!(response.remaining_bytes(), Some(0xFF));
     }

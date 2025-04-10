@@ -19,6 +19,7 @@ bytes.workspace = true
 dyn-clone.workspace = true
 tracing = { workspace = true, features = ["attributes"] }
 hex.workspace = true
+derive_more = { workspace = true, features = ["display"] }
 
 [features]
 default = ["std"]

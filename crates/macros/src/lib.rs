@@ -152,15 +152,20 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         pair.struct_name.span(),
     );
 
-    // Expand command and response definitions
-    let command_tokens =
-        command::expand_command(&pair.command, &pair.vis, &command_name, &response_name)
-            .map_err(|e| error_tokens("Error expanding command", e))?;
-
     // Get the response tokens and associated type names
     let (response_tokens, ok_name, error_name, result_name) =
         response::expand_response(&pair.response, &pair.vis, &response_name, &command_name)
             .map_err(|e| error_tokens("Error expanding response", e))?;
+
+    // Expand command and response definitions
+    let command_tokens = command::expand_command(
+        &pair.command,
+        &pair.vis,
+        &command_name,
+        &response_name,
+        &result_name,
+    )
+    .map_err(|e| error_tokens("Error expanding command", e))?;
 
     let attrs = &pair.attrs;
 

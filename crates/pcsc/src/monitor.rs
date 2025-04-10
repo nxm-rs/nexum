@@ -1,4 +1,3 @@
-// apdu-rs/crates/pcsc/src/monitor.rs
 //! Monitor implementation for PC/SC events
 
 use pcsc::{Context, ReaderState, Scope, State};
@@ -13,6 +12,8 @@ use crate::event::{CardEvent, CardState, CardStatusEvent, ReaderEvent};
 
 use crate::event::channel::{CardEventSender, CardStatusEventSender, ReaderEventSender};
 
+type PreviousStates = HashMap<String, (State, Vec<u8>)>;
+
 /// Monitor for PC/SC reader and card events
 #[allow(missing_debug_implementations)]
 pub struct PcscMonitor {
@@ -21,7 +22,7 @@ pub struct PcscMonitor {
     /// Whether the monitor is running
     running: Arc<Mutex<bool>>,
     /// Previously seen card events (to avoid duplicates)
-    previous_states: Arc<Mutex<HashMap<String, (State, Vec<u8>)>>>,
+    previous_states: Arc<Mutex<PreviousStates>>,
 }
 
 // Implementation for standard library environments

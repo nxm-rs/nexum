@@ -26,7 +26,7 @@ impl PcscReader {
     }
 
     /// Get the reader name
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &String {
         &self.name
     }
 

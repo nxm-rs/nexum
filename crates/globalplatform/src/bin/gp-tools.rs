@@ -7,10 +7,9 @@ use cipher::Key;
 use clap::{Parser, Subcommand, ValueEnum};
 use hex::FromHex;
 use nexum_apdu_core::CardExecutor;
+use nexum_apdu_globalplatform::Error;
 use nexum_apdu_globalplatform::crypto::Scp02;
-use nexum_apdu_globalplatform::{
-    DefaultKeys, GlobalPlatform, Keys, load::LoadCommandStream, operations,
-};
+use nexum_apdu_globalplatform::{GlobalPlatform, Keys, load::LoadCommandStream, operations};
 use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -169,24 +168,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Connect to the card
     let transport = manager.open_reader_with_config(reader.name(), config)?;
-    let executor = CardExecutor::new(transport);
+    let executor: CardExecutor<_, Error> = CardExecutor::new(transport);
 
     // Create GlobalPlatform instance
     let mut gp = GlobalPlatform::new(executor);
 
     // Select the card manager
     println!("Selecting Card Manager...");
-    let select_response = gp.select_card_manager()?;
-    if !select_response.is_success() {
-        eprintln!("Failed to select Card Manager!");
-        return Ok(());
-    }
+    let _ = gp.select_card_manager()??;
     println!("Card Manager selected successfully.");
 
     // Open secure channel with appropriate keys
     println!("Opening secure channel...");
     let keys = if cli.default_keys {
-        DefaultKeys::new()
+        Keys::default()
     } else if let Some(key_str) = cli.keys {
         let key_bytes = Vec::from_hex(key_str.replace(' ', ""))?;
         if key_bytes.len() != 16 {
@@ -198,7 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Keys::from_single_key(*key)
     } else {
         // Default to test keys
-        DefaultKeys::new()
+        Keys::default()
     };
 
     match gp.open_secure_channel_with_keys(&keys) {

@@ -6,9 +6,8 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use nexum_apdu_core::CardExecutor;
-use nexum_apdu_globalplatform::{GlobalPlatform, load::LoadCommandStream};
-use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
+use nexum_apdu_globalplatform::{DefaultGlobalPlatform, load::LoadCommandStream};
+use nexum_apdu_transport_pcsc::PcscDeviceManager;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the tracing logger with env_format and ansi
@@ -52,21 +51,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Using reader: {}", reader.name());
 
-    // Connect to the reader
-    let config = PcscConfig::default();
-    let transport = manager.open_reader_with_config(reader.name(), config)?;
-    let executor = CardExecutor::new(transport);
-
     // Create GlobalPlatform instance
-    let mut gp = GlobalPlatform::new(executor);
+    let mut gp = DefaultGlobalPlatform::connect(reader.name())?;
 
     // Select the Card Manager
     println!("Selecting Card Manager...");
-    let select_response = gp.select_card_manager()?;
-    if !select_response.is_success() {
-        println!("Failed to select Card Manager!");
-        return Ok(());
-    }
+    let _ = gp.select_card_manager()??;
     println!("Card Manager selected successfully.");
 
     // Open secure channel

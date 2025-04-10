@@ -211,7 +211,7 @@ fn main() {
             Ok(VerifyPinOk::AttemptsRemaining { count }) => {
                 println!("PIN attempts remaining: {}", count);
                 if count == 0 {
-                    return Err(ApduError::other("PIN is blocked"));
+                    return Err(ApduError::Other("PIN is blocked"));
                 }
             }
             _ => {

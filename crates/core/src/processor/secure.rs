@@ -11,13 +11,12 @@ use tracing::{debug, warn};
 #[cfg(test)]
 use tracing::trace;
 
+use super::SecureProtocolError;
 use super::{CommandProcessor, error::ProcessorError};
 use crate::ApduCommand;
-use crate::Error;
 use crate::command::Command;
 use crate::response::Response;
 use crate::transport::CardTransport;
-use crate::transport::error::TransportError;
 
 /// Security level flags for communication
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -133,6 +132,34 @@ impl SecurityLevel {
         self.encrypted = true;
         self
     }
+
+    /// Generate helpful error message about security level mismatch
+    pub fn error_message(&self, required: &Self) -> String {
+        let mut missing = Vec::new();
+
+        if required.authenticated && !self.authenticated {
+            missing.push("authentication");
+        }
+
+        if required.mac_protection && !self.has_mac_protection() {
+            missing.push("MAC protection");
+        }
+
+        if required.encrypted && !self.encrypted {
+            missing.push("encryption");
+        }
+
+        if missing.is_empty() {
+            "Unknown security level mismatch".to_string()
+        } else {
+            format!("Missing required security: {}", missing.join(", "))
+        }
+    }
+
+    /// Check if this security level is none (no security)
+    pub const fn is_none(&self) -> bool {
+        !self.authenticated && !self.mac_protection && !self.encrypted
+    }
 }
 
 impl PartialOrd for SecurityLevel {
@@ -163,31 +190,32 @@ impl Ord for SecurityLevel {
 
 /// Trait for secure channel providers
 pub trait SecureChannelProvider: Send + Sync + fmt::Debug {
-    /// Error type returned by the provider
-    type Error: Into<Error> + fmt::Debug;
-
     /// Create a new secure channel with the specified security level
     fn create_secure_channel(
         &self,
-        transport: &mut dyn CardTransport<Error = TransportError>,
-    ) -> Result<Box<dyn CommandProcessor<Error = ProcessorError>>, Self::Error>;
+        transport: &mut dyn CardTransport,
+    ) -> Result<Box<dyn CommandProcessor>, SecureProtocolError>;
 }
 
 /// Generic secure channel base trait with common functionality
-///
-/// This trait extends CommandProcessor with secure channel specific methods
-pub trait SecureChannel: CommandProcessor + DynClone
-where
-    Self::Error: Into<Error> + fmt::Debug,
-{
+pub trait SecureChannel: CommandProcessor + DynClone {
     /// Check if the secure channel is established
     fn is_established(&self) -> bool;
 
     /// Close the secure channel
-    fn close(&mut self) -> Result<(), Self::Error>;
+    fn close(&mut self) -> Result<(), SecureProtocolError>;
 
     /// Reestablish a closed channel
-    fn reestablish(&mut self) -> Result<(), Self::Error>;
+    fn reestablish(&mut self) -> Result<(), SecureProtocolError>;
+
+    /// Get the current security level provided by this channel
+    fn current_security_level(&self) -> SecurityLevel {
+        if self.is_established() {
+            self.security_level()
+        } else {
+            SecurityLevel::none()
+        }
+    }
 }
 
 /// A base secure channel implementation that can be extended
@@ -231,21 +259,19 @@ impl BaseSecureChannel {
 }
 
 impl CommandProcessor for BaseSecureChannel {
-    type Error = ProcessorError;
-
     fn do_process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport<Error = TransportError>,
-    ) -> Result<Response, Self::Error> {
+        transport: &mut dyn CardTransport,
+    ) -> Result<Response, ProcessorError> {
         warn!("Using BaseSecureChannel which does not implement any protection");
 
         let command_bytes = command.to_bytes();
-        let response_bytes = transport
-            .transmit_raw(&command_bytes)
-            .map_err(ProcessorError::from)?;
+        let response_bytes = transport.transmit_raw(&command_bytes)?;
 
-        Response::from_bytes(&response_bytes).map_err(ProcessorError::from)
+        Response::from_bytes(&response_bytes)
+            .map_err(SecureProtocolError::from)
+            .map_err(Into::into)
     }
 
     fn is_active(&self) -> bool {
@@ -258,18 +284,18 @@ impl SecureChannel for BaseSecureChannel {
         self.established
     }
 
-    fn close(&mut self) -> Result<(), Self::Error> {
+    fn close(&mut self) -> Result<(), SecureProtocolError> {
         debug!("Closing secure channel");
         self.established = false;
         self.session_data = None;
         Ok(())
     }
 
-    fn reestablish(&mut self) -> Result<(), Self::Error> {
+    fn reestablish(&mut self) -> Result<(), SecureProtocolError> {
         warn!("BaseSecureChannel cannot reestablish without proper implementation");
-        Err(ProcessorError::session(
-            "Cannot reestablish base secure channel",
-        ))?
+        Err(SecureProtocolError::Other(
+            "Cannot reestablish base secure channel".to_string(),
+        ))
     }
 }
 
@@ -293,15 +319,13 @@ impl MockSecureChannel {
 
 #[cfg(test)]
 impl CommandProcessor for MockSecureChannel {
-    type Error = ProcessorError;
-
     fn do_process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport<Error = TransportError>,
-    ) -> Result<Response, Self::Error> {
+        transport: &mut dyn CardTransport,
+    ) -> Result<Response, ProcessorError> {
         if !self.is_established() {
-            return Err(ProcessorError::session("Secure channel not established"));
+            return Err(SecureProtocolError::Session("Secure channel not established").into());
         }
 
         // Create a secured version of the command
@@ -335,7 +359,7 @@ impl CommandProcessor for MockSecureChannel {
         let response_bytes = transport.transmit_raw(&secured_bytes)?;
 
         // Parse and return response
-        Response::from_bytes(&response_bytes).map_err(ProcessorError::from)
+        Response::from_bytes(&response_bytes).map_err(Into::into)
     }
 
     fn security_level(&self) -> SecurityLevel {
@@ -353,13 +377,13 @@ impl SecureChannel for MockSecureChannel {
         self.base.is_established()
     }
 
-    fn close(&mut self) -> Result<(), Self::Error> {
+    fn close(&mut self) -> Result<(), SecureProtocolError> {
         debug!("Closing mock secure channel");
         self.base.set_established(false);
         Ok(())
     }
 
-    fn reestablish(&mut self) -> Result<(), Self::Error> {
+    fn reestablish(&mut self) -> Result<(), SecureProtocolError> {
         debug!("Reestablishing mock secure channel");
         self.base.set_established(true);
         Ok(())

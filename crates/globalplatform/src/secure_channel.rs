@@ -7,12 +7,15 @@ use std::fmt;
 
 use bytes::{BufMut, BytesMut};
 use cipher::{Iv, Key};
-use nexum_apdu_core::processor::{
-    CommandProcessor, ProcessorError,
-    secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
-};
-use nexum_apdu_core::transport::{CardTransport, TransportError};
+use nexum_apdu_core::transport::CardTransport;
 use nexum_apdu_core::{ApduCommand, Command, Response};
+use nexum_apdu_core::{
+    processor::{
+        CommandProcessor, ProcessorError, SecureProtocolError,
+        secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
+    },
+    response::error::ResponseError,
+};
 use rand::RngCore;
 use tracing::{debug, trace, warn};
 
@@ -39,11 +42,11 @@ pub struct SCP02Wrapper {
 
 impl SCP02Wrapper {
     /// Create a new SCP02 wrapper with the specified MAC key
-    pub fn new(key: Key<Scp02>) -> Result<Self, Error> {
-        Ok(Self {
+    pub fn new(key: Key<Scp02>) -> Self {
+        Self {
             mac_key: key,
             icv: Default::default(),
-        })
+        }
     }
 
     /// Wrap an APDU command by adding a MAC
@@ -136,15 +139,15 @@ impl fmt::Debug for GPSecureChannel {
 
 impl GPSecureChannel {
     /// Create a new secure channel with the specified session
-    pub fn new(session: Session) -> Result<Self, Error> {
-        let wrapper = SCP02Wrapper::new(*session.keys().mac())?;
+    pub fn new(session: Session) -> Self {
+        let wrapper = SCP02Wrapper::new(*session.keys().mac());
 
-        Ok(Self {
+        Self {
             session,
             wrapper,
             established: false,
             security_level: SecurityLevel::default(),
-        })
+        }
     }
 
     /// Get a reference to the session
@@ -155,8 +158,8 @@ impl GPSecureChannel {
     /// Authenticate the secure channel using EXTERNAL AUTHENTICATE
     pub fn authenticate(
         &mut self,
-        transport: &mut dyn CardTransport<Error = TransportError>,
-    ) -> Result<(), ProcessorError> {
+        transport: &mut dyn CardTransport,
+    ) -> Result<(), SecureProtocolError> {
         // Create EXTERNAL AUTHENTICATE command
         let auth_cmd = ExternalAuthenticateCommand::from_challenges(
             self.session.keys().enc(),
@@ -174,7 +177,7 @@ impl GPSecureChannel {
         // Send wrapped command
         let response_bytes = transport
             .transmit_raw(&wrapped_cmd.to_bytes())
-            .map_err(ProcessorError::from)?;
+            .map_err(ResponseError::from)?;
 
         // Parse response
         let auth_response = ExternalAuthenticateResponse::from_bytes(&response_bytes)?;
@@ -182,7 +185,7 @@ impl GPSecureChannel {
         // Check if successful
         if !matches!(auth_response, ExternalAuthenticateResponse::Success) {
             self.established = false;
-            return Err(ProcessorError::authentication_failed(
+            return Err(SecureProtocolError::AuthenticationFailed(
                 "EXTERNAL AUTHENTICATE failed",
             ));
         }
@@ -198,15 +201,13 @@ impl GPSecureChannel {
 }
 
 impl CommandProcessor for GPSecureChannel {
-    type Error = ProcessorError;
-
     fn do_process_command(
         &mut self,
         command: &Command,
-        transport: &mut dyn CardTransport<Error = TransportError>,
+        transport: &mut dyn CardTransport,
     ) -> Result<Response, ProcessorError> {
         if !self.established {
-            return Err(ProcessorError::session("Secure channel not established"));
+            return Err(SecureProtocolError::Session("Secure channel not established").into());
         }
 
         trace!(command = ?command, "Processing command with GlobalPlatform SCP02");
@@ -237,18 +238,19 @@ impl SecureChannel for GPSecureChannel {
         self.established
     }
 
-    fn close(&mut self) -> Result<(), ProcessorError> {
+    fn close(&mut self) -> Result<(), SecureProtocolError> {
         debug!("Closing GlobalPlatform SCP02 secure channel");
         self.established = false;
         self.security_level = SecurityLevel::none();
         Ok(())
     }
 
-    fn reestablish(&mut self) -> Result<(), ProcessorError> {
+    fn reestablish(&mut self) -> Result<(), SecureProtocolError> {
         warn!("Reestablish not implemented for GlobalPlatform SCP02");
-        Err(ProcessorError::session(
+        Err(SecureProtocolError::Session(
             "Cannot reestablish GlobalPlatform SCP02 channel - a new session must be created",
-        ))
+        )
+        .into())
     }
 }
 
@@ -272,35 +274,36 @@ pub const fn create_secure_channel_provider(keys: Keys) -> GPSecureChannelProvid
 }
 
 impl SecureChannelProvider for GPSecureChannelProvider {
-    type Error = ProcessorError;
-
     fn create_secure_channel(
         &self,
-        transport: &mut dyn CardTransport<Error = TransportError>,
-    ) -> Result<Box<dyn CommandProcessor<Error = ProcessorError>>, ProcessorError> {
+        transport: &mut dyn CardTransport,
+    ) -> Result<Box<dyn CommandProcessor>, SecureProtocolError> {
         // Generate host challenge
         let mut host_challenge = HostChallenge::default();
         rand::rng().fill_bytes(&mut host_challenge);
 
         // Step 1: Send INITIALIZE UPDATE
         let init_cmd = InitializeUpdateCommand::with_challenge(host_challenge.to_vec());
-        let response_bytes = transport.transmit_raw(&init_cmd.to_bytes())?;
+        let response_bytes = transport
+            .transmit_raw(&init_cmd.to_bytes())
+            .map_err(ResponseError::from)?;
 
         // Parse response
         let init_response = InitializeUpdateResponse::from_bytes(&response_bytes)?;
 
         // Check for successful response
         if !matches!(init_response, InitializeUpdateResponse::Success { .. }) {
-            return Err(ProcessorError::authentication_failed(
+            return Err(SecureProtocolError::AuthenticationFailed(
                 "INITIALIZE UPDATE failed",
             ));
         }
 
         // Create session directly from response
-        let session = Session::from_response(&self.keys, &init_response, host_challenge)?;
+        let session = Session::from_response(&self.keys, &init_response, host_challenge)
+            .map_err(|e| SecureProtocolError::Other(e.to_string()))?;
 
         // Create secure channel with session (not yet established)
-        let mut channel = GPSecureChannel::new(session)?;
+        let mut channel = GPSecureChannel::new(session);
 
         // Step 2: Authenticate the channel (sends EXTERNAL AUTHENTICATE)
         channel.authenticate(transport)?;
@@ -315,6 +318,7 @@ mod tests {
     use crate::session::Keys;
     use bytes::Bytes;
     use hex_literal::hex;
+    use nexum_apdu_core::transport::TransportError;
 
     // Create a mock transport implementation for testing
     #[derive(Debug)]
@@ -339,9 +343,7 @@ mod tests {
     }
 
     impl CardTransport for TestMockTransport {
-        type Error = TransportError;
-
-        fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, Self::Error> {
+        fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, TransportError> {
             self.commands.push(command.to_vec());
 
             if self.responses.is_empty() {
@@ -360,7 +362,7 @@ mod tests {
             true
         }
 
-        fn reset(&mut self) -> Result<(), Self::Error> {
+        fn reset(&mut self) -> Result<(), TransportError> {
             self.commands.clear();
             Ok(())
         }
@@ -381,7 +383,7 @@ mod tests {
     #[test]
     fn test_wrap_command() {
         let mac_key = Key::<Scp02>::from_slice(hex!("2983ba77d709c2daa1e6000abccac951").as_slice());
-        let mut wrapper = SCP02Wrapper::new(*mac_key).unwrap();
+        let mut wrapper = SCP02Wrapper::new(*mac_key);
 
         // Verify initial ICV
         assert_eq!(wrapper.icv(), &Iv::<Scp02>::default());
@@ -425,7 +427,7 @@ mod tests {
         let session = create_test_session();
 
         // Create secure channel
-        let mut channel = GPSecureChannel::new(session).unwrap();
+        let mut channel = GPSecureChannel::new(session);
 
         // Mark it as established for the test
         channel.established = true;
@@ -460,7 +462,7 @@ mod tests {
         let session = create_test_session();
 
         // Create secure channel (not established yet)
-        let mut channel = GPSecureChannel::new(session).unwrap();
+        let mut channel = GPSecureChannel::new(session);
 
         // Call authenticate
         let result = channel.authenticate(&mut transport);

@@ -11,15 +11,11 @@ pub enum ProcessorError {
 
     /// Invalid response
     #[error(transparent)]
-    InvalidResponse(#[from] ResponseError),
+    Response(#[from] ResponseError),
 
-    /// Authentication failed
-    #[error("Authentication failed: {0}")]
-    AuthenticationFailed(&'static str),
-
-    /// Session error
-    #[error("Session error: {0}")]
-    Session(&'static str),
+    /// Secure channel error
+    #[error(transparent)]
+    SecureChannel(#[from] SecureProtocolError),
 
     /// Protocol error
     #[error("Protocol error: {0}")]
@@ -35,16 +31,6 @@ pub enum ProcessorError {
 }
 
 impl ProcessorError {
-    /// Create a new authentication failed error
-    pub const fn authentication_failed(message: &'static str) -> Self {
-        Self::AuthenticationFailed(message)
-    }
-
-    /// Create a new session error
-    pub const fn session(message: &'static str) -> Self {
-        Self::Session(message)
-    }
-
     /// Create a new protocol error
     pub const fn protocol(message: &'static str) -> Self {
         Self::Protocol(message)
@@ -63,33 +49,23 @@ pub enum SecureProtocolError {
     #[error("Protocol error: {0}")]
     Protocol(&'static str),
 
-    /// Processor error
-    #[error("Processor error: {0}")]
-    Processor(#[from] ProcessorError),
+    /// Response error
+    #[error("Response error: {0}")]
+    Response(#[from] ResponseError),
+
+    /// Insufficient security level
+    #[error("Current security level is insufficient")]
+    InsufficientSecurityLevel,
+
+    /// Authentication failed
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(&'static str),
+
+    /// Session error
+    #[error("Session error: {0}")]
+    Session(&'static str),
 
     /// Other error with message (for std environments)
     #[error("{0}")]
     Other(String),
-}
-
-impl SecureProtocolError {
-    /// Create a new protocol error
-    pub const fn protocol(message: &'static str) -> Self {
-        Self::Protocol(message)
-    }
-
-    /// Create a general other error
-    pub fn other<S: Into<String>>(message: S) -> Self {
-        Self::Other(message.into())
-    }
-}
-
-impl From<SecureProtocolError> for ProcessorError {
-    fn from(error: SecureProtocolError) -> Self {
-        match error {
-            SecureProtocolError::Protocol(message) => Self::Protocol(message),
-            SecureProtocolError::Processor(error) => Self::Other(error.to_string()),
-            SecureProtocolError::Other(message) => Self::Other(message),
-        }
-    }
 }

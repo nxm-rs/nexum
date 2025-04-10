@@ -3,9 +3,8 @@
 //! This example connects to a PC/SC reader, selects the ISD, opens a secure channel,
 //! and lists all applications on the card.
 
-use nexum_apdu_core::CardExecutor;
-use nexum_apdu_globalplatform::GlobalPlatform;
-use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
+use nexum_apdu_globalplatform::{DefaultGlobalPlatform, commands::get_status::tlv_data};
+use nexum_apdu_transport_pcsc::PcscDeviceManager;
 use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,21 +36,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Using reader: {}", reader.name());
 
-    // Connect to the reader
-    let config = PcscConfig::default();
-    let transport = manager.open_reader_with_config(reader.name(), config)?;
-    let executor = CardExecutor::new(transport);
-
     // Create GlobalPlatform instance
-    let mut gp = GlobalPlatform::new(executor);
+    let mut gp = DefaultGlobalPlatform::connect(reader.name())?;
 
     // Select the Card Manager
     println!("Selecting Card Manager...");
-    let select_response = gp.select_card_manager()?;
-    if !select_response.is_success() {
-        println!("Failed to select Card Manager!");
-        return Ok(());
-    }
+    let _ = gp.select_card_manager()??;
     println!("Card Manager selected successfully.");
 
     // Open secure channel
@@ -66,35 +56,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get applications status
     println!("Getting applications status...");
-    match gp.get_applications_status() {
-        Ok(response) => {
-            if let Some(tlv_data) = response.tlv_data() {
-                println!("Applications:");
-                print_applications(tlv_data);
-            } else {
-                println!("No application data returned.");
-            }
-        }
-        Err(e) => {
-            println!("Failed to get applications status: {:?}", e);
-        }
-    }
+    let response = gp.get_applications_status()??;
+
+    let data = tlv_data(response);
+    println!("Applications:");
+    print_applications(data.as_slice());
 
     // Get load files status
     println!("\nGetting load files status...");
-    match gp.get_load_files_status() {
-        Ok(response) => {
-            if let Some(tlv_data) = response.tlv_data() {
-                println!("Load files:");
-                print_load_files(tlv_data);
-            } else {
-                println!("No load file data returned.");
-            }
-        }
-        Err(e) => {
-            println!("Failed to get load files status: {:?}", e);
-        }
-    }
+    let response = gp.get_load_files_status()??;
+
+    let data = tlv_data(response);
+    println!("Load files:");
+    print_load_files(data.as_slice());
 
     Ok(())
 }

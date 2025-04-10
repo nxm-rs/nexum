@@ -23,19 +23,16 @@ pub use bytes::{Bytes, BytesMut};
 
 // Main modules
 pub mod command;
+pub mod error;
 pub mod executor;
 pub mod processor;
 pub mod response;
 pub mod transport;
 
-// Core error types
-mod error;
-pub use error::{Error, Result};
-
-// Re-exports for common types
 pub use command::{ApduCommand, Command};
-pub use executor::ext::{ResponseAwareExecutor, SecureChannelExecutor}; // New re-exports
-pub use executor::{CardExecutor, Executor};
+pub use error::Error;
+pub use executor::ext::{ResponseAwareExecutor, SecureChannelExecutor};
+pub use executor::{ApduExecutorErrors, CardExecutor, Executor};
 pub use response::status::StatusWord;
 pub use response::{ApduResponse, Response, utils};
 pub use transport::CardTransport;
@@ -43,10 +40,10 @@ pub use transport::CardTransport;
 /// Prelude module containing commonly used traits and types
 pub mod prelude {
     pub use crate::{
-        Bytes, BytesMut, Command, Error, Response, Result,
+        Bytes, BytesMut, Command, Error, Response,
         command::ApduCommand,
-        executor::Executor,
         executor::ext::{ResponseAwareExecutor, SecureChannelExecutor},
+        executor::{ApduExecutorErrors, Executor},
         processor::{
             CommandProcessor,
             secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
@@ -56,7 +53,6 @@ pub mod prelude {
         transport::CardTransport,
     };
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

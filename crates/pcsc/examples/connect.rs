@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Connect to the reader
     let transport = manager.open_reader(reader.name())?;
-    let mut executor = CardExecutor::new(transport);
+    let mut executor: CardExecutor<PcscTransport> = CardExecutor::new(transport);
 
     // Get ATR if available
     let transport = executor.transport();
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let cmd_bytes = hex::decode(hex)?;
         println!("\nSending {}: {}", name, hex);
 
-        match executor.transmit(&cmd_bytes) {
+        match executor.transmit_raw(&cmd_bytes) {
             Ok(response_bytes) => {
                 let response_data = response_bytes.to_vec();
                 match Response::from_bytes(&response_data) {
@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid);
 
     println!("\nSelecting VISA AID:");
-    match executor.transmit(&select_cmd.to_bytes()) {
+    match executor.transmit_raw(&select_cmd.to_bytes()) {
         Ok(response) => {
             println!(
                 "Response: {} bytes, status: {}",

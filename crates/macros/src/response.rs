@@ -874,7 +874,7 @@ pub(crate) fn expand_response(
             /// Parse response from raw bytes
             pub fn from_bytes(bytes: &[u8]) -> core::result::Result<Self, nexum_apdu_core::response::error::ResponseError> {
                 if bytes.len() < 2 {
-                    return Err(nexum_apdu_core::response::error::ResponseError::Incomplete);
+                    return Err(nexum_apdu_core::response::error::ResponseError::BufferTooSmall);
                 }
 
                 let sw1 = bytes[bytes.len() - 2];

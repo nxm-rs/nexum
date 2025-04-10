@@ -1,5 +1,11 @@
-use nexum_apdu_core::StatusWord;
+use nexum_apdu_core::{ApduExecutorErrors, StatusWord};
 use thiserror::Error;
+
+use crate::commands::{
+    delete::DeleteError, external_authenticate::ExternalAuthenticateError, get_response::GetError,
+    get_status::GetStatusError, initialize_update::InitializeUpdateError, install::InstallError,
+    load::LoadError, put_key::PutKeyError, select::SelectError, store_data::StoreDataError,
+};
 
 /// Result type for GlobalPlatform operations
 pub type Result<T> = std::result::Result<T, Error>;
@@ -84,115 +90,39 @@ pub enum Error {
     #[error("{0}")]
     Other(&'static str),
 
-    /// String error message (only available with std)
-    #[error("{0}")]
-    Msg(String),
-
-    /// Core error wrapper (needed for generic error conversion)
+    // Errors associated with commands
     #[error(transparent)]
-    CoreError(#[from] nexum_apdu_core::Error),
+    DeleteError(#[from] DeleteError),
+
+    #[error(transparent)]
+    ExternalAuthenticateError(#[from] ExternalAuthenticateError),
+
+    #[error(transparent)]
+    GetResponseError(#[from] GetError),
+
+    #[error(transparent)]
+    GetStatusError(#[from] GetStatusError),
+
+    #[error(transparent)]
+    InitializeUpdateError(#[from] InitializeUpdateError),
+
+    #[error(transparent)]
+    InstallError(#[from] InstallError),
+
+    #[error(transparent)]
+    LoadError(#[from] LoadError),
+
+    #[error(transparent)]
+    PutKeyError(#[from] PutKeyError),
+
+    #[error(transparent)]
+    SelectError(#[from] SelectError),
+
+    #[error(transparent)]
+    StoreDataError(#[from] StoreDataError),
 }
 
-impl Error {
-    /// Create a new error with a string message
-    pub fn msg<S: Into<String>>(msg: S) -> Self {
-        Self::Msg(msg.into())
-    }
-
-    /// Add context to an error
-    pub fn with_context<S: Into<String>>(self, context: S) -> Self {
-        let context_str = context.into();
-        match self {
-            Self::Msg(msg) => Self::Msg(format!("{}: {}", context_str, msg)),
-            Self::Other(msg) => Self::Msg(format!("{}: {}", context_str, msg)),
-            other => {
-                // For other error types, wrap them in a Msg error to add context
-                Self::Msg(format!("{}: {}", context_str, other))
-            }
-        }
-    }
-
-    /// Check if this error represents a specific card status
-    pub const fn is_status(&self, status: u16) -> bool {
-        matches!(self, Self::CardStatus(sw) if sw.to_u16() == status)
-    }
-
-    /// Try to extract a status word if this error contains one
-    pub const fn status_word(&self) -> Option<StatusWord> {
-        match self {
-            Self::CardStatus(sw) => Some(*sw),
-            Self::Status(e) => Some(e.status_word()),
-            _ => None,
-        }
-    }
-}
-
-// Implement conversions between error types
-impl From<Error> for nexum_apdu_core::Error {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::Transport(e) => e.into(),
-            Error::Command(e) => e.into(),
-            Error::Response(e) => e.into(),
-            Error::Status(e) => e.into(),
-            Error::Processor(e) => e.into(),
-            Error::SecureProtocol(e) => e.into(),
-            Error::CoreError(e) => e,
-            Error::NoSecureChannel => Self::other("Secure channel not established"),
-            Error::Crypto(msg) => Self::other(format!("Cryptographic error: {}", msg)),
-            Error::InvalidFormat(msg) => Self::other(format!("Invalid format: {}", msg)),
-            Error::InvalidLength { expected, actual } => Self::other(format!(
-                "Invalid length: expected {}, got {}",
-                expected, actual
-            )),
-            Error::AuthenticationFailed(msg) => {
-                Self::other(format!("Authentication failed: {}", msg))
-            }
-            Error::InvalidChallenge(msg) => Self::other(format!("Invalid challenge: {}", msg)),
-            Error::InvalidResponse(msg) => Self::other(format!("Invalid response: {}", msg)),
-            Error::UnsupportedScpVersion(ver) => {
-                Self::other(format!("Unsupported SCP version: {}", ver))
-            }
-            Error::CapFile(msg) => Self::other(format!("CAP file error: {}", msg)),
-            Error::Io(e) => Self::other(format!("I/O error: {}", e)),
-            Error::CardStatus(sw) => Self::status(sw.sw1, sw.sw2),
-            Error::Other(msg) => Self::other(msg),
-            Error::Msg(msg) => Self::other(msg),
-        }
-    }
-}
-
-impl From<Error> for nexum_apdu_core::processor::ProcessorError {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::Transport(e) => Self::Transport(e),
-            Error::Command(e) => Self::other(format!("Command error: {:?}", e)),
-            Error::Response(e) => Self::InvalidResponse(e),
-            Error::Status(e) => Self::other(format!("Status error: {:?}", e)),
-            Error::Processor(e) => e,
-            Error::SecureProtocol(e) => Self::from(e),
-            Error::CoreError(e) => match e {
-                nexum_apdu_core::Error::Processor(pe) => pe,
-                _ => Self::other(format!("Core error: {:?}", e)),
-            },
-            Error::NoSecureChannel => Self::session("Secure channel not established"),
-            Error::Crypto(msg) => Self::other(format!("Crypto error: {}", msg)),
-            Error::InvalidFormat(msg) => Self::other(format!("Invalid format: {}", msg)),
-            Error::InvalidLength { expected, actual } => Self::other(format!(
-                "Invalid length: expected {}, got {}",
-                expected, actual
-            )),
-            Error::AuthenticationFailed(msg) => Self::authentication_failed(msg),
-            Error::InvalidChallenge(msg) => Self::other(format!("Invalid challenge: {}", msg)),
-            Error::InvalidResponse(msg) => Self::other(format!("Invalid response: {}", msg)),
-            Error::UnsupportedScpVersion(ver) => {
-                Self::other(format!("Unsupported SCP version: {}", ver))
-            }
-            Error::CapFile(msg) => Self::other(format!("CAP file error: {}", msg)),
-            Error::Io(e) => Self::other(format!("I/O error: {}", e)),
-            Error::CardStatus(sw) => Self::other(format!("Card status: {:?}", sw)),
-            Error::Other(msg) => Self::other(msg),
-            Error::Msg(msg) => Self::other(msg),
-        }
-    }
+// Implement for our default error type
+impl ApduExecutorErrors for Error {
+    type Error = Self;
 }
