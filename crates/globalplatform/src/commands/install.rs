@@ -116,14 +116,6 @@ apdu_pair! {
                 #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
         }
     }
@@ -191,8 +183,9 @@ fn build_install_data(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_install_for_load() {
@@ -261,16 +254,19 @@ mod tests {
     #[test]
     fn test_install_response() {
         // Test successful response
-        let response_data = hex!("9000");
-        let response = InstallResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, InstallResponse::Success));
+        let response_data = Bytes::from_static(&hex!("9000"));
+        let result = InstallResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert!(matches!(result, InstallOk::Success));
 
         // Test error response
-        let response_data = hex!("6982");
-        let response = InstallResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(
-            response,
-            InstallResponse::SecurityStatusNotSatisfied
-        ));
+        let response_data = Bytes::from_static(&hex!("6982"));
+        let response = InstallResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap_err();
+        assert!(matches!(response, InstallError::SecurityStatusNotSatisfied));
     }
 }

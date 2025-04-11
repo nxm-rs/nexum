@@ -40,13 +40,6 @@ impl CommandDef {
                     ins = Some(input.parse()?);
                     input.parse::<Token![,]>()?;
                 }
-                "secure" => {
-                    // Provide a helpful error for users of the old API
-                    return Err(syn::Error::new(
-                        key.span(),
-                        "The 'secure' field is no longer supported. Use 'required_security_level' instead, e.g., required_security_level: SecurityLevel::none()",
-                    ));
-                }
                 "required_security_level" => {
                     input.parse::<Token![:]>()?;
                     required_security_level = Some(input.parse()?);
@@ -95,7 +88,6 @@ pub(crate) fn expand_command(
     command: &CommandDef,
     vis: &Visibility,
     command_name: &Ident,
-    response_name: &Ident,
     result_name: &Ident,
 ) -> Result<TokenStream, syn::Error> {
     let cla = &command.cla;
@@ -147,8 +139,7 @@ pub(crate) fn expand_command(
         }
 
         impl nexum_apdu_core::ApduCommand for #command_name {
-            type Response = #response_name;
-            type ResultType = #result_name;
+            type Response = #result_name;
 
             fn class(&self) -> u8 {
                 #cla

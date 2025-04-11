@@ -45,38 +45,30 @@ apdu_pair! {
                 #[sw(status::SW_WRONG_LENGTH)]
                 #[error("Wrong length")]
                 WrongLength,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
 
-            methods {
-                /// Get the response data
-                pub const fn data(&self) -> Option<&Vec<u8>> {
-                    match self {
-                        Self::Success { data } | Self::MoreData { data, .. } => Some(data),
-                        _ => None,
-                    }
-                }
+        }
+    }
+}
 
-                /// Check if more data is available
-                pub const fn has_more_data(&self) -> bool {
-                    matches!(self, Self::MoreData { .. })
-                }
+impl GetResponseOk {
+    /// Get the response data
+    pub const fn data(&self) -> &Vec<u8> {
+        match self {
+            Self::Success { data } | Self::MoreData { data, .. } => data,
+        }
+    }
 
-                /// Get the number of remaining bytes if more data is available
-                pub const fn remaining_bytes(&self) -> Option<u8> {
-                    match self {
-                        Self::MoreData { sw2, .. } => Some(*sw2),
-                        _ => None,
-                    }
-                }
-            }
+    /// Check if more data is available
+    pub const fn has_more_data(&self) -> bool {
+        matches!(self, Self::MoreData { .. })
+    }
+
+    /// Get the number of remaining bytes if more data is available
+    pub const fn remaining_bytes(&self) -> Option<u8> {
+        match self {
+            Self::MoreData { sw2, .. } => Some(*sw2),
+            _ => None,
         }
     }
 }
@@ -84,8 +76,9 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_get_response_command() {
@@ -106,27 +99,27 @@ mod tests {
     #[test]
     fn test_get_response_response() {
         // Test successful response
-        let response_data = hex!("010203049000");
-        let response = GetResponseResponse::from_bytes(&response_data).unwrap();
+        let response_data = Bytes::from_static(&hex!("010203049000"));
+        let result = GetResponseResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
 
-        assert!(matches!(response, GetResponseResponse::Success { .. }));
-        assert_eq!(
-            response.data(),
-            Some(hex!("01020304")[..].to_vec().as_ref())
-        );
-        assert!(!response.has_more_data());
-        assert_eq!(response.remaining_bytes(), None);
+        assert!(matches!(result, GetResponseOk::Success { .. }));
+        assert_eq!(result.data(), &hex!("01020304")[..].to_vec());
+        assert!(!result.has_more_data());
+        assert_eq!(result.remaining_bytes(), None);
 
         // Test more data available
-        let response_data = hex!("0102030461FF");
-        let response = GetResponseResponse::from_bytes(&response_data).unwrap();
+        let response_data = Bytes::from_static(&hex!("0102030461FF"));
+        let result = GetResponseResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
 
-        assert!(matches!(response, GetResponseResponse::MoreData { .. }));
-        assert_eq!(
-            response.data(),
-            Some(hex!("01020304")[..].to_vec().as_ref())
-        );
-        assert!(response.has_more_data());
-        assert_eq!(response.remaining_bytes(), Some(0xFF));
+        assert!(matches!(result, GetResponseOk::MoreData { .. }));
+        assert_eq!(result.data(), &hex!("01020304")[..].to_vec());
+        assert!(result.has_more_data());
+        assert_eq!(result.remaining_bytes(), Some(0xFF));
     }
 }

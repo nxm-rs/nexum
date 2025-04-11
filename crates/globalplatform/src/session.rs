@@ -7,12 +7,13 @@ use cipher::Key;
 use zeroize::Zeroize;
 
 use crate::{
-    Error, InitializeUpdateResponse, Result,
+    Error, Result,
     constants::scp,
     crypto::{
         CardChallenge, DERIVATION_ENC, DERIVATION_MAC, HostChallenge, Scp02, SequenceCounter,
         calculate_cryptogram, derive_key,
     },
+    initialize_update::{InitializeUpdateOk, InitializeUpdateResult},
 };
 
 /// Secure Channel Protocol (SCP) keys
@@ -88,18 +89,18 @@ impl Session {
     /// A new Session if the card's cryptogram is valid
     pub fn from_response(
         keys: &Keys,
-        init_response: &InitializeUpdateResponse,
+        init_response: &InitializeUpdateResult,
         host_challenge: HostChallenge,
     ) -> Result<Self> {
         // Extract data from the response
-        let (sequence_counter, card_challenge, card_cryptogram) = match init_response {
-            InitializeUpdateResponse::Success {
+        let (sequence_counter, card_challenge, card_cryptogram) = match **init_response {
+            Ok(InitializeUpdateOk::Success {
                 key_info,
                 sequence_counter,
                 card_challenge,
                 card_cryptogram,
                 ..
-            } => {
+            }) => {
                 // Check SCP version
                 let scp_version = key_info[1];
                 if scp_version != scp::SCP02 {
@@ -116,18 +117,18 @@ impl Session {
         };
 
         // Derive session keys
-        let session_enc = derive_key(keys.enc(), sequence_counter, &DERIVATION_ENC)?;
-        let session_mac = derive_key(keys.mac(), sequence_counter, &DERIVATION_MAC)?;
+        let session_enc = derive_key(keys.enc(), &sequence_counter, &DERIVATION_ENC)?;
+        let session_mac = derive_key(keys.mac(), &sequence_counter, &DERIVATION_MAC)?;
 
         // Create session with the derived keys
         let keys = Keys::new(session_enc, session_mac);
 
         // Verify the card's cryptogram
-        if *card_cryptogram
+        if card_cryptogram
             != calculate_cryptogram(
                 keys.enc(),
-                sequence_counter,
-                card_challenge,
+                &sequence_counter,
+                &card_challenge,
                 &host_challenge,
                 false,
             )
@@ -137,9 +138,9 @@ impl Session {
 
         Ok(Self {
             keys,
-            card_challenge: *card_challenge,
+            card_challenge,
             host_challenge,
-            sequence_counter: *sequence_counter,
+            sequence_counter,
         })
     }
 
@@ -169,7 +170,9 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
+    use nexum_apdu_core::ApduResponse;
 
     #[test]
     fn test_session_new() {
@@ -177,11 +180,13 @@ mod tests {
         let card_key =
             Key::<Scp02>::from_slice(hex!("404142434445464748494a4b4c4d4e4f").as_slice());
         let keys = Keys::from_single_key(*card_key);
-        let init_response = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000");
+        let init_response = Bytes::from_static(&hex!(
+            "000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000"
+        ));
         let host_challenge = hex!("f0467f908e5ca23f");
 
-        let response = InitializeUpdateResponse::from_bytes(&init_response).unwrap();
-        let session = Session::from_response(&keys, &response, host_challenge);
+        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let session = Session::from_response(&keys, &result, host_challenge);
         assert!(session.is_ok());
 
         // Verify extracted data
@@ -196,15 +201,19 @@ mod tests {
         let host_challenge = hex!("f0467f908e5ca23f");
 
         // Wrong SCP version
-        let init_response = hex!("000002650183039536622001000de9c62ba1c4c8e55fcb91b6654ce49000");
-        let response = InitializeUpdateResponse::from_bytes(&init_response).unwrap();
-        let session = Session::from_response(&keys, &response, host_challenge);
+        let init_response = Bytes::from_static(&hex!(
+            "000002650183039536622001000de9c62ba1c4c8e55fcb91b6654ce49000"
+        ));
+        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let session = Session::from_response(&keys, &result, host_challenge);
         assert!(session.is_err());
 
         // Invalid cryptogram
-        let init_response = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce40000");
-        let response = InitializeUpdateResponse::from_bytes(&init_response).unwrap();
-        let session = Session::from_response(&keys, &response, host_challenge);
+        let init_response = Bytes::from_static(&hex!(
+            "000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce40000"
+        ));
+        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let session = Session::from_response(&keys, &result, host_challenge);
         assert!(session.is_err());
     }
 

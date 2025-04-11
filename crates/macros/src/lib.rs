@@ -140,9 +140,9 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         pair.struct_name.span(),
     );
 
-    // Generate response struct name
-    let response_name = Ident::new(
-        &format!("{}Response", pair.struct_name),
+    // Generate result type name (keeping naming consistent)
+    let result_name = Ident::new(
+        &format!("{}Result", pair.struct_name),
         pair.struct_name.span(),
     );
 
@@ -153,19 +153,14 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
     );
 
     // Get the response tokens and associated type names
-    let (response_tokens, ok_name, error_name, result_name) =
-        response::expand_response(&pair.response, &pair.vis, &response_name, &command_name)
+    let (response_tokens, ok_name, error_name) =
+        response::expand_response(&pair.response, &pair.vis, &result_name)
             .map_err(|e| error_tokens("Error expanding response", e))?;
 
     // Expand command and response definitions
-    let command_tokens = command::expand_command(
-        &pair.command,
-        &pair.vis,
-        &command_name,
-        &response_name,
-        &result_name,
-    )
-    .map_err(|e| error_tokens("Error expanding command", e))?;
+    let command_tokens =
+        command::expand_command(&pair.command, &pair.vis, &command_name, &result_name)
+            .map_err(|e| error_tokens("Error expanding command", e))?;
 
     let attrs = &pair.attrs;
 
@@ -173,14 +168,17 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         #(#attrs)*
         mod #module_name {
             use super::*;
+            use nexum_apdu_core::prelude::*;
             use nexum_apdu_core::command::ExpectedLength;
             use nexum_apdu_core::processor::secure::SecurityLevel;
+            use std::convert::TryFrom;
+            use std::ops::{Deref, DerefMut};
 
             #command_tokens
 
             #response_tokens
         }
 
-        pub use #module_name::{#command_name, #response_name, #ok_name, #error_name, #result_name};
+        pub use #module_name::{#command_name, #ok_name, #error_name, #result_name};
     })
 }

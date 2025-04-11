@@ -38,6 +38,7 @@ tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"
 rand.workspace = true
 thiserror = { workspace = true, optional = true }
 zip = { workspace = true, features = ["deflate"] }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 
 ## tracing
 tracing.workspace = true

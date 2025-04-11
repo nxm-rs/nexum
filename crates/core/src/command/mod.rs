@@ -14,17 +14,15 @@ pub type ExpectedLength = u16;
 /// Expected length type for APDU commands
 pub type ExpectedLength = u8;
 
+use derive_more::{Deref, DerefMut};
 use error::CommandError;
 
-use crate::prelude::SecurityLevel;
+use crate::{Response, prelude::SecurityLevel, response::error::ResponseError};
 
 /// Core trait for APDU commands
 pub trait ApduCommand {
-    /// Response enum type returned when this command is executed
+    /// Response result type returned when this command is executed
     type Response: TryFrom<Bytes>;
-
-    /// Result type for this command (like SelectResult = Result<SelectOk, SelectError>)
-    type ResultType;
 
     /// Command class (CLA)
     fn class(&self) -> u8;
@@ -275,9 +273,57 @@ impl Command {
     }
 }
 
+/// Response type wrapper for Command implementation
+#[derive(Debug, Clone, Deref, DerefMut)]
+pub struct CommandResult(pub Result<Response, ResponseError>);
+
+impl CommandResult {
+    /// Create a new result from a response
+    pub const fn new(response: Response) -> Self {
+        Self(Ok(response))
+    }
+
+    /// Convert from raw bytes
+    pub fn from_bytes<T: AsRef<[u8]>>(bytes: T) -> Result<Self, ResponseError> {
+        let bytes_ref = bytes.as_ref();
+        let bytes = Bytes::copy_from_slice(bytes_ref);
+        let response = Response::from_bytes(&bytes)?;
+        Ok(Self(Ok(response)))
+    }
+}
+
+impl TryFrom<Bytes> for CommandResult {
+    type Error = ResponseError;
+
+    fn try_from(bytes: Bytes) -> Result<Self, Self::Error> {
+        // Parse the response bytes
+        let response = Response::from_bytes(&bytes)?;
+        // Return the parsed response wrapped in our newtype
+        Ok(Self(Ok(response)))
+    }
+}
+
+impl From<CommandResult> for Result<Response, ResponseError> {
+    fn from(result: CommandResult) -> Self {
+        result.0
+    }
+}
+
+impl From<Response> for CommandResult {
+    fn from(response: Response) -> Self {
+        Self(Ok(response))
+    }
+}
+
+impl From<ResponseError> for CommandResult {
+    fn from(error: ResponseError) -> Self {
+        Self(Err(error))
+    }
+}
+
+// Update the ApduCommand implementation
 impl ApduCommand for Command {
-    type Response = Bytes;
-    type ResultType = Result<Bytes, CommandError>;
+    type Response = CommandResult;
 
     fn class(&self) -> u8 {
         self.cla

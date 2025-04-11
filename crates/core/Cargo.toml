@@ -17,7 +17,7 @@ workspace = true
 bytes.workspace = true
 
 ## derivations
-derive_more = { workspace = true, features = ["display"] }
+derive_more = { workspace = true, features = ["display", "deref", "deref_mut"] }
 dyn-clone.workspace = true
 
 ## misc

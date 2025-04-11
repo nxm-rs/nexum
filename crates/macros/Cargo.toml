@@ -31,3 +31,4 @@ iso7816-tlv.workspace = true
 
 ## misc
 thiserror.workspace = true
+derive_more.workspace = true

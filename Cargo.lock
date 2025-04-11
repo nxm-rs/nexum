@@ -452,6 +452,7 @@ dependencies = [
  "cbc-mac",
  "cipher",
  "clap",
+ "derive_more",
  "des",
  "hex",
  "hex-literal",
@@ -472,6 +473,7 @@ name = "nexum-apdu-macros"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "derive_more",
  "heck",
  "iso7816-tlv",
  "nexum-apdu-core",

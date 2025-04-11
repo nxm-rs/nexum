@@ -1,7 +1,7 @@
 //! Example demonstrating a custom parser with the new Result-based API
 
 use bytes::Bytes;
-use nexum_apdu_core::{ApduCommand, Error as ApduError, StatusWord};
+use nexum_apdu_core::{ApduCommand, ApduResponse, Error as ApduError};
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -49,67 +49,76 @@ apdu_pair! {
                 Incorrect {
                     count: u8,
                 },
-
-                // Other errors
-                #[sw(_, _)]
-                #[error("Other error: {sw1:02X}{sw2:02X}")]
-                Other {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
 
-            // Custom parser to handle special cases like attempts remaining
-            custom_parse = |payload: &[u8], sw: StatusWord| -> Result<VerifyPinResponse, nexum_apdu_core::response::error::ResponseError> {
-                match (sw.sw1, sw.sw2) {
+            // Custom parser now takes the complete Response and returns a Result<OkEnum, ErrorEnum>
+            custom_parse = |response: &nexum_apdu_core::Response| -> Result<VerifyPinOk, VerifyPinError> {
+                use nexum_apdu_core::ApduResponse;
+
+                let status = response.status();
+                let sw1 = status.sw1;
+                let sw2 = status.sw2;
+                let payload = response.payload();
+                let payload_bytes = payload.as_ref().map(|b| b.as_ref()).unwrap_or(&[]);
+
+                match (sw1, sw2) {
                     (0x90, 0x00) => {
                         // PIN verification successful
-                        Ok(VerifyPinResponse::Verified)
+                        Ok(VerifyPinOk::Verified)
                     },
                     (0x69, 0x83) => {
                         // PIN blocked
-                        Ok(VerifyPinResponse::Blocked)
+                        Err(VerifyPinError::Blocked)
                     },
                     (0x63, sw2) if (sw2 & 0xF0) == 0xC0 => {
                         // PIN incorrect, extract counter from lower nibble of SW2
                         let count = sw2 & 0x0F;
 
                         // When attempting verification, count is attempts remaining for error
-                        if !payload.is_empty() {
-                            Ok(VerifyPinResponse::Incorrect { count })
+                        if !payload_bytes.is_empty() {
+                            Err(VerifyPinError::Incorrect { count })
                         } else {
                             // When querying, we want to return success with attempts count
-                            Ok(VerifyPinResponse::AttemptsRemaining { count })
+                            Ok(VerifyPinOk::AttemptsRemaining { count })
                         }
                     },
                     (sw1, sw2) => {
                         // Other status words
-                        Ok(VerifyPinResponse::Other { sw1, sw2 })
+                        Err(VerifyPinError::Unknown { sw1, sw2 })
                     }
-                }
-            }
-
-            methods {
-                /// Get attempts remaining (if available)
-                pub fn attempts_remaining(&self) -> Option<u8> {
-                    match self {
-                        Self::AttemptsRemaining { count } => Some(*count),
-                        Self::Incorrect { count } => Some(*count),
-                        _ => None,
-                    }
-                }
-
-                /// Check if verification was successful
-                pub fn is_verified(&self) -> bool {
-                    matches!(self, Self::Verified)
-                }
-
-                /// Check if PIN is blocked
-                pub fn is_blocked(&self) -> bool {
-                    matches!(self, Self::Blocked)
                 }
             }
         }
+    }
+}
+// Implement methods directly on the generated types
+impl VerifyPinOk {
+    /// Get attempts remaining (if available)
+    pub fn attempts_remaining(&self) -> Option<u8> {
+        match self {
+            Self::AttemptsRemaining { count } => Some(*count),
+            _ => None,
+        }
+    }
+
+    /// Check if verification was successful
+    pub fn is_verified(&self) -> bool {
+        matches!(self, Self::Verified)
+    }
+}
+
+impl VerifyPinError {
+    /// Get attempts remaining (if available)
+    pub fn attempts_remaining(&self) -> Option<u8> {
+        match self {
+            Self::Incorrect { count } => Some(*count),
+            _ => None,
+        }
+    }
+
+    /// Check if PIN is blocked
+    pub fn is_blocked(&self) -> bool {
+        matches!(self, Self::Blocked)
     }
 }
 
@@ -140,15 +149,12 @@ fn main() {
             Bytes::from_static(&[0x69, 0x83])
         };
 
-        // Parse and convert to Result
-        let response =
-            VerifyPinResponse::from_bytes(&response_bytes).expect("Failed to parse response");
-
-        response.into()
+        // Parse and return the result directly (no longer need to unwrap)
+        VerifyPinResult::from_bytes(&response_bytes).unwrap()
     }
 
     // Try with correct PIN
-    match verify_pin(&[0x31, 0x32, 0x33, 0x34], 3) {
+    match verify_pin(&[0x31, 0x32, 0x33, 0x34], 3).into_inner() {
         Ok(ok) => match ok {
             VerifyPinOk::Verified => {
                 println!("PIN verified successfully!");
@@ -163,7 +169,7 @@ fn main() {
     }
 
     // Try with incorrect PIN
-    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 3) {
+    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 3).into_inner() {
         Ok(ok) => match ok {
             VerifyPinOk::Verified => {
                 println!("PIN verified successfully!");
@@ -176,21 +182,21 @@ fn main() {
             println!("Error: {}", err);
 
             // We can match on specific error variants
-            if let VerifyPinError::Incorrect { count } = err {
+            if let Some(count) = err.attempts_remaining() {
                 println!("Incorrect PIN, {} attempts remaining", count);
             }
         }
     }
 
     // Try with PIN blocked
-    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 1) {
+    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 1).into_inner() {
         Ok(_) => {
             println!("PIN verified successfully!");
         }
         Err(err) => {
             println!("Error: {}", err);
 
-            if let VerifyPinError::Blocked = err {
+            if err.is_blocked() {
                 println!("PIN is blocked, please reset your card or contact support");
             }
         }
@@ -198,16 +204,11 @@ fn main() {
 
     // Function that uses our new API with question mark operator
     fn authenticate_user(pin: &[u8]) -> Result<(), ApduError> {
-        // In a real application, this would use an actual card executor
-        // For this example, we'll simulate responses
-
         // First check if PIN is blocked by querying remaining attempts
-        let query_response = VerifyPinResponse::from_bytes(&[0x63, 0xC2]) // Simulate 2 attempts left
-            .map_err(|e| ApduError::Response(e))?;
+        let query_result = VerifyPinResult::from_bytes(&Bytes::from_static(&[0x63, 0xC2]))?;
 
-        let query_result: VerifyPinResult = query_response.into();
-
-        match query_result {
+        // Get the inner result - now more ergonomic with deref
+        match *query_result {
             Ok(VerifyPinOk::AttemptsRemaining { count }) => {
                 println!("PIN attempts remaining: {}", count);
                 if count == 0 {
@@ -219,19 +220,18 @@ fn main() {
             }
         }
 
-        // Now try to verify the PIN
-        let verify_response = VerifyPinResponse::from_bytes(if pin == [0x31, 0x32, 0x33, 0x34] {
-            &[0x90, 0x00] // Success
+        // Now try to verify the PIN - more ergonomic from_bytes accepting any AsRef<[u8]>
+        let success = Bytes::from_static(&[0x90, 0x00]);
+        let fail = Bytes::from_static(&[0x63, 0xC1]);
+        let verify_result = VerifyPinResult::from_bytes(if pin == [0x31, 0x32, 0x33, 0x34] {
+            &success
         } else {
-            &[0x63, 0xC1] // 1 attempt left
+            &fail // 1 attempt left
         })
-        .map_err(|e| ApduError::Response(e))?;
+        .unwrap();
 
-        // Convert to Result
-        let verify_result: VerifyPinResult = verify_response.into();
-
-        // Use ? to propagate errors
-        match verify_result? {
+        // Process success
+        match (*verify_result).as_ref().unwrap() {
             VerifyPinOk::Verified => {
                 println!("PIN verification successful");
                 Ok(())

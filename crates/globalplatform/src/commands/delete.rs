@@ -52,14 +52,6 @@ apdu_pair! {
                 #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
         }
     }
@@ -68,8 +60,9 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_delete_command() {
@@ -105,13 +98,16 @@ mod tests {
     #[test]
     fn test_delete_response() {
         // Test successful response
-        let response_data = hex!("9000");
-        let response = DeleteResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, DeleteResponse::Success));
+        let response_data = Bytes::from_static(&hex!("9000"));
+        let result = DeleteResult::from_bytes(&response_data).unwrap();
+        assert!(matches!((*result).as_ref().unwrap(), DeleteOk::Success));
 
         // Test error response
-        let response_data = hex!("6A88");
-        let response = DeleteResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, DeleteResponse::ReferencedDataNotFound));
+        let error_data = Bytes::from_static(&hex!("6A88"));
+        let error_result = DeleteResult::from_bytes(&error_data).unwrap();
+        assert!(matches!(
+            (*error_result).as_ref().unwrap_err(),
+            DeleteError::ReferencedDataNotFound
+        ));
     }
 }

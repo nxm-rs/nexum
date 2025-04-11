@@ -47,105 +47,96 @@ apdu_pair! {
                 #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
 
-            custom_parse = |payload: &[u8], sw| -> Result<Self, ResponseError> {
-                match sw {
+            custom_parse = |response: &nexum_apdu_core::Response| -> Result<InitializeUpdateOk, InitializeUpdateError> {
+                use nexum_apdu_core::ApduResponse;
+
+                let status = response.status();
+                let sw1 = status.sw1;
+                let sw2 = status.sw2;
+
+                match status {
                     status::SW_NO_ERROR => {
-                        if payload.len() != 28 {
-                            return Err(ResponseError::Parse("Response data incorrect length"));
+                        if let Some(payload) = response.payload() {
+                            if payload.len() == 28 {
+                                // Key diversification data (10 bytes)
+                                let key_diversification_data: [u8; 10] = payload[0..10].try_into().unwrap();
+
+                                // Key information (2 bytes)
+                                let key_info: [u8; 2] = payload[10..12].try_into().unwrap();
+
+                                // Sequence counter (2 bytes)
+                                let sequence_counter: [u8; 2] = payload[12..14].try_into().unwrap();
+
+                                // Card challenge (6 bytes)
+                                let card_challenge: [u8; 6] = payload[14..20].try_into().unwrap();
+
+                                // Card cryptogram (8 bytes)
+                                let card_cryptogram: [u8; 8] = payload[20..28].try_into().unwrap();
+
+                                return Ok(InitializeUpdateOk::Success {
+                                    key_diversification_data,
+                                    key_info,
+                                    sequence_counter,
+                                    card_challenge,
+                                    card_cryptogram,
+                                })
+                            }
                         }
-
-                        // Key diversification data (10 bytes)
-                        let key_diversification_data: [u8; 10] = payload[0..10].try_into().unwrap();
-
-                        // Key information (2 bytes)
-                        let key_info: [u8; 2] = payload[10..12].try_into().unwrap();
-
-                        // Sequence counter (2 bytes)
-                        let sequence_counter: [u8; 2] = payload[12..14].try_into().unwrap();
-
-                        // Card challenge (6 bytes)
-                        let card_challenge: [u8; 6] = payload[14..20].try_into().unwrap();
-
-                        // Card cryptogram (8 bytes)
-                        let card_cryptogram: [u8; 8] = payload[20..28].try_into().unwrap();
-
-                        Ok(Self::Success {
-                            key_diversification_data,
-                            key_info,
-                            sequence_counter,
-                            card_challenge,
-                            card_cryptogram,
-                        })
+                        Err(ResponseError::Parse("Response data incorrect length").into())
                     }
-                    status::SW_SECURITY_STATUS_NOT_SATISFIED => Ok(Self::SecurityStatusNotSatisfied),
-                    _ => Ok(Self::OtherError {
+                    status::SW_SECURITY_STATUS_NOT_SATISFIED => Err(InitializeUpdateError::SecurityStatusNotSatisfied),
+                    _ => Err(InitializeUpdateError::Unknown {
                         sw1,
                         sw2
                     }),
                 }
             }
+        }
+    }
+}
 
-            methods {
-                /// Get the SCP version
-                pub const fn scp_version(&self) -> Option<u8> {
-                    match self {
-                        Self::Success { key_info, .. } => {
-                            if key_info.len() >= 2 {
-                                Some(key_info[1])
-                            } else {
-                                None
-                            }
-                        },
-                        _ => None,
-                    }
-                }
-
-                /// Get the key version number
-                pub const fn key_version_number(&self) -> Option<u8> {
-                    match self {
-                        Self::Success { key_info, .. } => {
-                            match !key_info.is_empty() {
-                                true => Some(key_info[0]),
-                                false => None,
-                            }
-                        },
-                        _ => None,
-                    }
-                }
-
-                /// Get the sequence counter
-                pub const fn sequence_counter(&self) -> Option<&[u8]> {
-                    match self {
-                        Self::Success { sequence_counter, .. } => {
-                            Some(sequence_counter)
-                        },
-                        _ => None,
-                    }
-                }
-
-                /// Get the security level supported by the card
-                pub const fn security_level(&self) -> Option<u8> {
-                    match self {
-                        Self::Success { key_info, .. } => {
-                            match key_info.len() >= 2 {
-                                true => Some(key_info[1]),
-                                false => None,
-                            }
-                        },
-                        _ => None,
-                    }
+impl InitializeUpdateOk {
+    /// Get the SCP version
+    pub const fn scp_version(&self) -> Option<u8> {
+        match self {
+            Self::Success { key_info, .. } => {
+                if key_info.len() >= 2 {
+                    Some(key_info[1])
+                } else {
+                    None
                 }
             }
+        }
+    }
+
+    /// Get the key version number
+    pub const fn key_version_number(&self) -> Option<u8> {
+        match self {
+            Self::Success { key_info, .. } => match !key_info.is_empty() {
+                true => Some(key_info[0]),
+                false => None,
+            },
+        }
+    }
+
+    /// Get the sequence counter
+    pub const fn sequence_counter(&self) -> Option<&[u8]> {
+        match self {
+            Self::Success {
+                sequence_counter, ..
+            } => Some(sequence_counter),
+        }
+    }
+
+    /// Get the security level supported by the card
+    pub const fn security_level(&self) -> Option<u8> {
+        match self {
+            Self::Success { key_info, .. } => match key_info.len() >= 2 {
+                true => Some(key_info[1]),
+                false => None,
+            },
         }
     }
 }
@@ -153,8 +144,9 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_initialize_update_command() {
@@ -176,43 +168,50 @@ mod tests {
     #[test]
     fn test_initialize_update_response() {
         // Test successful response
-        let response_data = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000");
+        let response_data = Bytes::from_static(&hex!(
+            "000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000"
+        ));
 
-        let response = InitializeUpdateResponse::from_bytes(&response_data).unwrap();
+        let result = InitializeUpdateResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
 
-        assert!(matches!(response, InitializeUpdateResponse::Success { .. }));
-        assert_eq!(response.scp_version(), Some(0x02));
-        assert_eq!(response.key_version_number(), Some(0x20));
+        assert!(matches!(result, InitializeUpdateOk::Success { .. }));
+        assert_eq!(result.scp_version(), Some(0x02));
+        assert_eq!(result.key_version_number(), Some(0x20));
 
         // Check sequence counter using the sequence_counter() method
-        if let Some(counter) = response.sequence_counter() {
+        if let Some(counter) = result.sequence_counter() {
             assert_eq!(counter, &[0x00, 0x0D]);
         } else {
             panic!("Sequence counter should be present");
         }
 
-        if let InitializeUpdateResponse::Success {
-            key_diversification_data,
-            key_info,
-            sequence_counter,
-            card_challenge,
-            card_cryptogram,
-        } = response
-        {
-            // Use the correct size hex literals for each field
-            assert_eq!(key_diversification_data, hex!("00000265018303953662"));
-            assert_eq!(key_info, hex!("2002"));
-            assert_eq!(sequence_counter, hex!("000D"));
-            assert_eq!(card_challenge, hex!("E9C62BA1C4C8"));
-            assert_eq!(card_cryptogram, hex!("E55FCB91B6654CE4"));
+        match result {
+            InitializeUpdateOk::Success {
+                key_diversification_data,
+                key_info,
+                sequence_counter,
+                card_challenge,
+                card_cryptogram,
+            } => {
+                assert_eq!(key_diversification_data, hex!("00000265018303953662"));
+                assert_eq!(key_info, hex!("2002"));
+                assert_eq!(sequence_counter, hex!("000D"));
+                assert_eq!(card_challenge, hex!("E9C62BA1C4C8"));
+                assert_eq!(card_cryptogram, hex!("E55FCB91B6654CE4"));
+            }
         }
 
         // Test error response
-        let response_data = hex!("6982");
-        let response = InitializeUpdateResponse::from_bytes(&response_data).unwrap();
+        let response_data = Bytes::from_static(&hex!("6982"));
+        let result = InitializeUpdateResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner();
         assert!(matches!(
-            response,
-            InitializeUpdateResponse::SecurityStatusNotSatisfied
+            result.unwrap_err(),
+            InitializeUpdateError::SecurityStatusNotSatisfied
         ));
     }
 }

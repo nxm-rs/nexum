@@ -48,8 +48,8 @@ pub mod prelude {
             CommandProcessor,
             secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
         },
+        response::ApduResponse,
         response::status::StatusWord,
-        response::{ApduResponse, FromApduResponse},
         transport::CardTransport,
     };
 }

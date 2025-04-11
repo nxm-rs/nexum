@@ -2,9 +2,10 @@ use nexum_apdu_core::{ApduExecutorErrors, StatusWord};
 use thiserror::Error;
 
 use crate::commands::{
-    delete::DeleteError, external_authenticate::ExternalAuthenticateError, get_response::GetError,
-    get_status::GetStatusError, initialize_update::InitializeUpdateError, install::InstallError,
-    load::LoadError, put_key::PutKeyError, select::SelectError, store_data::StoreDataError,
+    delete::DeleteError, external_authenticate::ExternalAuthenticateError,
+    get_response::GetResponseError, get_status::GetStatusError,
+    initialize_update::InitializeUpdateError, install::InstallError, load::LoadError,
+    put_key::PutKeyError, select::SelectError, store_data::StoreDataError,
 };
 
 /// Result type for GlobalPlatform operations
@@ -98,7 +99,7 @@ pub enum Error {
     ExternalAuthenticateError(#[from] ExternalAuthenticateError),
 
     #[error(transparent)]
-    GetResponseError(#[from] GetError),
+    GetResponseError(#[from] GetResponseError),
 
     #[error(transparent)]
     GetStatusError(#[from] GetStatusError),

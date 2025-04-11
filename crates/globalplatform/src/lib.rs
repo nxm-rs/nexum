@@ -30,11 +30,7 @@ pub use session::{Keys, Session};
 pub use nexum_apdu_core::{ResponseAwareExecutor, SecureChannelExecutor};
 
 // Export main commands
-pub use commands::{
-    DeleteCommand, DeleteResponse, GetStatusCommand, GetStatusResponse, InitializeUpdateCommand,
-    InitializeUpdateResponse, InstallCommand, InstallResponse, LoadCommand, LoadResponse,
-    SelectCommand, SelectResponse,
-};
+pub use commands::*;
 
 pub trait GlobalPlatformExecutor: Executor + ResponseAwareExecutor + SecureChannelExecutor {}
 

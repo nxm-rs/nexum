@@ -3,7 +3,7 @@
 //! This example connects to a PC/SC reader, selects the ISD, opens a secure channel,
 //! and lists all applications on the card.
 
-use nexum_apdu_globalplatform::{DefaultGlobalPlatform, commands::get_status::tlv_data};
+use nexum_apdu_globalplatform::DefaultGlobalPlatform;
 use nexum_apdu_transport_pcsc::PcscDeviceManager;
 use tracing_subscriber::EnvFilter;
 
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Getting applications status...");
     let response = gp.get_applications_status()?;
 
-    let data = tlv_data(response);
+    let data = response.tlv_data();
     println!("Applications:");
     print_applications(data.as_slice());
 
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nGetting load files status...");
     let response = gp.get_load_files_status()?;
 
-    let data = tlv_data(response);
+    let data = response.tlv_data();
     println!("Load files:");
     print_load_files(data.as_slice());
 

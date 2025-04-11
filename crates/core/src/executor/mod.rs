@@ -80,10 +80,9 @@ pub trait Executor: ApduExecutorErrors + Send + Sync + fmt::Debug {
     ///
     /// This method returns the command's Result type (not Response enum) for more
     /// idiomatic error handling with the ? operator.
-    fn execute<C>(&mut self, command: &C) -> Result<C::ResultType, Self::Error>
+    fn execute<C>(&mut self, command: &C) -> Result<C::Response, Self::Error>
     where
         C: ApduCommand,
-        C::Response: TryFrom<Bytes> + Into<C::ResultType>,
         <C::Response as TryFrom<Bytes>>::Error: Into<Self::Error>,
     {
         // Check security level requirement
@@ -99,11 +98,8 @@ pub trait Executor: ApduExecutorErrors + Send + Sync + fmt::Debug {
         let command_bytes = command.to_bytes();
         let response_bytes = self.transmit_raw(&command_bytes)?;
 
-        // Convert to response enum
-        let response = C::Response::try_from(response_bytes).map_err(Into::into)?;
-
-        // Convert Response to ResultType
-        Ok(response.into())
+        // Convert bytes directly to the Response type
+        C::Response::try_from(response_bytes).map_err(Into::into)
     }
 
     /// Get current security level

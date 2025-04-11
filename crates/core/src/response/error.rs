@@ -7,7 +7,7 @@ use crate::transport::TransportError;
 use super::status::StatusWord;
 
 /// Error for status words in APDU responses
-#[derive(Debug, Clone, thiserror::Error, Display)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Display)]
 #[display("Status error {}, message: {:?}", status, message)]
 pub struct StatusError {
     /// Status word that caused the error
@@ -27,7 +27,7 @@ impl StatusError {
 }
 
 /// Error for APDU response processing
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ResponseError {
     /// Underlying transport has caused an error
     #[error(transparent)]

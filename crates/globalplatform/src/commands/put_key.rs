@@ -59,14 +59,6 @@ apdu_pair! {
                 #[sw(status::SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
         }
     }
@@ -75,8 +67,9 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_put_key_command() {
@@ -98,16 +91,19 @@ mod tests {
     #[test]
     fn test_put_key_response() {
         // Test successful response
-        let response_data = hex!("9000");
-        let response = PutKeyResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, PutKeyResponse::Success));
+        let response_data = Bytes::from_static(&hex!("9000"));
+        let result = PutKeyResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert!(matches!(result, PutKeyOk::Success));
 
         // Test error response
-        let response_data = hex!("6982");
-        let response = PutKeyResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(
-            response,
-            PutKeyResponse::SecurityStatusNotSatisfied
-        ));
+        let response_data = Bytes::from_static(&hex!("6982"));
+        let response = PutKeyResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap_err();
+        assert!(matches!(response, PutKeyError::SecurityStatusNotSatisfied));
     }
 }

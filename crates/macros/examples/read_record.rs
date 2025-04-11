@@ -2,7 +2,7 @@
 //! Example of using the apdu_pair macro with the new Result-based API for Read Record command
 
 use bytes::Bytes;
-use nexum_apdu_core::ApduCommand;
+use nexum_apdu_core::{ApduCommand, ApduResponse};
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -61,31 +61,30 @@ apdu_pair! {
                 ParameterError {
                     sw2: u8,
                 },
-
-                // Other error
-                #[sw(_, _)]
-                #[error("Other error: {sw1:02X}{sw2:02X}")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
-            }
-
-            methods {
-                /// Get the record data if available
-                pub fn record_data(&self) -> Option<&[u8]> {
-                    match self {
-                        Self::Success { data } => Some(data),
-                        _ => None,
-                    }
-                }
-
-                /// Check if there are no more records
-                pub fn is_end_of_records(&self) -> bool {
-                    matches!(self, Self::EndOfRecords { .. } | Self::RecordNotFound { .. })
-                }
             }
         }
+    }
+}
+
+// Implement methods directly on the generated types
+impl ReadRecordOk {
+    /// Get the record data
+    pub fn record_data(&self) -> &[u8] {
+        match self {
+            Self::Success { data } => data,
+        }
+    }
+}
+
+impl ReadRecordError {
+    /// Check if there are no more records
+    pub fn is_end_of_records(&self) -> bool {
+        matches!(self, Self::EndOfRecords | Self::RecordNotFound)
+    }
+
+    /// Check if this is a parameter error
+    pub fn is_parameter_error(&self) -> bool {
+        matches!(self, Self::ParameterError { .. })
     }
 }
 
@@ -108,23 +107,21 @@ fn main() {
     ];
     let response_bytes = Bytes::from([&record_data[..], &[0x90, 0x00]].concat());
 
-    let response =
-        ReadRecordResponse::from_bytes(&response_bytes).expect("Failed to parse response");
+    let result = ReadRecordResult::from_bytes(&response_bytes).unwrap();
 
-    // Traditional way
-    if let Some(data) = response.record_data() {
-        println!("Record data: {:02X?}", data);
-    }
-
-    // New Result-based way
-    match response.to_result() {
-        Ok(ok) => match ok {
-            ReadRecordOk::Success { data } => {
-                println!("Record data (via Result): {:02X?}", data);
-            }
-        },
+    // Using our custom methods on the unwrapped result
+    match result.into_inner() {
+        Ok(ok) => {
+            println!("Record data: {:02X?}", ok.record_data());
+        }
         Err(err) => {
             println!("Error reading record: {}", err);
+
+            if err.is_end_of_records() {
+                println!("No more records available");
+            } else if err.is_parameter_error() {
+                println!("Invalid parameters used in command");
+            }
         }
     }
 
@@ -137,7 +134,7 @@ fn main() {
             // In a real application, this would use an executor
             // For this example, we'll simulate responses
 
-            let response = if record_number <= 3 {
+            let result = if record_number <= 3 {
                 // Simulate a success response for first 3 records
                 let record_data = [
                     0x70,
@@ -165,36 +162,26 @@ fn main() {
                 ];
                 let response_bytes = Bytes::from([&record_data[..], &[0x90, 0x00]].concat());
 
-                ReadRecordResponse::from_bytes(&response_bytes).map_err(|_| {
-                    ReadRecordError::OtherError {
-                        sw1: 0x6F,
-                        sw2: 0x00,
-                    }
-                })?
+                ReadRecordResult::from_bytes(&response_bytes)
             } else {
                 // Simulate end of records for record 4+
                 let response_bytes = Bytes::from_static(&[0x6A, 0x83]);
+                ReadRecordResult::from_bytes(&response_bytes)
+            }
+            .unwrap();
 
-                ReadRecordResponse::from_bytes(&response_bytes).map_err(|_| {
-                    ReadRecordError::OtherError {
-                        sw1: 0x6F,
-                        sw2: 0x00,
-                    }
-                })?
-            };
-
-            // Convert to Result
-            let result: ReadRecordResult = response.into();
-
-            match result {
-                Ok(ReadRecordOk::Success { data }) => {
-                    records.push(data);
+            // Use the ? operator directly on the result
+            match result.into_inner() {
+                Ok(ok) => {
+                    records.push(ok.record_data().to_vec());
                     record_number += 1;
                 }
-                Err(ReadRecordError::RecordNotFound) | Err(ReadRecordError::EndOfRecords) => {
+                Err(err) if err.is_end_of_records() => {
+                    // End of records reached, break the loop
                     break;
                 }
                 Err(err) => {
+                    // Propagate other errors
                     return Err(err);
                 }
             }

@@ -2,7 +2,7 @@
 //! Example of using the apdu_pair macro with the new Result-based API
 
 use bytes::Bytes;
-use nexum_apdu_core::ApduCommand;
+use nexum_apdu_core::{ApduCommand, ApduResponse};
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -53,35 +53,39 @@ apdu_pair! {
                 #[sw(0x69, 0x82)]
                 #[error("Security conditions not satisfied")]
                 SecurityNotSatisfied,
-
-                // Other error
-                #[sw(_, _)]
-                #[error("Unknown error: {sw1:02X}{sw2:02X}")]
-                Other {
-                    sw1: u8,
-                    sw2: u8,
-                }
-            }
-
-            methods {
-                /// Get the data if available
-                pub fn data(&self) -> Option<&[u8]> {
-                    match self {
-                        Self::Success { data } => Some(data),
-                        Self::MoreData { data, .. } => Some(data),
-                        _ => None,
-                    }
-                }
-
-                /// Get the number of remaining bytes for MoreData response
-                pub fn remaining_bytes(&self) -> Option<u8> {
-                    match self {
-                        Self::MoreData { sw2, .. } => Some(*sw2),
-                        _ => None,
-                    }
-                }
             }
         }
+    }
+}
+
+// Implement methods directly on the generated types
+impl GetDataOk {
+    /// Get the data
+    pub fn data(&self) -> &[u8] {
+        match self {
+            Self::Success { data } => data,
+            Self::MoreData { data, .. } => data,
+        }
+    }
+
+    /// Get the number of remaining bytes for MoreData response
+    pub fn remaining_bytes(&self) -> Option<u8> {
+        match self {
+            Self::MoreData { sw2, .. } => Some(*sw2),
+            _ => None,
+        }
+    }
+}
+
+impl GetDataError {
+    /// Check if the data was not found
+    pub fn is_not_found(&self) -> bool {
+        matches!(self, Self::NotFound)
+    }
+
+    /// Check if security conditions are not satisfied
+    pub fn is_security_error(&self) -> bool {
+        matches!(self, Self::SecurityNotSatisfied)
     }
 }
 
@@ -99,48 +103,45 @@ fn main() {
 
     // Simulate a successful response
     let response_bytes = Bytes::from_static(&[0x01, 0x02, 0x03, 0x04, 0x90, 0x00]);
-    let response = GetDataResponse::from_bytes(&response_bytes).expect("Failed to parse response");
+    let result = GetDataResult::from_bytes(&response_bytes).unwrap();
 
-    // Using the traditional approach
-    if let GetDataResponse::Success { data } = &response {
-        println!("Success! Data: {:?}", data);
-    }
-
-    // Convert to Result (the new way)
-    match response.clone().to_result() {
-        Ok(success) => match success {
-            GetDataOk::Success { data } => {
-                println!("Success via Result! Data: {:?}", data);
+    // Convert to inner result and use our custom methods
+    match result.clone().into_inner() {
+        Ok(ok) => {
+            println!("Success! Data: {:?}", ok.data());
+            if let Some(remaining) = ok.remaining_bytes() {
+                println!("More data available: {} bytes", remaining);
             }
-            GetDataOk::MoreData { data, sw2 } => {
-                println!("More data available: {:?}, remaining: {}", data, sw2);
-            }
-        },
+        }
         Err(err) => {
             println!("Error: {}", err);
+
+            if err.is_not_found() {
+                println!("Data not found on card");
+            } else if err.is_security_error() {
+                println!("Security condition not satisfied");
+            }
         }
     }
 
-    // Shorter version using ? operator
-    fn process_response(response: GetDataResponse) -> Result<Vec<u8>, GetDataError> {
-        // Using the From implementation to convert to Result
-        let result: GetDataResult = response.into();
+    // Example of using ? operator with the result
+    fn process_response(response: GetDataResult) -> Result<Vec<u8>, GetDataError> {
+        // Get the inner result and use ?
+        let ok = response.into_inner()?;
 
-        // Now we can use ? operator
-        let success = result?;
+        // Use our custom method
+        let data = ok.data().to_vec();
 
-        // Match on success variants
-        match success {
-            GetDataOk::Success { data } => Ok(data),
-            GetDataOk::MoreData { data, sw2 } => {
-                println!("Note: {} more bytes available", sw2);
-                Ok(data)
-            }
+        // Check if there's more data
+        if let Some(remaining) = ok.remaining_bytes() {
+            println!("Note: {} more bytes available", remaining);
         }
+
+        Ok(data)
     }
 
     // Use our function with the response
-    match process_response(response) {
+    match process_response(result) {
         Ok(data) => println!("Processed data: {:?}", data),
         Err(e) => println!("Processing error: {}", e),
     }

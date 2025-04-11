@@ -3,8 +3,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    Attribute, Expr, ExprClosure, ExprLit, Field, Ident, ItemFn, Lit, Token, Type, Visibility,
-    braced, parse::ParseStream, spanned::Spanned,
+    Attribute, Expr, ExprClosure, ExprLit, Field, Ident, Lit, Token, Type, Visibility, braced,
+    parse::ParseStream, spanned::Spanned,
 };
 
 use crate::utils::byte_lit;
@@ -62,8 +62,6 @@ pub(crate) struct ResponseDef {
     pub error_variants: Vec<ResponseVariant>,
     /// Custom response parser
     pub custom_parser: Option<ExprClosure>,
-    /// Methods
-    pub methods: Vec<ItemFn>,
 }
 
 impl ResponseDef {
@@ -72,7 +70,7 @@ impl ResponseDef {
         let mut ok_variants = Vec::new();
         let mut error_variants = Vec::new();
         let mut custom_parser = None;
-        let mut methods = Vec::new();
+        // Removed: let mut methods = Vec::new();
 
         // Parse each field in the response block
         while !input.is_empty() {
@@ -106,42 +104,14 @@ impl ResponseDef {
                         let _ = input.parse::<Token![,]>();
                     }
                 }
-                "variants" => {
-                    // Legacy variants section - provide a helpful error
-                    return Err(syn::Error::new(
-                        key.span(),
-                        "The 'variants' section is no longer supported. Use 'ok' and 'errors' sections instead.",
-                    ));
-                }
                 "custom_parse" => {
                     // Parse custom parser
                     input.parse::<Token![=]>()?;
+
+                    // Validate the custom parser is compatible with the new signature
                     let parser: ExprClosure = input.parse()?;
                     custom_parser = Some(parser);
 
-                    // Try to parse comma if not at end
-                    if !input.is_empty() {
-                        let _ = input.parse::<Token![,]>();
-                    }
-                }
-                "parse_payload" => {
-                    // Legacy parse_payload - generate a warning but ignore
-                    return Err(syn::Error::new(
-                        key.span(),
-                        "parse_payload is deprecated. Use custom_parse instead.",
-                    ));
-                }
-                "methods" => {
-                    // Parse methods
-                    let methods_content;
-                    braced!(methods_content in input);
-
-                    while !methods_content.is_empty() {
-                        let method: ItemFn = methods_content.parse()?;
-                        methods.push(method);
-                    }
-
-                    // Try to parse comma if not at end
                     if !input.is_empty() {
                         let _ = input.parse::<Token![,]>();
                     }
@@ -167,7 +137,7 @@ impl ResponseDef {
             ok_variants,
             error_variants,
             custom_parser,
-            methods,
+            // Removed: methods,
         })
     }
 
@@ -600,41 +570,15 @@ impl ResponseDef {
 pub(crate) fn expand_response(
     response: &ResponseDef,
     vis: &Visibility,
-    response_name: &Ident,
-    _command_name: &Ident,
-) -> Result<(TokenStream, Ident, Ident, Ident), syn::Error> {
+    result_name: &Ident,
+) -> Result<(TokenStream, Ident, Ident), syn::Error> {
     // Generate the base name for the Ok and Error enums
-    let struct_base = response_name
+    let struct_base = result_name
         .to_string()
-        .trim_end_matches("Response")
+        .trim_end_matches("Result")
         .to_string();
     let ok_enum_name = Ident::new(&format!("{}Ok", struct_base), Span::call_site());
     let error_enum_name = Ident::new(&format!("{}Error", struct_base), Span::call_site());
-    let result_type_name = Ident::new(&format!("{}Result", struct_base), Span::call_site());
-
-    // Collect all variants for the main response enum
-    let mut all_variants = Vec::new();
-    all_variants.extend(response.ok_variants.clone());
-    all_variants.extend(response.error_variants.clone());
-
-    // Generate variants for the main response enum
-    let enum_variants = all_variants.iter().map(|v| {
-        let name = &v.name;
-        let fields = &v.fields;
-        let doc_attrs = &v.doc_attrs;
-
-        if fields.is_empty() {
-            quote! {
-                #(#doc_attrs)*
-                #name
-            }
-        } else {
-            quote! {
-                #(#doc_attrs)*
-                #name { #(#fields,)* }
-            }
-        }
-    });
 
     // Generate variants for the Ok enum
     let ok_variants = response.ok_variants.iter().map(|v| {
@@ -682,10 +626,26 @@ pub(crate) fn expand_response(
         }
     });
 
-    // Generate match arms for from_bytes
-    let match_arms = all_variants.iter().map(|v| {
+    // Extra error variants that are always included
+    let extra_error_variants = quote! {
+        /// Error from response parsing
+        #[error(transparent)]
+        ResponseError(#[from] nexum_apdu_core::response::error::ResponseError),
+
+        /// Unknown status word
+        #[error("Unknown status word: {sw1:02X}{sw2:02X}")]
+        Unknown {
+            sw1: u8,
+            sw2: u8,
+        }
+    };
+
+    // Generate match arms for from_response implementation
+    let match_arms = response.ok_variants.iter().chain(response.error_variants.iter()).map(|v| {
         let name = &v.name;
         let sw_pattern = &v.sw_pattern;
+        let is_error = v.is_error;
+        let variant_name_str = name.to_string();
 
         // Generate the match expression
         let match_expr = &sw_pattern.sw_ref.as_ref().map_or_else(
@@ -763,18 +723,54 @@ pub(crate) fn expand_response(
                 let ty = &f.ty;
                 let ty_str = quote! { #ty }.to_string();
 
+                // Create a block that checks if payload exists and handles it accordingly
                 if ty_str.contains("Vec < u8 >") || ty_str.contains("bytes :: Bytes") {
-                    // For Vec<u8> or bytes::Bytes, copy the payload directly
-                    quote! { #name: payload.to_vec() }
+                    // For Vec<u8> or bytes::Bytes, require payload to be present
+                    quote! {
+                        #name: match data_payload {
+                            Some(bytes) => bytes.to_vec(),
+                            None => return Err(#error_enum_name::ResponseError(
+                                nexum_apdu_core::response::error::ResponseError::Message(
+                                    format!("Expected payload for variant {} with status {:02X}{:02X}", #variant_name_str, sw1, sw2)
+                                )
+                            ))
+                        }
+                    }
                 } else if ty_str.contains("Option < Vec < u8 > >") || ty_str.contains("Option < bytes :: Bytes >") {
-                    // For Option<Vec<u8>> or Option<bytes::Bytes>, wrap in Some
-                    quote! { #name: if !payload.is_empty() { Some(payload.to_vec()) } else { None } }
+                    // For Option<Vec<u8>> or Option<bytes::Bytes>, wrap in Some if present
+                    quote! {
+                        #name: data_payload.map(|bytes| bytes.to_vec())
+                    }
                 } else if ty_str.contains("String") {
-                    // For String, try to convert from UTF-8
-                    quote! { #name: core::str::from_utf8(payload).unwrap_or_default().to_string() }
+                    // For String, try to convert from UTF-8 if present
+                    quote! {
+                        #name: match data_payload {
+                            Some(bytes) => std::str::from_utf8(bytes).map_err(|_|
+                                #error_enum_name::ResponseError(
+                                    nexum_apdu_core::response::error::ResponseError::Message(
+                                        format!("Invalid UTF-8 in payload for variant {}", #variant_name_str)
+                                    )
+                                )
+                            )?.to_string(),
+                            None => return Err(#error_enum_name::ResponseError(
+                                nexum_apdu_core::response::error::ResponseError::Message(
+                                    format!("Expected payload for variant {} with status {:02X}{:02X}", #variant_name_str, sw1, sw2)
+                                )
+                            ))
+                        }
+                    }
                 } else {
-                    // Default to basic copy for other types
-                    quote! { #name: Default::default() }
+                    // Default to basic copy for other types, requiring payload
+                    quote! {
+                        #name: match data_payload {
+                            Some(_) => Default::default(),
+                            None => return Err(#error_enum_name::ResponseError(
+                                nexum_apdu_core::response::error::ResponseError::Message(
+                                    format!("Expected payload for variant {} with status {:02X}{:02X}", #variant_name_str, sw1, sw2)
+                                )
+                            ))
+                        }
+                    }
                 }
             } else {
                 // Regular field - initialize to default value
@@ -782,147 +778,209 @@ pub(crate) fn expand_response(
             }
         });
 
-        if v.fields.is_empty() {
-            // Unit variant
-            quote! {
-                #match_expr => Self::#name
-            }
-        } else {
-            // Struct-like variant
-            quote! {
-                #match_expr => {
-                    Self::#name { #(#field_inits,)* }
-                }
-            }
-        }
-    });
-
-    // Generate to_result() match arms to convert from Response to Result<Ok, Error>
-    let to_result_arms = all_variants.iter().map(|v| {
-        let name = &v.name;
-        let is_error = v.is_error;
-
-        if v.fields.is_empty() {
-            // Handle unit variants
-            if is_error {
-                quote! {
-                    #response_name::#name => Err(#error_enum_name::#name)
-                }
+        // Generate the return based on whether this is an error or success variant
+        let return_expr = if is_error {
+            if v.fields.is_empty() {
+                quote! { Err(#error_enum_name::#name) }
             } else {
-                quote! {
-                    #response_name::#name => Ok(#ok_enum_name::#name)
-                }
+                quote! { Err(#error_enum_name::#name { #(#field_inits,)* }) }
             }
+        } else if v.fields.is_empty() {
+            quote! { Ok(#ok_enum_name::#name) }
         } else {
-            // Handle struct variants
-            let field_names: Vec<_> = v.fields.iter()
-                .map(|f| f.ident.as_ref().unwrap())
-                .collect();
-
-            if is_error {
-                quote! {
-                    #response_name::#name { #(#field_names,)* } => Err(#error_enum_name::#name { #(#field_names,)* })
-                }
-            } else {
-                quote! {
-                    #response_name::#name { #(#field_names,)* } => Ok(#ok_enum_name::#name { #(#field_names,)* })
-                }
-            }
-        }
-    });
-
-    // Custom parser code
-    let parsing_logic = &response.custom_parser.as_ref().map_or_else(|| quote! {
-        let response = match (sw1, sw2) {
-            #(#match_arms,)*
-            _ => return Err(nexum_apdu_core::response::error::ResponseError::status(sw1, sw2)),
+            quote! { Ok(#ok_enum_name::#name { #(#field_inits,)* }) }
         };
 
-        Ok(response)
-    }, |custom_parser| quote! {
-        let sw = nexum_apdu_core::StatusWord::new(sw1, sw2);
-        (#custom_parser)(payload, sw)
+        quote! {
+            #match_expr => #return_expr
+        }
     });
 
-    // Include all the user-defined methods
-    let user_methods = &response.methods;
+    // Implementation of the parse_response method
+    let parse_response_impl = if response.custom_parser.is_some() {
+        // For custom parser, we use the provided parser
+        let custom_parser = response.custom_parser.as_ref().unwrap();
+        quote! {
+            /// Parse a response using the custom parser
+            fn parse_response(response: &nexum_apdu_core::Response) -> Result<#ok_enum_name, #error_enum_name> {
+                (#custom_parser)(response)
+            }
+        }
+    } else {
+        // Standard parser implementation
+        quote! {
+            /// Parse a response into the concrete enum
+            fn parse_response(response: &nexum_apdu_core::Response) -> Result<#ok_enum_name, #error_enum_name> {
+                let status = response.status();
+                let sw1 = status.sw1;
+                let sw2 = status.sw2;
+                let data_payload = response.payload();
+
+                match (sw1, sw2) {
+                    #(#match_arms,)*
+                    // For unmatched status words, use the Unknown variant
+                    _ => Err(#error_enum_name::Unknown { sw1, sw2 }),
+                }
+            }
+        }
+    };
 
     // Generate the code
     let tokens = quote! {
-        /// APDU response
-        #[derive(Debug, Clone)]
-        #vis enum #response_name {
-            #(#enum_variants,)*
-        }
-
         /// Successful response variants
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
         #vis enum #ok_enum_name {
             #(#ok_variants,)*
         }
 
         /// Error response variants
-        #[derive(Debug, Clone, thiserror::Error)]
+        #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
         #vis enum #error_enum_name {
             #(#error_variants,)*
+
+            // Always include these error variants
+            #extra_error_variants
         }
 
-        /// Type alias for Result with the appropriate success and error types
-        #vis type #result_type_name = Result<#ok_enum_name, #error_enum_name>;
-
-        impl #response_name {
-            /// Parse response from raw bytes
-            pub fn from_bytes(bytes: &[u8]) -> core::result::Result<Self, nexum_apdu_core::response::error::ResponseError> {
-                if bytes.len() < 2 {
-                    return Err(nexum_apdu_core::response::error::ResponseError::BufferTooSmall);
-                }
-
-                let sw1 = bytes[bytes.len() - 2];
-                let sw2 = bytes[bytes.len() - 1];
-
-                let payload = if bytes.len() > 2 {
-                    &bytes[..bytes.len() - 2]
-                } else {
-                    &[]
-                };
-
-                // Process the response using either custom or default parser
-                #parsing_logic
-            }
-
-            /// Convert the response to a Result
-            pub fn to_result(self) -> #result_type_name {
-                match self {
-                    #(#to_result_arms,)*
-                }
-            }
-
-            // Include all user-defined methods
-            #(#user_methods)*
+        /// Result type for command responses - wraps a Result for better usability
+        #[derive(Debug, Clone, derive_more::DerefMut, derive_more::Deref)]
+        #vis struct #result_name {
+            /// The wrapped result value
+            #[deref]
+            #[deref_mut]
+            inner: Result<#ok_enum_name, #error_enum_name>,
+            /// The response payload data if any
+            payload: Option<bytes::Bytes>,
+            /// The status word
+            status: nexum_apdu_core::StatusWord,
         }
 
-        impl TryFrom<bytes::Bytes> for #response_name {
+        impl #result_name {
+            /// Create a new result from an explicit Result and Response data
+            pub fn new(
+                inner: Result<#ok_enum_name, #error_enum_name>,
+                payload: Option<bytes::Bytes>,
+                status: nexum_apdu_core::StatusWord
+            ) -> Self {
+                Self { inner, payload, status }
+            }
+
+            /// Get the inner result by value
+            pub fn into_inner(self) -> Result<#ok_enum_name, #error_enum_name> {
+                self.inner
+            }
+
+            // Internal parser method
+            #parse_response_impl
+
+            /// Get a reference to the inner result
+            pub fn as_inner(&self) -> &Result<#ok_enum_name, #error_enum_name> {
+                &self.inner
+            }
+
+            /// Get a mutable reference to the inner result
+            pub fn as_inner_mut(&mut self) -> &mut Result<#ok_enum_name, #error_enum_name> {
+                &mut self.inner
+            }
+
+            /// Check if this is an Ok result
+            pub fn is_ok(&self) -> bool {
+                self.inner.is_ok()
+            }
+
+            /// Check if this is an Err result
+            pub fn is_err(&self) -> bool {
+                self.inner.is_err()
+            }
+
+            /// Map the success value
+            pub fn map<U, F>(self, f: F) -> Result<U, #error_enum_name>
+            where
+                F: FnOnce(#ok_enum_name) -> U,
+            {
+                self.inner.map(f)
+            }
+
+            /// Map the error value
+            pub fn map_err<F, O>(self, f: F) -> Result<#ok_enum_name, O>
+            where
+                F: FnOnce(#error_enum_name) -> O,
+            {
+                self.inner.map_err(f)
+            }
+        }
+
+        // Implement ApduResponse trait
+        impl nexum_apdu_core::ApduResponse for #result_name {
+            fn payload(&self) -> &Option<bytes::Bytes> {
+                &self.payload
+            }
+
+            fn status(&self) -> nexum_apdu_core::StatusWord {
+                self.status
+            }
+
+            fn from_bytes(data: &bytes::Bytes) -> Result<Self, nexum_apdu_core::response::error::ResponseError> {
+                let response = nexum_apdu_core::Response::from_bytes(data)?;
+                let status = response.status();
+                let payload = response.payload().clone();
+
+                // Parse the response using our internal parse_response function
+                let inner = Self::parse_response(&response);
+
+                Ok(Self { inner, payload, status })
+            }
+        }
+
+        // Implement TryFrom<&nexum_apdu_core::Response> for converting from Response objects
+        impl TryFrom<&nexum_apdu_core::Response> for #result_name {
             type Error = nexum_apdu_core::response::error::ResponseError;
 
-            fn try_from(bytes: bytes::Bytes) -> core::result::Result<Self, Self::Error> {
+            fn try_from(response: &nexum_apdu_core::Response) -> Result<Self, Self::Error> {
+                let status = response.status();
+                let payload = response.payload().clone();
+
+                // Parse the response using our internal parse_response function
+                let inner = #result_name::parse_response(&response);
+
+                Ok(Self { inner, payload, status })
+            }
+        }
+
+        // Implement TryFrom for owned Response
+        impl TryFrom<nexum_apdu_core::Response> for #result_name {
+            type Error = nexum_apdu_core::response::error::ResponseError;
+
+            fn try_from(response: nexum_apdu_core::Response) -> Result<Self, Self::Error> {
+                Self::try_from(&response)
+            }
+        }
+
+        // Implement TryFrom<bytes::Bytes> for direct conversion from bytes
+        impl TryFrom<bytes::Bytes> for #result_name {
+            type Error = nexum_apdu_core::response::error::ResponseError;
+
+            fn try_from(bytes: bytes::Bytes) -> Result<Self, Self::Error> {
                 Self::from_bytes(&bytes)
             }
         }
 
-        impl From<#response_name> for #result_type_name {
-            fn from(response: #response_name) -> Self {
-                response.to_result()
+        // Implement TryFrom<&[u8]> for convenience
+        impl TryFrom<&[u8]> for #result_name {
+            type Error = nexum_apdu_core::response::error::ResponseError;
+
+            fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+                #result_name::from_bytes(&bytes::Bytes::copy_from_slice(bytes))
             }
         }
 
-        impl From<#error_enum_name> for nexum_apdu_core::Error {
-            fn from(err: #error_enum_name) -> Self {
-                nexum_apdu_core::Error::Response(
-                    nexum_apdu_core::response::error::ResponseError::Message(err.to_string())
-                )
+        // Implement Into<Result> to convert back to plain Result
+        impl From<#result_name> for Result<#ok_enum_name, #error_enum_name> {
+            fn from(wrapper: #result_name) -> Self {
+                wrapper.inner
             }
         }
     };
 
-    Ok((tokens, ok_enum_name, error_enum_name, result_type_name))
+    Ok((tokens, ok_enum_name, error_enum_name))
 }

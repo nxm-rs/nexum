@@ -8,7 +8,7 @@ use std::fmt;
 use bytes::{BufMut, BytesMut};
 use cipher::{Iv, Key};
 use nexum_apdu_core::transport::CardTransport;
-use nexum_apdu_core::{ApduCommand, Command, Response};
+use nexum_apdu_core::{ApduCommand, ApduResponse, Command, Response};
 use nexum_apdu_core::{
     processor::{
         CommandProcessor, ProcessorError, SecureProtocolError,
@@ -20,12 +20,11 @@ use rand::RngCore;
 use tracing::{debug, trace, warn};
 
 use crate::crypto::{HostChallenge, Scp02};
+use crate::external_authenticate::{ExternalAuthenticateOk, ExternalAuthenticateResult};
+use crate::initialize_update::{InitializeUpdateOk, InitializeUpdateResult};
 use crate::{
     Error,
-    commands::{
-        ExternalAuthenticateCommand, ExternalAuthenticateResponse, InitializeUpdateCommand,
-        InitializeUpdateResponse,
-    },
+    commands::{ExternalAuthenticateCommand, InitializeUpdateCommand},
     crypto::{encrypt_icv, mac_full_3des},
     session::{Keys, Session},
 };
@@ -180,10 +179,10 @@ impl GPSecureChannel {
             .map_err(ResponseError::from)?;
 
         // Parse response
-        let auth_response = ExternalAuthenticateResponse::from_bytes(&response_bytes)?;
+        let auth_result = ExternalAuthenticateResult::from_bytes(&response_bytes)?;
 
         // Check if successful
-        if !matches!(auth_response, ExternalAuthenticateResponse::Success) {
+        if !matches!(*auth_result, Ok(ExternalAuthenticateOk::Success)) {
             self.established = false;
             return Err(SecureProtocolError::AuthenticationFailed(
                 "EXTERNAL AUTHENTICATE failed",
@@ -292,10 +291,10 @@ impl SecureChannelProvider for GPSecureChannelProvider {
             .map_err(ResponseError::from)?;
 
         // Parse response
-        let init_response = InitializeUpdateResponse::from_bytes(&response_bytes)?;
+        let init_response = InitializeUpdateResult::from_bytes(&response_bytes)?;
 
         // Check for successful response
-        if !matches!(init_response, InitializeUpdateResponse::Success { .. }) {
+        if !matches!(*init_response, Ok(InitializeUpdateOk::Success { .. })) {
             return Err(SecureProtocolError::AuthenticationFailed(
                 "INITIALIZE UPDATE failed",
             ));
@@ -376,11 +375,13 @@ mod tests {
         // Realistic test values based on actual card responses
         let key = Key::<Scp02>::from_slice(hex!("404142434445464748494a4b4c4d4e4f").as_slice());
         let keys = Keys::from_single_key(*key);
-        let init_response = hex!("000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000");
+        let init_response = Bytes::from_static(&hex!(
+            "000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000"
+        ));
         let host_challenge = hex!("f0467f908e5ca23f");
 
-        let response = InitializeUpdateResponse::from_bytes(&init_response).unwrap();
-        Session::from_response(&keys, &response, host_challenge).unwrap()
+        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        Session::from_response(&keys, &result, host_challenge).unwrap()
     }
 
     #[test]

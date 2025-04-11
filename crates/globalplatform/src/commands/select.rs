@@ -5,7 +5,6 @@
 use bytes::Bytes;
 use iso7816_tlv::ber::{Tlv, Value};
 use nexum_apdu_macros::apdu_pair;
-use std::convert::TryFrom;
 
 use crate::constants::{cla, ins, select_p1, status};
 
@@ -77,46 +76,36 @@ apdu_pair! {
                 #[sw(status::SW_WRONG_P1P2)]
                 #[error("Incorrect parameters")]
                 IncorrectParameters,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
 
-            methods {
-                /// Returns true if the selection was successful
-                pub const fn is_success(&self) -> bool {
-                    matches!(self, Self::Success { .. })
-                }
-
-                /// Returns true if the file or application was not found
-                pub const fn is_not_found(&self) -> bool {
-                    matches!(self, Self::NotFound { .. })
-                }
-
-                /// Get the File Control Information if available
-                pub fn fci(&self) -> &[u8] {
-                    match self {
-                        Self::Success { fci } => fci.as_slice(),
-                        _ => &[],
-                    }
-                }
-
-                /// Extract the application label from FCI if available
-                pub fn application_label(&self) -> Option<bytes::Bytes> {
-                    crate::util::tlv::find_tlv_value(bytes::Bytes::copy_from_slice(self.fci()), crate::constants::tags::APPLICATION_LABEL)
-                }
-
-                /// Parse the FCI data into a structured format
-                pub fn parsed_fci(&self) -> Option<FciTemplate> {
-                    parse_fci(self.fci()).ok()
-                }
-            }
         }
+    }
+}
+
+impl SelectOk {
+    /// Returns true if the selection was successful
+    pub const fn is_success(&self) -> bool {
+        matches!(self, Self::Success { .. })
+    }
+
+    /// Get the File Control Information if available
+    pub fn fci(&self) -> &[u8] {
+        match self {
+            Self::Success { fci } => fci.as_slice(),
+        }
+    }
+
+    /// Extract the application label from FCI if available
+    pub fn application_label(&self) -> Option<bytes::Bytes> {
+        crate::util::tlv::find_tlv_value(
+            bytes::Bytes::copy_from_slice(self.fci()),
+            crate::constants::tags::APPLICATION_LABEL,
+        )
+    }
+
+    /// Parse the FCI data into a structured format
+    pub fn parsed_fci(&self) -> Option<FciTemplate> {
+        parse_fci(self.fci()).ok()
     }
 }
 
@@ -229,8 +218,9 @@ fn parse_proprietary_data(prop_tlv: &Tlv) -> Result<ProprietaryData, &'static st
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::{BufMut, BytesMut};
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_select_command() {
@@ -254,17 +244,22 @@ mod tests {
     fn test_select_response() {
         // Test successful response with FCI
         let fci_data = hex!("6F10840E315041592E5359532E4444463031A5020500");
-        let mut response_data = Vec::new();
-        response_data.extend_from_slice(&fci_data);
-        response_data.extend_from_slice(&hex!("9000"));
+        let mut buf = BytesMut::new();
+        buf.put(fci_data.as_ref());
+        buf.put(hex!("9000").as_ref());
 
-        let response = SelectResponse::from_bytes(&response_data).unwrap();
-        assert!(response.is_success());
-        assert_eq!(response.fci(), fci_data.as_slice());
+        let result = SelectResult::from_bytes(&buf.freeze())
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert_eq!(result.fci(), fci_data.as_slice());
 
         // Test file not found
-        let response_data = hex!("6A82");
-        let response = SelectResponse::from_bytes(&response_data).unwrap();
-        assert!(response.is_not_found());
+        let response_data = Bytes::from_static(&hex!("6A82"));
+        let result = SelectResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap_err();
+        assert_eq!(result, SelectError::NotFound);
     }
 }

@@ -54,14 +54,6 @@ apdu_pair! {
                 #[sw(status::SW_RECORD_NOT_FOUND)]
                 #[error("Record not found")]
                 RecordNotFound,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
         }
     }
@@ -72,9 +64,10 @@ mod tests {
     use crate::crypto::Scp02;
 
     use super::*;
+    use bytes::Bytes;
     use cipher::Key;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_external_authenticate_command() {
@@ -119,16 +112,19 @@ mod tests {
     #[test]
     fn test_external_authenticate_response() {
         // Test successful response
-        let response_data = hex!("9000");
-        let response = ExternalAuthenticateResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, ExternalAuthenticateResponse::Success));
+        let response_data = Bytes::from_static(&hex!("9000"));
+        let result = ExternalAuthenticateResult::from_bytes(&response_data).unwrap();
+        assert!(matches!(
+            (*result).as_ref().unwrap(),
+            ExternalAuthenticateOk::Success
+        ));
 
         // Test error response
-        let response_data = hex!("6982");
-        let response = ExternalAuthenticateResponse::from_bytes(&response_data).unwrap();
+        let error_data = Bytes::from_static(&hex!("6982"));
+        let error_result = ExternalAuthenticateResult::from_bytes(&error_data).unwrap();
         assert!(matches!(
-            response,
-            ExternalAuthenticateResponse::SecurityStatusNotSatisfied
+            (*error_result).as_ref().unwrap_err(),
+            ExternalAuthenticateError::SecurityStatusNotSatisfied
         ));
     }
 }

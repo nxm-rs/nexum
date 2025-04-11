@@ -1,7 +1,7 @@
 //! Error types specific to card transport
 
 /// Transport error type
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum TransportError {
     /// Connection error
     #[error("Failed to connect to device")]

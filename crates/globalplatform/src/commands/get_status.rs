@@ -80,51 +80,38 @@ apdu_pair! {
                 #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
 
-            methods {
-                /// Get the TLV data
-                pub const fn tlv_data(&self) -> Option<&Vec<u8>> {
-                    match self {
-                        Self::Success { tlv_data } | Self::MoreData { tlv_data, .. } => Some(tlv_data),
-                        _ => None,
-                    }
-                }
 
-                /// Check if more data is available
-                pub const fn has_more_data(&self) -> bool {
-                    matches!(self, Self::MoreData { .. })
-                }
-
-                /// Get the number of remaining bytes if more data is available
-                pub const fn remaining_bytes(&self) -> Option<u8> {
-                    match self {
-                        Self::MoreData { sw2, .. } => Some(*sw2),
-                        _ => None,
-                    }
-                }
-            }
         }
     }
 }
 
-pub fn tlv_data(data: GetStatusOk) -> Vec<u8> {
-    match data {
-        GetStatusOk::Success { tlv_data } | GetStatusOk::MoreData { tlv_data, .. } => tlv_data,
+impl GetStatusOk {
+    /// Get the TLV data
+    pub const fn tlv_data(&self) -> &Vec<u8> {
+        match self {
+            Self::Success { tlv_data } | Self::MoreData { tlv_data, .. } => tlv_data,
+        }
+    }
+
+    /// Check if more data is available
+    pub const fn has_more_data(&self) -> bool {
+        matches!(self, Self::MoreData { .. })
+    }
+
+    /// Get the number of remaining bytes if more data is available
+    pub const fn remaining_bytes(&self) -> Option<u8> {
+        match self {
+            Self::MoreData { sw2, .. } => Some(*sw2),
+            _ => None,
+        }
     }
 }
 
 /// Parse application entries
 pub fn parse_applications(data: GetStatusOk) -> Vec<ApplicationInfo> {
-    parse_entries(tlv_data(data).as_slice(), EntryType::Application)
+    parse_entries(data.tlv_data().as_slice(), EntryType::Application)
         .into_iter()
         .filter_map(|entry| {
             if let Entry::Application(app) = entry {
@@ -138,7 +125,7 @@ pub fn parse_applications(data: GetStatusOk) -> Vec<ApplicationInfo> {
 
 /// Parse load file entries
 pub fn parse_load_files(data: GetStatusOk) -> Vec<LoadFileInfo> {
-    parse_entries(tlv_data(data).as_slice(), EntryType::LoadFile)
+    parse_entries(data.tlv_data().as_slice(), EntryType::LoadFile)
         .into_iter()
         .filter_map(|entry| {
             if let Entry::LoadFile(file) = entry {
@@ -262,8 +249,9 @@ fn parse_entry(data: &[u8], entry_type: EntryType) -> Option<Entry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::{BufMut, BytesMut};
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_get_status_command() {
@@ -297,41 +285,50 @@ mod tests {
     fn test_get_status_response() {
         // Test successful response with TLV data
         let tlv_data = hex!("E3144F07A0000000030000C5010AC4019AC10100860102");
-        let mut response_data = Vec::new();
-        response_data.extend_from_slice(&tlv_data);
-        response_data.extend_from_slice(&hex!("9000"));
+        let mut buf = BytesMut::new();
+        buf.put(tlv_data.as_ref());
+        buf.put(hex!("9000").as_ref());
 
-        let response = GetStatusResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, GetStatusResponse::Success { .. }));
-        assert_eq!(response.tlv_data(), Some(tlv_data.to_vec().as_ref()));
-        assert!(!response.has_more_data());
+        let result = GetStatusResult::from_bytes(&buf.freeze())
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert!(matches!(result, GetStatusOk::Success { .. }));
+        assert_eq!(result.tlv_data(), &tlv_data.to_vec());
+        assert!(!result.has_more_data());
 
         // Test more data available
         let tlv_data = hex!("E3144F07A0000000030000C5010AC4019AC10100860102");
-        let mut response_data = Vec::new();
-        response_data.extend_from_slice(&tlv_data);
-        response_data.extend_from_slice(&hex!("6120"));
+        let mut buf = BytesMut::new();
+        buf.put(tlv_data.as_ref());
+        buf.put(hex!("6120").as_ref());
 
-        let response = GetStatusResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, GetStatusResponse::MoreData { .. }));
-        assert_eq!(response.tlv_data(), Some(tlv_data.to_vec().as_ref()));
-        assert!(response.has_more_data());
-        assert_eq!(response.remaining_bytes(), Some(0x20));
+        let result = GetStatusResult::from_bytes(&buf.freeze())
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert!(matches!(result, GetStatusOk::MoreData { .. }));
+        assert_eq!(result.tlv_data(), &tlv_data.to_vec());
+        assert!(result.has_more_data());
+        assert_eq!(result.remaining_bytes(), Some(0x20));
     }
 
     #[test]
     fn test_parse_application_entries() {
         // Create response data
-        let response_data = hex!(
+        let response_data = Bytes::from_static(&hex!(
             "E30F4F07A0000000030000C5010AC60106"
             "E3124F08A000000003000001C50104C60301FF02"
             "9000"
-        );
+        ));
 
-        let response = GetStatusResponse::from_bytes(&response_data).unwrap();
+        let result = GetStatusResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
 
         // Parse applications
-        let apps = parse_applications(response.to_result().unwrap());
+        let apps = parse_applications(result);
 
         // Check that we got two applications
         assert_eq!(apps.len(), 2);
@@ -353,16 +350,19 @@ mod tests {
     #[test]
     fn test_parse_load_file_entries() {
         // Create response data
-        let response_data = hex!(
+        let response_data = Bytes::from_static(&hex!(
             "E20C4F07A0000000030000C50107"
             "E2184F08A000000003000102C501088409A000000003000102A1"
             "9000"
-        );
+        ));
 
-        let response = GetStatusResponse::from_bytes(&response_data).unwrap();
+        let result = GetStatusResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
 
         // Parse load files
-        let files = parse_load_files(response.to_result().unwrap());
+        let files = parse_load_files(result);
 
         // Check that we got two load files
         assert_eq!(files.len(), 2);

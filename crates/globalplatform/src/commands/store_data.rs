@@ -60,14 +60,6 @@ apdu_pair! {
                 #[sw(status::SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
         }
     }
@@ -76,8 +68,9 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_store_data_command() {
@@ -120,13 +113,19 @@ mod tests {
     #[test]
     fn test_store_data_response() {
         // Test successful response
-        let response_data = hex!("9000");
-        let response = StoreDataResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, StoreDataResponse::Success));
+        let response_data = Bytes::from_static(&hex!("9000"));
+        let result = StoreDataResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert!(matches!(result, StoreDataOk::Success));
 
         // Test error response
-        let response_data = hex!("6A80");
-        let response = StoreDataResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, StoreDataResponse::WrongData));
+        let response_data = Bytes::from_static(&hex!("6A80"));
+        let result = StoreDataResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap_err();
+        assert!(matches!(result, StoreDataError::WrongData));
     }
 }

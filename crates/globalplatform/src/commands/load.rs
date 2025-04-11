@@ -49,14 +49,6 @@ apdu_pair! {
                 #[sw(status::SW_WRONG_LENGTH)]
                 #[error("Wrong length")]
                 WrongLength,
-
-                /// Other error
-                #[sw(_, _)]
-                #[error("Other error")]
-                OtherError {
-                    sw1: u8,
-                    sw2: u8,
-                }
             }
         }
     }
@@ -65,8 +57,9 @@ apdu_pair! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduCommand;
+    use nexum_apdu_core::{ApduCommand, ApduResponse};
 
     #[test]
     fn test_load_command() {
@@ -96,13 +89,19 @@ mod tests {
     #[test]
     fn test_load_response() {
         // Test successful response
-        let response_data = hex!("9000");
-        let response = LoadResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, LoadResponse::Success));
+        let response_data = Bytes::from_static(&hex!("9000"));
+        let result = LoadResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+        assert!(matches!(result, LoadOk::Success));
 
         // Test error response
-        let response_data = hex!("6982");
-        let response = LoadResponse::from_bytes(&response_data).unwrap();
-        assert!(matches!(response, LoadResponse::SecurityStatusNotSatisfied));
+        let response_data = Bytes::from_static(&hex!("6982"));
+        let result = LoadResult::from_bytes(&response_data)
+            .unwrap()
+            .into_inner()
+            .unwrap_err();
+        assert!(matches!(result, LoadError::SecurityStatusNotSatisfied));
     }
 }
