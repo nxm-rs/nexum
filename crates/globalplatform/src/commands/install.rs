@@ -4,7 +4,7 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, ins, install_p1, status};
+use crate::constants::*;
 
 apdu_pair! {
     /// INSTALL command for GlobalPlatform
@@ -102,18 +102,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Referenced data not found
-                #[sw(status::SW_REFERENCED_DATA_NOT_FOUND)]
+                #[sw(SW_REFERENCED_DATA_NOT_FOUND)]
                 #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
             }

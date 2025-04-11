@@ -13,6 +13,7 @@ This crate provides the foundational types and traits needed for working with sm
 - Comprehensive error handling and status word interpretation
 - Detailed tracing for debugging
 - No-std compatible for embedded environments
+- Streamlined imports through the prelude module
 
 ## Architecture
 
@@ -59,14 +60,30 @@ pub trait Executor: Send + Sync + fmt::Debug {
 }
 ```
 
+## Using the Prelude
+
+To simplify imports, you can use the prelude module:
+
+```rust
+use nexum_apdu_core::prelude::*;
+```
+
+This provides access to all commonly used types and traits:
+
+- Core types: `Bytes`, `BytesMut`, `Error`
+- Command types: `Command`, `ApduCommand`, `CommandResult`, `ExpectedLength`
+- Response types: `Response`, `ApduResponse`, `StatusWord`
+- Transport layer: `CardTransport`, `TransportError`
+- Processor layer: `CommandProcessor`, `ProcessorError`, common processors
+- Executor layer: `Executor`, `CardExecutor`, extension traits
+
 ## Example
 
 ```rust
-use apdu_core::{Command, CardExecutor, Executor, Response};
-use apdu_core::processor::GetResponseProcessor;
+use nexum_apdu_core::prelude::*;
 use some_transport::PcscTransport;
 
-fn main() -> Result<(), apdu_core::Error> {
+fn main() -> Result<(), Error> {
     // Create a transport
     let transport = PcscTransport::connect("Smartcard Reader 0")?;
 
@@ -78,8 +95,7 @@ fn main() -> Result<(), apdu_core::Error> {
     let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid.to_vec());
 
     // Execute the command
-    let response_bytes = executor.transmit(&select_cmd.to_bytes())?;
-    let response = Response::from_bytes(&response_bytes)?;
+    let response = executor.transmit(&select_cmd)?;
 
     // Parse the response
     if response.is_success() {

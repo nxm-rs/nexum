@@ -5,7 +5,7 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, ins, status};
+use crate::constants::*;
 
 apdu_pair! {
     /// GET RESPONSE command for GlobalPlatform
@@ -25,7 +25,7 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 #[payload(field = "data")]
                 Success {
                     data: Vec<u8>,
@@ -42,7 +42,7 @@ apdu_pair! {
 
             errors {
                 /// Wrong length
-                #[sw(status::SW_WRONG_LENGTH)]
+                #[sw(SW_WRONG_LENGTH)]
                 #[error("Wrong length")]
                 WrongLength,
             }

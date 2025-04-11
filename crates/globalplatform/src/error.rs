@@ -1,4 +1,4 @@
-use nexum_apdu_core::{ApduExecutorErrors, StatusWord};
+use nexum_apdu_core::prelude::*;
 use thiserror::Error;
 
 use crate::commands::{
@@ -16,7 +16,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// Transport-related errors
     #[error(transparent)]
-    Transport(#[from] nexum_apdu_core::transport::TransportError),
+    Transport(#[from] TransportError),
 
     /// Command-related errors
     #[error(transparent)]

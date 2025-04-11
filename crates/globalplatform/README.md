@@ -22,17 +22,17 @@ for common card management operations.
 ## Usage Example
 
 ```rust
-use nexum_apdu_core::CardExecutor;
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_globalplatform::GlobalPlatform;
 use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Error> {
     // Connect to a card
     let manager = PcscDeviceManager::new()?;
     let readers = manager.list_readers()?;
     let reader = readers.iter().find(|r| r.has_card()).unwrap();
     let transport = manager.open_reader(reader.name())?;
-    let executor = CardExecutor::new(transport);
+    let executor = CardExecutor::new_with_defaults(transport);
 
     // Create GlobalPlatform instance
     let mut gp = GlobalPlatform::new(executor);
@@ -64,6 +64,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     gp.install_for_install_and_make_selectable(
         &package_aid, &applet_aid, &instance_aid, &[]
     )?;
+
+    Ok(())
+}
+```
+
+## Integration with the Core Prelude
+
+This crate works seamlessly with the `nexum-apdu-core` prelude, allowing for cleaner code:
+
+```rust
+use nexum_apdu_core::prelude::*;
+use nexum_apdu_globalplatform::{GlobalPlatform, KeySet, KeySetVersion};
+use nexum_apdu_transport_pcsc::PcscDeviceManager;
+
+fn main() -> Result<(), Error> {
+    // Set up transport and executor
+    let manager = PcscDeviceManager::new()?;
+    let readers = manager.list_readers()?;
+    let reader = readers.iter().find(|r| r.has_card()).unwrap();
+    let transport = manager.open_reader(reader.name())?;
+    let executor = CardExecutor::new_with_defaults(transport);
+
+    // Create GlobalPlatform with default keys
+    let mut gp = GlobalPlatform::new(executor);
+
+    // Start session and manage card
+    gp.select_card_manager()?;
+    gp.open_secure_channel()?;
+
+    // List installed applications
+    let apps = gp.get_applications_status()?;
+    println!("Installed applications:");
+    for app in apps {
+        println!("  AID: {}", hex::encode_upper(&app.aid));
+        println!("  Lifecycle: {}", app.lifecycle_state);
+        println!("  Privileges: {:?}", app.privileges);
+    }
 
     Ok(())
 }

@@ -6,7 +6,7 @@
 use bytes::Bytes;
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, get_status_p1, get_status_p2, ins, status, tags};
+use crate::constants::*;
 use iso7816_tlv::simple::Tlv;
 
 apdu_pair! {
@@ -55,7 +55,7 @@ apdu_pair! {
 
         response {
             ok {
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 #[payload(field = "tlv_data")]
                 Success {
                     tlv_data: Vec<u8>,
@@ -72,12 +72,12 @@ apdu_pair! {
 
             errors {
                 /// Referenced data not found
-                #[sw(status::SW_REFERENCED_DATA_NOT_FOUND)]
+                #[sw(SW_REFERENCED_DATA_NOT_FOUND)]
                 #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
             }

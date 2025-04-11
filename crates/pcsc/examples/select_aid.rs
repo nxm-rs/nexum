@@ -1,7 +1,6 @@
 //! Example showing how to select an application by AID
 
-use nexum_apdu_core::prelude::Executor;
-use nexum_apdu_core::{ApduCommand, ApduResponse, CardExecutor, Command, Error};
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_transport_pcsc::PcscDeviceManager;
 use std::thread::sleep;
 use std::time::Duration;

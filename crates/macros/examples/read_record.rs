@@ -1,8 +1,7 @@
 #![allow(missing_docs)]
 //! Example of using the apdu_pair macro with the new Result-based API for Read Record command
 
-use bytes::Bytes;
-use nexum_apdu_core::{ApduCommand, ApduResponse};
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {

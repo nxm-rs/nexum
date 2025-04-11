@@ -6,7 +6,7 @@ use bytes::Bytes;
 use iso7816_tlv::ber::{Tlv, Value};
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, ins, select_p1, status};
+use crate::constants::*;
 
 /// Represents the parsed FCI (File Control Information)
 #[derive(Debug, Clone)]
@@ -54,7 +54,7 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 #[payload(field = "fci")]
                 Success {
                     fci: Vec<u8>,
@@ -63,21 +63,20 @@ apdu_pair! {
 
             errors {
                 /// File or application not found
-                #[sw(status::SW_FILE_NOT_FOUND)]
+                #[sw(SW_FILE_NOT_FOUND)]
                 #[error("File or application not found")]
                 NotFound,
 
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
 
                 /// Incorrect parameters
-                #[sw(status::SW_WRONG_P1P2)]
+                #[sw(SW_WRONG_P1P2)]
                 #[error("Incorrect parameters")]
                 IncorrectParameters,
             }
-
         }
     }
 }

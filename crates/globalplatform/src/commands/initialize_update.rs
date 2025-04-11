@@ -5,7 +5,7 @@
 use nexum_apdu_core::response::error::ResponseError;
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, ins, status};
+use crate::constants::*;
 
 apdu_pair! {
     /// INITIALIZE UPDATE command for GlobalPlatform
@@ -32,7 +32,7 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success {
                     key_diversification_data: [u8; 10],
                     key_info: [u8; 2],
@@ -44,7 +44,7 @@ apdu_pair! {
 
             errors {
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
             }
@@ -57,7 +57,7 @@ apdu_pair! {
                 let sw2 = status.sw2;
 
                 match status {
-                    status::SW_NO_ERROR => {
+                    SW_NO_ERROR => {
                         if let Some(payload) = response.payload() {
                             if payload.len() == 28 {
                                 // Key diversification data (10 bytes)
@@ -86,7 +86,7 @@ apdu_pair! {
                         }
                         Err(ResponseError::Parse("Response data incorrect length").into())
                     }
-                    status::SW_SECURITY_STATUS_NOT_SATISFIED => Err(InitializeUpdateError::SecurityStatusNotSatisfied),
+                    SW_SECURITY_STATUS_NOT_SATISFIED => Err(InitializeUpdateError::SecurityStatusNotSatisfied),
                     _ => Err(InitializeUpdateError::Unknown {
                         sw1,
                         sw2

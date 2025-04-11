@@ -4,7 +4,7 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, ins, status};
+use crate::constants::*;
 
 apdu_pair! {
     /// PUT KEY command for GlobalPlatform
@@ -40,23 +40,23 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Referenced data not found
-                #[sw(status::SW_REFERENCED_DATA_NOT_FOUND)]
+                #[sw(SW_REFERENCED_DATA_NOT_FOUND)]
                 #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
 
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
             }

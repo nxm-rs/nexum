@@ -18,11 +18,10 @@ This crate provides a PC/SC-based implementation of the `CardTransport` trait fr
 ## Usage Example
 
 ```rust
-use nexum_apdu_core::{CardExecutor, ApduCommand, Command};
-use nexum_apdu_core::prelude::Executor;
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Error> {
     // Create a PC/SC device manager
     let manager = PcscDeviceManager::new()?;
 
@@ -44,13 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Connect to the reader
     let transport = manager.open_reader(reader.name())?;
-    let mut executor = CardExecutor::new(transport);
+    let mut executor = CardExecutor::new_with_defaults(transport);
 
     // Send a SELECT command
     let aid = hex::decode("A000000003000000").unwrap(); // Example AID
     let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid);
 
-    match executor.transmit(&select_cmd.to_bytes()) {
+    match executor.transmit(&select_cmd) {
         Ok(response) => {
             println!("Response: {:?}", response);
         }
@@ -111,6 +110,29 @@ let config = PcscConfig::default()
 
 // Open reader with custom config
 let transport = manager.open_reader_with_config(reader.name(), config)?;
+```
+
+## Using with the Core Prelude
+
+This transport layer integrates smoothly with the `nexum-apdu-core` prelude:
+
+```rust
+use nexum_apdu_core::prelude::*;
+use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
+
+fn main() -> Result<(), Error> {
+    // Create transport
+    let manager = PcscDeviceManager::new()?;
+    let readers = manager.list_readers()?;
+    let reader = readers.iter().find(|r| r.has_card()).expect("No card present");
+    let transport = manager.open_reader(reader.name())?;
+
+    // Create executor and use all core functionality
+    let mut executor = CardExecutor::new_with_defaults(transport);
+
+    // Rest of your code...
+    Ok(())
+}
 ```
 
 ## Included Examples

@@ -1,7 +1,6 @@
 //! Example showing basic connection to a smart card and sending commands
 
-use nexum_apdu_core::prelude::Executor;
-use nexum_apdu_core::{ApduCommand, ApduResponse, CardExecutor, Command, Response};
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscTransport};
 use std::any::Any;
 use std::thread::sleep;

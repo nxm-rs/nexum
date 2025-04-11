@@ -21,7 +21,7 @@ pub mod util;
 pub use application::GlobalPlatform;
 pub use error::{Error, Result};
 pub use load::CapFileInfo;
-use nexum_apdu_core::{CardExecutor, Executor, transport::TransportError};
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager, PcscTransport};
 pub use secure_channel::GPSecureChannel;
 pub use session::{Keys, Session};

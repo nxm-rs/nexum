@@ -107,6 +107,8 @@ pub mod delete_p2 {
     pub const OBJECT_AND_RELATED: u8 = 0x80;
 }
 
+pub use status::*;
+
 /// Commonly used status words in GlobalPlatform
 pub mod status {
     use nexum_apdu_core::StatusWord;

@@ -33,6 +33,43 @@ For APDU command/response pair macro support:
 cargo add nexum-apdu-macros
 ```
 
+## Quick Start
+
+```rust
+use nexum_apdu_core::prelude::*;
+use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
+
+fn main() -> Result<(), Error> {
+    // Create a transport
+    let manager = PcscDeviceManager::new()?;
+    let readers = manager.list_readers()?;
+    let reader = readers.iter().find(|r| r.has_card()).expect("No card present");
+    let transport = manager.open_reader(reader.name())?;
+
+    // Create an executor with default processors (GET RESPONSE handler)
+    let mut executor = CardExecutor::new_with_defaults(transport);
+
+    // Create a SELECT command to select a payment application
+    let aid = [0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10];
+    let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid.to_vec());
+
+    // Execute the command
+    let response = executor.transmit(&select_cmd)?;
+
+    // Parse the response
+    if response.is_success() {
+        println!("Application selected successfully");
+        if let Some(data) = response.payload() {
+            println!("FCI: {}", hex::encode_upper(data));
+        }
+    } else {
+        println!("Failed to select application: {}", response.status());
+    }
+
+    Ok(())
+}
+```
+
 ## Overview
 
 This repository contains the following crates:
@@ -55,6 +92,7 @@ This repository contains the following crates:
 - 📦 **Command processor pipeline** for flexible transformations
 - 📝 **Declarative command definitions** with the `apdu_pair!` macro
 - 🔄 **Response chaining support** for handling complex responses
+- 🧰 **Comprehensive prelude** for streamlined imports
 
 ## Documentation & Examples
 
@@ -93,13 +131,6 @@ Command processors can transform, secure, or log APDU commands before they reach
 ### Executor Layer
 
 Executors manage the complete command execution flow, combining transports and processors to provide a high-level interface for applications.
-
-## Credits
-
-This project builds upon the work done in:
-
-- [`apdu-rs`](https://github.com/siketyan/apdu-rs) by [Naoki Ikeguchi](https://crates.io/users/siketyan), which provided initial inspiration and concepts
-- [`globalplatformpro`](https://github.com/martinpaljak/GlobalPlatformPro) by Martin Paljak for the GlobalPlatform protocol reference implementation
 
 ## License
 

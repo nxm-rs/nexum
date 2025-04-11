@@ -5,10 +5,7 @@
 
 use std::path::Path;
 
-use nexum_apdu_core::{ApduCommand, ApduExecutorErrors};
-
-use nexum_apdu_core::prelude::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
-use nexum_apdu_core::{Bytes, Command, StatusWord};
+use nexum_apdu_core::prelude::*;
 
 use crate::commands::delete::DeleteOk;
 use crate::commands::get_status::GetStatusOk;

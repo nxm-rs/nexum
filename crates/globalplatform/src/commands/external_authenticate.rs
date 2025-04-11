@@ -5,10 +5,7 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use crate::{
-    constants::{cla, external_auth_p1, ins, status},
-    crypto::calculate_cryptogram,
-};
+use crate::{constants::*, crypto::calculate_cryptogram};
 
 apdu_pair! {
     /// EXTERNAL AUTHENTICATE command for GlobalPlatform
@@ -40,18 +37,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
 
                 /// Record not found
-                #[sw(status::SW_RECORD_NOT_FOUND)]
+                #[sw(SW_RECORD_NOT_FOUND)]
                 #[error("Record not found")]
                 RecordNotFound,
             }

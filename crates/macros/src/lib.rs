@@ -29,8 +29,7 @@ use utils::error_tokens;
 /// # Example
 ///
 /// ```
-/// use nexum_apdu_macros::apdu_pair;
-/// use nexum_apdu_core::{Error, StatusWord, processor::secure::SecurityLevel};
+/// use nexum_apdu_core::prelude::*;
 ///
 /// apdu_pair! {
 ///     /// Select command for applications
@@ -169,10 +168,6 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
         mod #module_name {
             use super::*;
             use nexum_apdu_core::prelude::*;
-            use nexum_apdu_core::command::ExpectedLength;
-            use nexum_apdu_core::processor::secure::SecurityLevel;
-            use std::convert::TryFrom;
-            use std::ops::{Deref, DerefMut};
 
             #command_tokens
 

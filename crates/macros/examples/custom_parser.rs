@@ -1,7 +1,7 @@
 //! Example demonstrating a custom parser with the new Result-based API
 
 use bytes::Bytes;
-use nexum_apdu_core::{ApduCommand, ApduResponse, Error as ApduError};
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -203,7 +203,7 @@ fn main() {
     }
 
     // Function that uses our new API with question mark operator
-    fn authenticate_user(pin: &[u8]) -> Result<(), ApduError> {
+    fn authenticate_user(pin: &[u8]) -> Result<(), Error> {
         // First check if PIN is blocked by querying remaining attempts
         let query_result = VerifyPinResult::from_bytes(&Bytes::from_static(&[0x63, 0xC2]))?;
 
@@ -212,7 +212,7 @@ fn main() {
             Ok(VerifyPinOk::AttemptsRemaining { count }) => {
                 println!("PIN attempts remaining: {}", count);
                 if count == 0 {
-                    return Err(ApduError::Other("PIN is blocked"));
+                    return Err(Error::Other("PIN is blocked"));
                 }
             }
             _ => {

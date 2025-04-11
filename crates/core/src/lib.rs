@@ -39,18 +39,35 @@ pub use transport::CardTransport;
 
 /// Prelude module containing commonly used traits and types
 pub mod prelude {
+    // Core types
+    pub use crate::{Bytes, BytesMut, Error};
+
+    // Command related
     pub use crate::{
-        Bytes, BytesMut, Command, Error, Response,
-        command::ApduCommand,
+        Command,
+        command::{ApduCommand, CommandResult, ExpectedLength},
+    };
+
+    // Response related
+    pub use crate::{
+        Response,
+        response::status::{StatusWord, common as status},
+        response::{ApduResponse, utils as response_utils},
+    };
+
+    // Transport layer
+    pub use crate::transport::{CardTransport, TransportError};
+
+    // Processor layer
+    pub use crate::processor::{
+        CommandProcessor, GetResponseProcessor, IdentityProcessor, ProcessorError,
+        secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
+    };
+
+    // Executor layer
+    pub use crate::{
         executor::ext::{ResponseAwareExecutor, SecureChannelExecutor},
-        executor::{ApduExecutorErrors, Executor},
-        processor::{
-            CommandProcessor,
-            secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
-        },
-        response::ApduResponse,
-        response::status::StatusWord,
-        transport::CardTransport,
+        executor::{ApduExecutorErrors, CardExecutor, Executor},
     };
 }
 #[cfg(test)]

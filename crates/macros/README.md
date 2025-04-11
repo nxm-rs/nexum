@@ -19,14 +19,14 @@ Add the dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-apdu-core = "0.1.0"
-apdu-macros = "0.1.0"
+nexum-apdu-core = "0.1.0"
+nexum-apdu-macros = "0.1.0"
 ```
 
 ### Basic Example
 
 ```rust
-use nexum_apdu_core::{ApduCommand, Bytes, CommandExecutor};
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_macros::apdu_pair;
 
 apdu_pair! {
@@ -35,7 +35,7 @@ apdu_pair! {
         command {
             cla: 0x00,
             ins: 0xA4,
-            secure: false,
+            required_security_level: SecurityLevel::none(),
 
             builders {
                 /// Select by AID
@@ -46,27 +46,36 @@ apdu_pair! {
         }
 
         response {
-            variants {
+            ok {
                 #[sw(0x90, 0x00)]
                 #[payload(field = "fci")]
                 Success {
                     fci: Option<Vec<u8>>,
                 },
 
+                #[sw(0x61, _)]
+                MoreData {
+                    sw2: u8,
+                }
+            }
+
+            errors {
                 #[sw(0x6A, 0x82)]
+                #[error("File not found")]
                 NotFound,
 
                 #[sw(_, _)]
+                #[error("Other error: {sw1:02X}{sw2:02X}")]
                 OtherError {
                     sw1: u8,
                     sw2: u8,
                 }
             }
 
-            methods {
-                pub fn is_success(&self) -> bool {
-                    matches!(self, Self::Success { .. })
-                }
+            custom_parse = |response: &Response| -> Result<SelectOk, SelectError> {
+                // Optional custom parser implementation
+                // This would override the default generated parser
+                // ...
             }
         }
     }
@@ -79,7 +88,7 @@ fn main() {
 
     // Now use the command with an executor
     // let response = executor.execute(&select_cmd).unwrap();
-    // if response.is_success() {
+    // if response.is_ok() {
     //     println!("Application selected successfully!");
     // }
 }
@@ -90,7 +99,7 @@ fn main() {
 Mark which field should receive the response payload using the `#[payload]` attribute:
 
 ```rust
-variants {
+ok {
     #[sw(0x90, 0x00)]
     #[payload(field = "data")]
     Success {
@@ -121,7 +130,7 @@ apdu_pair! {
         // Command section...
 
         response {
-            variants {
+            ok {
                 #[sw(0x90, 0x00)]
                 Success {
                     parsed_data: Vec<u8>,
@@ -129,27 +138,37 @@ apdu_pair! {
                 // Other variants...
             }
 
-            custom_parse = |payload, sw| -> Result<GetDataResponse, nexum_apdu_core::Error> {
-                match (sw.sw1(), sw.sw2()) {
+            errors {
+                // Error variants...
+            }
+
+            custom_parse = |response: &Response| -> Result<GetDataOk, GetDataError> {
+                let status = response.status();
+                let sw1 = status.sw1;
+                let sw2 = status.sw2;
+                let data_payload = response.payload();
+
+                match (sw1, sw2) {
                     (0x90, 0x00) => {
                         // Custom parsing logic here
                         let mut parsed_data = Vec::new();
-                        if !payload.is_empty() {
-                            // Validate and transform the payload
-                            if payload[0] != expected_tag {
-                                return Err(nexum_apdu_core::Error::Parse("Invalid tag"));
+                        if let Some(payload) = data_payload {
+                            if !payload.is_empty() {
+                                if payload[0] != expected_tag {
+                                    return Err(GetDataError::ResponseError(
+                                        nexum_apdu_core::response::error::ResponseError::Message(
+                                            "Invalid tag".to_string()
+                                        )
+                                    ));
+                                }
+                                parsed_data.extend_from_slice(&payload[1..]);
                             }
-                            parsed_data.extend_from_slice(&payload[1..]);
                         }
-                        Ok(GetDataResponse::Success { parsed_data })
+                        Ok(GetDataOk::Success { parsed_data })
                     },
                     // Handle other status word combinations...
-                    (sw1, sw2) => Ok(GetDataResponse::OtherError { sw1, sw2 }),
+                    (sw1, sw2) => Err(GetDataError::Unknown { sw1, sw2 }),
                 }
-            }
-
-            methods {
-                // Custom methods...
             }
         }
     }
@@ -178,6 +197,51 @@ The macros provide several ways to match status words:
 OtherError {
     sw1: u8,
     sw2: u8,
+}
+```
+
+## Generated Types
+
+The macro generates the following types:
+
+- `{Name}Command` - The APDU command struct
+- `{Name}Result` - A Result-like wrapper for the response
+- `{Name}Ok` - Enum of success response variants
+- `{Name}Error` - Enum of error response variants
+
+## Integration with Prelude
+
+The generated command and response types work seamlessly with the `nexum_apdu_core::prelude` module:
+
+```rust
+use nexum_apdu_core::prelude::*;
+use nexum_apdu_macros::apdu_pair;
+use nexum_apdu_transport_pcsc::PcscDeviceManager;
+
+// Define command/response pair
+apdu_pair! { /* ... */ }
+
+fn main() -> Result<(), Error> {
+    // Set up transport and executor
+    let manager = PcscDeviceManager::new()?;
+    // ...
+    let mut executor = CardExecutor::new_with_defaults(transport);
+
+    // Use generated command
+    let select_cmd = SelectCommand::by_aid([0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10]);
+
+    // Execute and handle response
+    let result = executor.execute(&select_cmd)?;
+    match &*result {
+        SelectOk::Success { fci } => {
+            println!("Selected successfully, FCI: {:?}", fci);
+        },
+        SelectOk::MoreData { sw2 } => {
+            println!("More data available: {} bytes", sw2);
+        }
+    }
+
+    Ok(())
 }
 ```
 

@@ -4,7 +4,7 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, delete_p2, ins, status, tags};
+use crate::constants::*;
 use iso7816_tlv::simple::Tlv;
 
 apdu_pair! {
@@ -38,18 +38,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success in deleting the object
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Referenced data not found
-                #[sw(status::SW_REFERENCED_DATA_NOT_FOUND)]
+                #[sw(SW_REFERENCED_DATA_NOT_FOUND)]
                 #[error("Referenced data not found")]
                 ReferencedDataNotFound,
 
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
             }

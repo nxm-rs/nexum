@@ -4,7 +4,7 @@
 
 use nexum_apdu_macros::apdu_pair;
 
-use crate::constants::{cla, ins, load_p1, status};
+use crate::constants::*;
 
 apdu_pair! {
     /// LOAD command for GlobalPlatform
@@ -35,18 +35,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Security status not satisfied
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied")]
                 SecurityStatusNotSatisfied,
 
                 /// Wrong length
-                #[sw(status::SW_WRONG_LENGTH)]
+                #[sw(SW_WRONG_LENGTH)]
                 #[error("Wrong length")]
                 WrongLength,
             }

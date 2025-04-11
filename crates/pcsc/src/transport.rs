@@ -1,16 +1,11 @@
-// apdu-rs/crates/pcsc/src/transport.rs
 //! PC/SC transport implementation
 
-use nexum_apdu_core::Bytes;
-use nexum_apdu_core::transport::CardTransport;
-use nexum_apdu_core::transport::error::TransportError;
+use nexum_apdu_core::prelude::*;
 
 use pcsc::{Card, Context, Disposition};
-use std::ffi::CString;
-use std::fmt;
+use std::{ffi::CString, fmt};
 
-use crate::config::PcscConfig;
-use crate::error::PcscError;
+use crate::{config::PcscConfig, error::PcscError};
 
 /// Transport implementation using PC/SC
 pub struct PcscTransport {
