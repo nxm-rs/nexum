@@ -51,7 +51,7 @@ pub mod prelude {
     // Response related
     pub use crate::{
         Response,
-        response::status::{StatusWord, common as status},
+        response::status::StatusWord,
         response::{ApduResponse, utils as response_utils},
     };
 
