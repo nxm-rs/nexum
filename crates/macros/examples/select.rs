@@ -96,9 +96,7 @@ fn main() {
     let response_bytes = Bytes::from([&fci_data[..], &[0x90, 0x00]].concat());
 
     // Parse raw bytes to SelectResult - now with improved error handling
-    let result = SelectResult::from_bytes(&response_bytes)
-        .unwrap()
-        .into_inner();
+    let result = SelectCommand::parse_response_raw(response_bytes);
 
     // Use our custom method on SelectOk when unwrapping
     match result {
@@ -135,10 +133,7 @@ fn main() {
         let response_bytes = Bytes::from([&fci_data[..], &[0x90, 0x00]].concat());
 
         // Parse the bytes directly - no need for ? since from_bytes returns SelectResult
-        let result = SelectResult::from_bytes(&response_bytes).unwrap();
-
-        // Use into_inner() and ? on the inner Result
-        let ok = result.into_inner()?;
+        let ok = SelectCommand::parse_response_raw(response_bytes)?;
 
         // Process the successful variant
         match ok {
@@ -159,10 +154,10 @@ fn main() {
 
     // Demonstrate handling unknown status words
     let unknown_response = Bytes::from_static(&[0x69, 0x85]);
-    let unknown_result = SelectResult::from_bytes(&unknown_response);
+    let unknown_result = SelectCommand::parse_response_raw(unknown_response);
 
     // The error is now inside the result, not wrapping it
-    match unknown_result.unwrap().into_inner() {
+    match unknown_result {
         Ok(_) => println!("Unexpected success"),
         Err(SelectError::Unknown { sw1, sw2 }) => {
             println!("Handled unknown status word: {:02X}{:02X}", sw1, sw2);

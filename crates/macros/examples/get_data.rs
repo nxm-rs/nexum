@@ -102,10 +102,10 @@ fn main() {
 
     // Simulate a successful response
     let response_bytes = Bytes::from_static(&[0x01, 0x02, 0x03, 0x04, 0x90, 0x00]);
-    let result = GetDataResult::from_bytes(&response_bytes).unwrap();
+    let result = GetDataCommand::parse_response_raw(response_bytes);
 
     // Convert to inner result and use our custom methods
-    match result.clone().into_inner() {
+    match &result {
         Ok(ok) => {
             println!("Success! Data: {:?}", ok.data());
             if let Some(remaining) = ok.remaining_bytes() {
@@ -124,9 +124,9 @@ fn main() {
     }
 
     // Example of using ? operator with the result
-    fn process_response(response: GetDataResult) -> Result<Vec<u8>, GetDataError> {
+    fn process_response(result: Result<GetDataOk, GetDataError>) -> Result<Vec<u8>, GetDataError> {
         // Get the inner result and use ?
-        let ok = response.into_inner()?;
+        let ok = result?;
 
         // Use our custom method
         let data = ok.data().to_vec();

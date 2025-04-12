@@ -106,10 +106,10 @@ fn main() {
     ];
     let response_bytes = Bytes::from([&record_data[..], &[0x90, 0x00]].concat());
 
-    let result = ReadRecordResult::from_bytes(&response_bytes).unwrap();
+    let result = ReadRecordCommand::parse_response_raw(response_bytes);
 
     // Using our custom methods on the unwrapped result
-    match result.into_inner() {
+    match result {
         Ok(ok) => {
             println!("Record data: {:02X?}", ok.record_data());
         }
@@ -161,16 +161,15 @@ fn main() {
                 ];
                 let response_bytes = Bytes::from([&record_data[..], &[0x90, 0x00]].concat());
 
-                ReadRecordResult::from_bytes(&response_bytes)
+                ReadRecordCommand::parse_response_raw(response_bytes)
             } else {
                 // Simulate end of records for record 4+
                 let response_bytes = Bytes::from_static(&[0x6A, 0x83]);
-                ReadRecordResult::from_bytes(&response_bytes)
-            }
-            .unwrap();
+                ReadRecordCommand::parse_response_raw(response_bytes)
+            };
 
             // Use the ? operator directly on the result
-            match result.into_inner() {
+            match result {
                 Ok(ok) => {
                     records.push(ok.record_data().to_vec());
                     record_number += 1;

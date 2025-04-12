@@ -13,7 +13,7 @@ use crate::{
         CardChallenge, DERIVATION_ENC, DERIVATION_MAC, HostChallenge, Scp02, SequenceCounter,
         calculate_cryptogram, derive_key,
     },
-    initialize_update::{InitializeUpdateOk, InitializeUpdateResult},
+    initialize_update::{InitializeUpdateError, InitializeUpdateOk},
 };
 
 /// Secure Channel Protocol (SCP) keys
@@ -89,11 +89,11 @@ impl Session {
     /// A new Session if the card's cryptogram is valid
     pub fn from_response(
         keys: &Keys,
-        init_response: &InitializeUpdateResult,
+        init_response: &std::result::Result<InitializeUpdateOk, InitializeUpdateError>,
         host_challenge: HostChallenge,
     ) -> Result<Self> {
         // Extract data from the response
-        let (sequence_counter, card_challenge, card_cryptogram) = match **init_response {
+        let (sequence_counter, card_challenge, card_cryptogram) = match init_response {
             Ok(InitializeUpdateOk::Success {
                 key_info,
                 sequence_counter,
@@ -109,26 +109,22 @@ impl Session {
 
                 (sequence_counter, card_challenge, card_cryptogram)
             }
-            _ => {
-                return Err(Error::InvalidResponse(
-                    "Not a successful INITIALIZE UPDATE response",
-                ));
-            }
+            Err(e) => return Err(crate::Error::from(e.clone())),
         };
 
         // Derive session keys
-        let session_enc = derive_key(keys.enc(), &sequence_counter, &DERIVATION_ENC)?;
-        let session_mac = derive_key(keys.mac(), &sequence_counter, &DERIVATION_MAC)?;
+        let session_enc = derive_key(keys.enc(), sequence_counter, &DERIVATION_ENC)?;
+        let session_mac = derive_key(keys.mac(), sequence_counter, &DERIVATION_MAC)?;
 
         // Create session with the derived keys
         let keys = Keys::new(session_enc, session_mac);
 
         // Verify the card's cryptogram
-        if card_cryptogram
+        if *card_cryptogram
             != calculate_cryptogram(
                 keys.enc(),
-                &sequence_counter,
-                &card_challenge,
+                sequence_counter,
+                card_challenge,
                 &host_challenge,
                 false,
             )
@@ -138,9 +134,9 @@ impl Session {
 
         Ok(Self {
             keys,
-            card_challenge,
+            card_challenge: *card_challenge,
             host_challenge,
-            sequence_counter,
+            sequence_counter: *sequence_counter,
         })
     }
 
@@ -169,10 +165,12 @@ impl Session {
 
 #[cfg(test)]
 mod tests {
+    use crate::InitializeUpdateCommand;
+
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::ApduResponse;
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_session_new() {
@@ -185,7 +183,7 @@ mod tests {
         ));
         let host_challenge = hex!("f0467f908e5ca23f");
 
-        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let result = InitializeUpdateCommand::parse_response_raw(init_response);
         let session = Session::from_response(&keys, &result, host_challenge);
         assert!(session.is_ok());
 
@@ -204,7 +202,7 @@ mod tests {
         let init_response = Bytes::from_static(&hex!(
             "000002650183039536622001000de9c62ba1c4c8e55fcb91b6654ce49000"
         ));
-        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let result = InitializeUpdateCommand::parse_response_raw(init_response);
         let session = Session::from_response(&keys, &result, host_challenge);
         assert!(session.is_err());
 
@@ -212,7 +210,7 @@ mod tests {
         let init_response = Bytes::from_static(&hex!(
             "000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce40000"
         ));
-        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let result = InitializeUpdateCommand::parse_response_raw(init_response);
         let session = Session::from_response(&keys, &result, host_challenge);
         assert!(session.is_err());
     }

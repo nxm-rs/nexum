@@ -14,8 +14,8 @@ use rand::RngCore;
 use tracing::{debug, trace, warn};
 
 use crate::crypto::{HostChallenge, Scp02};
-use crate::external_authenticate::{ExternalAuthenticateOk, ExternalAuthenticateResult};
-use crate::initialize_update::{InitializeUpdateOk, InitializeUpdateResult};
+use crate::external_authenticate::ExternalAuthenticateOk;
+use crate::initialize_update::InitializeUpdateOk;
 use crate::{
     Error,
     commands::{ExternalAuthenticateCommand, InitializeUpdateCommand},
@@ -173,10 +173,10 @@ impl GPSecureChannel {
             .map_err(ResponseError::from)?;
 
         // Parse response
-        let auth_result = ExternalAuthenticateResult::from_bytes(&response_bytes)?;
+        let auth_result = ExternalAuthenticateCommand::parse_response_raw(response_bytes);
 
         // Check if successful
-        if !matches!(*auth_result, Ok(ExternalAuthenticateOk::Success)) {
+        if !matches!(auth_result, Ok(ExternalAuthenticateOk::Success)) {
             self.established = false;
             return Err(SecureProtocolError::AuthenticationFailed(
                 "EXTERNAL AUTHENTICATE failed",
@@ -285,10 +285,10 @@ impl SecureChannelProvider for GPSecureChannelProvider {
             .map_err(ResponseError::from)?;
 
         // Parse response
-        let init_response = InitializeUpdateResult::from_bytes(&response_bytes)?;
+        let init_response = InitializeUpdateCommand::parse_response_raw(response_bytes);
 
         // Check for successful response
-        if !matches!(*init_response, Ok(InitializeUpdateOk::Success { .. })) {
+        if !matches!(init_response, Ok(InitializeUpdateOk::Success { .. })) {
             return Err(SecureProtocolError::AuthenticationFailed(
                 "INITIALIZE UPDATE failed",
             ));
@@ -374,7 +374,7 @@ mod tests {
         ));
         let host_challenge = hex!("f0467f908e5ca23f");
 
-        let result = InitializeUpdateResult::from_bytes(&init_response).unwrap();
+        let result = InitializeUpdateCommand::parse_response_raw(init_response);
         Session::from_response(&keys, &result, host_challenge).unwrap()
     }
 

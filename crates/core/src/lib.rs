@@ -45,7 +45,7 @@ pub mod prelude {
     // Command related
     pub use crate::{
         Command,
-        command::{ApduCommand, CommandResult, ExpectedLength},
+        command::{ApduCommand, ExpectedLength},
     };
 
     // Response related

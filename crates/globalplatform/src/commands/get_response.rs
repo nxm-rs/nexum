@@ -78,7 +78,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_get_response_command() {
@@ -100,10 +100,7 @@ mod tests {
     fn test_get_response_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("010203049000"));
-        let result = GetResponseResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = GetResponseCommand::parse_response_raw(response_data).unwrap();
 
         assert!(matches!(result, GetResponseOk::Success { .. }));
         assert_eq!(result.data(), &hex!("01020304")[..].to_vec());
@@ -112,10 +109,7 @@ mod tests {
 
         // Test more data available
         let response_data = Bytes::from_static(&hex!("0102030461FF"));
-        let result = GetResponseResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = GetResponseCommand::parse_response_raw(response_data).unwrap();
 
         assert!(matches!(result, GetResponseOk::MoreData { .. }));
         assert_eq!(result.data(), &hex!("01020304")[..].to_vec());

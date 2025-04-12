@@ -185,7 +185,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_install_for_load() {
@@ -255,18 +255,12 @@ mod tests {
     fn test_install_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("9000"));
-        let result = InstallResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = InstallCommand::parse_response_raw(response_data).unwrap();
         assert!(matches!(result, InstallOk::Success));
 
         // Test error response
         let response_data = Bytes::from_static(&hex!("6982"));
-        let response = InstallResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap_err();
+        let response = InstallCommand::parse_response_raw(response_data).unwrap_err();
         assert!(matches!(response, InstallError::SecurityStatusNotSatisfied));
     }
 }

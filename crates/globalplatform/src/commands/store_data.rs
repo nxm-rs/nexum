@@ -70,7 +70,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_store_data_command() {
@@ -114,18 +114,12 @@ mod tests {
     fn test_store_data_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("9000"));
-        let result = StoreDataResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = StoreDataCommand::parse_response_raw(response_data).unwrap();
         assert!(matches!(result, StoreDataOk::Success));
 
         // Test error response
         let response_data = Bytes::from_static(&hex!("6A80"));
-        let result = StoreDataResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap_err();
+        let result = StoreDataCommand::parse_response_raw(response_data).unwrap_err();
         assert!(matches!(result, StoreDataError::WrongData));
     }
 }

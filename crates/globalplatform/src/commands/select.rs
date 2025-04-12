@@ -219,7 +219,7 @@ mod tests {
     use super::*;
     use bytes::{BufMut, BytesMut};
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_select_command() {
@@ -247,18 +247,12 @@ mod tests {
         buf.put(fci_data.as_ref());
         buf.put(hex!("9000").as_ref());
 
-        let result = SelectResult::from_bytes(&buf.freeze())
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = SelectCommand::parse_response_raw(buf.freeze()).unwrap();
         assert_eq!(result.fci(), fci_data.as_slice());
 
         // Test file not found
         let response_data = Bytes::from_static(&hex!("6A82"));
-        let result = SelectResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap_err();
+        let result = SelectCommand::parse_response_raw(response_data).unwrap_err();
         assert_eq!(result, SelectError::NotFound);
     }
 }

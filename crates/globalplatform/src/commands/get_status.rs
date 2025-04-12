@@ -251,7 +251,7 @@ mod tests {
     use super::*;
     use bytes::{BufMut, BytesMut};
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_get_status_command() {
@@ -289,10 +289,7 @@ mod tests {
         buf.put(tlv_data.as_ref());
         buf.put(hex!("9000").as_ref());
 
-        let result = GetStatusResult::from_bytes(&buf.freeze())
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = GetStatusCommand::parse_response_raw(buf.freeze()).unwrap();
         assert!(matches!(result, GetStatusOk::Success { .. }));
         assert_eq!(result.tlv_data(), &tlv_data.to_vec());
         assert!(!result.has_more_data());
@@ -303,10 +300,7 @@ mod tests {
         buf.put(tlv_data.as_ref());
         buf.put(hex!("6120").as_ref());
 
-        let result = GetStatusResult::from_bytes(&buf.freeze())
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = GetStatusCommand::parse_response_raw(buf.freeze()).unwrap();
         assert!(matches!(result, GetStatusOk::MoreData { .. }));
         assert_eq!(result.tlv_data(), &tlv_data.to_vec());
         assert!(result.has_more_data());
@@ -322,10 +316,7 @@ mod tests {
             "9000"
         ));
 
-        let result = GetStatusResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = GetStatusCommand::parse_response_raw(response_data).unwrap();
 
         // Parse applications
         let apps = parse_applications(result);
@@ -356,10 +347,7 @@ mod tests {
             "9000"
         ));
 
-        let result = GetStatusResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = GetStatusCommand::parse_response_raw(response_data).unwrap();
 
         // Parse load files
         let files = parse_load_files(result);

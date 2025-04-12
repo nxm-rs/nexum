@@ -136,7 +136,7 @@ fn main() {
     );
 
     // Function that demonstrates converting between response types
-    fn verify_pin(pin: &[u8], attempts_left: u8) -> VerifyPinResult {
+    fn verify_pin(pin: &[u8], attempts_left: u8) -> Result<VerifyPinOk, VerifyPinError> {
         // Simulate different responses based on the input
         let response_bytes = if pin == [0x31, 0x32, 0x33, 0x34] {
             // Correct PIN: 1234
@@ -150,11 +150,11 @@ fn main() {
         };
 
         // Parse and return the result directly (no longer need to unwrap)
-        VerifyPinResult::from_bytes(&response_bytes).unwrap()
+        VerifyPinCommand::parse_response_raw(response_bytes)
     }
 
     // Try with correct PIN
-    match verify_pin(&[0x31, 0x32, 0x33, 0x34], 3).into_inner() {
+    match verify_pin(&[0x31, 0x32, 0x33, 0x34], 3) {
         Ok(ok) => match ok {
             VerifyPinOk::Verified => {
                 println!("PIN verified successfully!");
@@ -169,7 +169,7 @@ fn main() {
     }
 
     // Try with incorrect PIN
-    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 3).into_inner() {
+    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 3) {
         Ok(ok) => match ok {
             VerifyPinOk::Verified => {
                 println!("PIN verified successfully!");
@@ -189,7 +189,7 @@ fn main() {
     }
 
     // Try with PIN blocked
-    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 1).into_inner() {
+    match verify_pin(&[0x35, 0x36, 0x37, 0x38], 1) {
         Ok(_) => {
             println!("PIN verified successfully!");
         }
@@ -203,16 +203,20 @@ fn main() {
     }
 
     // Function that uses our new API with question mark operator
-    fn authenticate_user(pin: &[u8]) -> Result<(), Error> {
+    fn authenticate_user(pin: &[u8]) -> Result<(), VerifyPinError> {
         // First check if PIN is blocked by querying remaining attempts
-        let query_result = VerifyPinResult::from_bytes(&Bytes::from_static(&[0x63, 0xC2]))?;
+        let query_result = VerifyPinCommand::parse_response_raw(Bytes::from_static(&[0x63, 0xC2]))?;
 
         // Get the inner result - now more ergonomic with deref
-        match *query_result {
-            Ok(VerifyPinOk::AttemptsRemaining { count }) => {
+        match query_result {
+            VerifyPinOk::AttemptsRemaining { count } => {
                 println!("PIN attempts remaining: {}", count);
                 if count == 0 {
-                    return Err(Error::Other("PIN is blocked"));
+                    return Err(VerifyPinError::ResponseError(
+                        nexum_apdu_core::response::error::ResponseError::Message(
+                            "PIN is blocked".to_string(),
+                        ),
+                    ));
                 }
             }
             _ => {
@@ -223,15 +227,14 @@ fn main() {
         // Now try to verify the PIN - more ergonomic from_bytes accepting any AsRef<[u8]>
         let success = Bytes::from_static(&[0x90, 0x00]);
         let fail = Bytes::from_static(&[0x63, 0xC1]);
-        let verify_result = VerifyPinResult::from_bytes(if pin == [0x31, 0x32, 0x33, 0x34] {
-            &success
+        let verify_ok = VerifyPinCommand::parse_response_raw(if pin == [0x31, 0x32, 0x33, 0x34] {
+            success
         } else {
-            &fail // 1 attempt left
-        })
-        .unwrap();
+            fail // 1 attempt left
+        })?;
 
         // Process success
-        match (*verify_result).as_ref().unwrap() {
+        match verify_ok {
             VerifyPinOk::Verified => {
                 println!("PIN verification successful");
                 Ok(())

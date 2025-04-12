@@ -80,10 +80,9 @@ pub trait Executor: ApduExecutorErrors + Send + Sync + fmt::Debug {
     ///
     /// This method returns the command's Result type (not Response enum) for more
     /// idiomatic error handling with the ? operator.
-    fn execute<C>(&mut self, command: &C) -> Result<C::Response, Self::Error>
+    fn execute<C>(&mut self, command: &C) -> Result<C::Success, Self::Error>
     where
         C: ApduCommand,
-        <C::Response as TryFrom<Bytes>>::Error: Into<Self::Error>,
     {
         // Check security level requirement
         let required_level = command.required_security_level();
@@ -91,15 +90,17 @@ pub trait Executor: ApduExecutorErrors + Send + Sync + fmt::Debug {
 
         // Verify security level is sufficient
         if !required_level.is_none() && !current_level.satisfies(&required_level) {
-            return Err(SecureProtocolError::InsufficientSecurityLevel)?;
+            return Err(SecureProtocolError::InsufficientSecurityLevel.into());
         }
 
         // Get command bytes and transmit
         let command_bytes = command.to_bytes();
         let response_bytes = self.transmit_raw(&command_bytes)?;
 
-        // Convert bytes directly to the Response type
-        C::Response::try_from(response_bytes).map_err(Into::into)
+        // Parse the response bytes directly into the success type
+        // or convert errors to the executor's error type
+        C::parse_response(Response::from_bytes(&response_bytes)?)
+            .map_err(|_| SecureProtocolError::Other("Command execution failed".to_string()).into())
     }
 
     /// Get current security level

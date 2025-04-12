@@ -69,7 +69,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_put_key_command() {
@@ -92,18 +92,12 @@ mod tests {
     fn test_put_key_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("9000"));
-        let result = PutKeyResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = PutKeyCommand::parse_response_raw(response_data).unwrap();
         assert!(matches!(result, PutKeyOk::Success));
 
         // Test error response
         let response_data = Bytes::from_static(&hex!("6982"));
-        let response = PutKeyResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap_err();
+        let response = PutKeyCommand::parse_response_raw(response_data).unwrap_err();
         assert!(matches!(response, PutKeyError::SecurityStatusNotSatisfied));
     }
 }

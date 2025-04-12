@@ -88,7 +88,9 @@ pub(crate) fn expand_command(
     command: &CommandDef,
     vis: &Visibility,
     command_name: &Ident,
-    result_name: &Ident,
+    ok_name: &Ident,
+    error_name: &Ident,
+    parse_impl: &TokenStream,
 ) -> Result<TokenStream, syn::Error> {
     let cla = &command.cla;
     let ins = &command.ins;
@@ -139,7 +141,8 @@ pub(crate) fn expand_command(
         }
 
         impl nexum_apdu_core::ApduCommand for #command_name {
-            type Response = #result_name;
+            type Success = #ok_name;
+            type Error = #error_name;
 
             fn class(&self) -> u8 {
                 #cla
@@ -168,6 +171,9 @@ pub(crate) fn expand_command(
             fn required_security_level(&self) -> SecurityLevel {
                 #required_security_level
             }
+
+            // Parse response implementation
+            #parse_impl
         }
     };
 

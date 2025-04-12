@@ -133,33 +133,40 @@ impl Parse for ApduPair {
 
 /// Expands an APDU pair into command and response definitions
 fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
-    // Generate command struct name
+    // Generate names centrally
     let command_name = Ident::new(
         &format!("{}Command", pair.struct_name),
         pair.struct_name.span(),
     );
 
-    // Generate result type name (keeping naming consistent)
-    let result_name = Ident::new(
-        &format!("{}Result", pair.struct_name),
+    let ok_name = Ident::new(&format!("{}Ok", pair.struct_name), pair.struct_name.span());
+
+    let error_name = Ident::new(
+        &format!("{}Error", pair.struct_name),
         pair.struct_name.span(),
     );
 
-    // Convert struct name to snake_case for module name using heck
+    // Module name
     let module_name = Ident::new(
         &pair.struct_name.to_string().to_snake_case(),
         pair.struct_name.span(),
     );
 
-    // Get the response tokens and associated type names
-    let (response_tokens, ok_name, error_name) =
-        response::expand_response(&pair.response, &pair.vis, &result_name)
+    // Get the response tokens and parse_impl
+    let (response_tokens, parse_impl) =
+        response::expand_response(&pair.response, &pair.vis, &ok_name, &error_name)
             .map_err(|e| error_tokens("Error expanding response", e))?;
 
-    // Expand command and response definitions
-    let command_tokens =
-        command::expand_command(&pair.command, &pair.vis, &command_name, &result_name)
-            .map_err(|e| error_tokens("Error expanding command", e))?;
+    // Expand command with the parse_impl and type names
+    let command_tokens = command::expand_command(
+        &pair.command,
+        &pair.vis,
+        &command_name,
+        &ok_name,
+        &error_name,
+        &parse_impl,
+    )
+    .map_err(|e| error_tokens("Error expanding command", e))?;
 
     let attrs = &pair.attrs;
 
@@ -174,6 +181,6 @@ fn expand_apdu_pair(pair: &ApduPair) -> Result<TokenStream2, TokenStream2> {
             #response_tokens
         }
 
-        pub use #module_name::{#command_name, #ok_name, #error_name, #result_name};
+        pub use #module_name::{#command_name, #ok_name, #error_name};
     })
 }

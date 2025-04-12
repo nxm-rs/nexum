@@ -64,7 +64,7 @@ mod tests {
     use bytes::Bytes;
     use cipher::Key;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_external_authenticate_command() {
@@ -110,17 +110,14 @@ mod tests {
     fn test_external_authenticate_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("9000"));
-        let result = ExternalAuthenticateResult::from_bytes(&response_data).unwrap();
-        assert!(matches!(
-            (*result).as_ref().unwrap(),
-            ExternalAuthenticateOk::Success
-        ));
+        let ok = ExternalAuthenticateCommand::parse_response_raw(response_data).unwrap();
+        assert!(matches!(ok, ExternalAuthenticateOk::Success));
 
         // Test error response
         let error_data = Bytes::from_static(&hex!("6982"));
-        let error_result = ExternalAuthenticateResult::from_bytes(&error_data).unwrap();
+        let error_result = ExternalAuthenticateCommand::parse_response_raw(error_data).unwrap_err();
         assert!(matches!(
-            (*error_result).as_ref().unwrap_err(),
+            error_result,
             ExternalAuthenticateError::SecurityStatusNotSatisfied
         ));
     }

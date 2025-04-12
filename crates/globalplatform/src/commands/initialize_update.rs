@@ -146,7 +146,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_initialize_update_command() {
@@ -172,10 +172,7 @@ mod tests {
             "000002650183039536622002000de9c62ba1c4c8e55fcb91b6654ce49000"
         ));
 
-        let result = InitializeUpdateResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = InitializeUpdateCommand::parse_response_raw(response_data).unwrap();
 
         assert!(matches!(result, InitializeUpdateOk::Success { .. }));
         assert_eq!(result.scp_version(), Some(0x02));
@@ -206,11 +203,9 @@ mod tests {
 
         // Test error response
         let response_data = Bytes::from_static(&hex!("6982"));
-        let result = InitializeUpdateResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner();
+        let result = InitializeUpdateCommand::parse_response_raw(response_data).unwrap_err();
         assert!(matches!(
-            result.unwrap_err(),
+            result,
             InitializeUpdateError::SecurityStatusNotSatisfied
         ));
     }

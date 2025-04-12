@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_delete_command() {
@@ -99,15 +99,12 @@ mod tests {
     fn test_delete_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("9000"));
-        let result = DeleteResult::from_bytes(&response_data).unwrap();
-        assert!(matches!((*result).as_ref().unwrap(), DeleteOk::Success));
+        let result = DeleteCommand::parse_response_raw(response_data).unwrap();
+        assert!(matches!(result, DeleteOk::Success));
 
         // Test error response
         let error_data = Bytes::from_static(&hex!("6A88"));
-        let error_result = DeleteResult::from_bytes(&error_data).unwrap();
-        assert!(matches!(
-            (*error_result).as_ref().unwrap_err(),
-            DeleteError::ReferencedDataNotFound
-        ));
+        let error_result = DeleteCommand::parse_response_raw(error_data).unwrap_err();
+        assert!(matches!(error_result, DeleteError::ReferencedDataNotFound));
     }
 }

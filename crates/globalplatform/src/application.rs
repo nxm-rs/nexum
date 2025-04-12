@@ -67,7 +67,7 @@ where
             self.last_response = Some(Bytes::copy_from_slice(raw_response));
         }
 
-        response.map_err(Into::into)
+        Ok(response)
     }
 
     /// Open a secure channel with default keys
@@ -87,25 +87,25 @@ where
     /// Delete an object
     pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteOk> {
         let cmd = DeleteCommand::delete_object(aid);
-        self.executor.execute(&cmd)?.map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Into::into)
     }
 
     /// Delete an object and related objects
     pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteOk> {
         let cmd = DeleteCommand::delete_object_and_related(aid);
-        self.executor.execute(&cmd)?.map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Into::into)
     }
 
     /// Get the status of applications
     pub fn get_applications_status(&mut self) -> Result<GetStatusOk> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::APPLICATIONS);
-        self.executor.execute(&cmd)?.map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Into::into)
     }
 
     /// Get the status of load files
     pub fn get_load_files_status(&mut self) -> Result<GetStatusOk> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::EXEC_LOAD_FILES);
-        self.executor.execute(&cmd)?.map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Into::into)
     }
 
     /// Install a package for load
@@ -118,7 +118,7 @@ where
         let sd_aid = security_domain_aid.unwrap_or(SECURITY_DOMAIN_AID);
 
         let cmd = InstallCommand::for_load(package_aid, sd_aid);
-        self.executor.execute(&cmd)?.map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Into::into)
     }
 
     /// Install for install and make selectable
@@ -141,7 +141,7 @@ where
             &[] as &[u8], // Empty token
         );
 
-        self.executor.execute(&cmd)?.map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Into::into)
     }
 
     /// Load a CAP file
@@ -171,7 +171,7 @@ where
             // Execute command
             let _ = self
                 .executor
-                .execute(&cmd)?
+                .execute(&cmd)
                 .map_err(|_| Error::Other("Load failed"))?;
 
             // Call callback if provided
@@ -324,7 +324,7 @@ where
         // Execute the command
         let _ = self
             .executor
-            .execute(&cmd)?
+            .execute(&cmd)
             .map_err(|_| Error::Other("Personalization failed"))?;
 
         Ok(())

@@ -59,7 +59,7 @@ mod tests {
     use super::*;
     use bytes::Bytes;
     use hex_literal::hex;
-    use nexum_apdu_core::{ApduCommand, ApduResponse};
+    use nexum_apdu_core::ApduCommand;
 
     #[test]
     fn test_load_command() {
@@ -90,18 +90,12 @@ mod tests {
     fn test_load_response() {
         // Test successful response
         let response_data = Bytes::from_static(&hex!("9000"));
-        let result = LoadResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = LoadCommand::parse_response_raw(response_data).unwrap();
         assert!(matches!(result, LoadOk::Success));
 
         // Test error response
         let response_data = Bytes::from_static(&hex!("6982"));
-        let result = LoadResult::from_bytes(&response_data)
-            .unwrap()
-            .into_inner()
-            .unwrap_err();
+        let result = LoadCommand::parse_response_raw(response_data).unwrap_err();
         assert!(matches!(result, LoadError::SecurityStatusNotSatisfied));
     }
 }
