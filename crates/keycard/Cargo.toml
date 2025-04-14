@@ -1,0 +1,54 @@
+[package]
+name = "nexum-keycard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+## nexum-apdu
+nexum-apdu-core.workspace = true
+nexum-apdu-globalplatform.workspace = true
+nexum-apdu-macros.workspace = true
+
+## crypto
+alloy-primitives = { workspace = true, features = ["k256"] }
+pbkdf2.workspace = true
+rand.workspace = true
+rand_v8.workspace = true
+sha2.workspace = true
+
+alloy-signer.workspace = true
+coins-bip32.workspace = true
+coins-bip39 = { workspace = true, features = ["english"] }
+
+base64.workspace = true
+unicode-normalization.workspace = true
+generic-array.workspace = true
+thiserror = { workspace = true, optional = true }
+anyhow.workspace = true
+tracing.workspace = true
+derive_more.workspace = true
+
+## bytes
+bytes.workspace = true
+iso7816-tlv.workspace = true
+
+## crypto
+aes.workspace = true
+block-padding.workspace = true
+cbc = { workspace = true, features = ["block-padding"] }
+cbc-mac.workspace = true
+cipher.workspace = true
+k256.workspace = true
+zeroize = { workspace = true, optional = true }
+
+[dev-dependencies]
+rand_v8.workspace = true
+
+[features]
+default = ["std", "zeroize"]
+std = ["thiserror", "nexum-apdu-core/std", "cipher/std", "cbc-mac/std"]
+zeroize = ["dep:zeroize", "cipher/zeroize", "aes/zeroize"]

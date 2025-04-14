@@ -1,0 +1,21 @@
+[package]
+name = "nexum-keycard-signer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+alloy-primitives.workspace = true
+alloy-network.workspace = true
+alloy-signer.workspace = true
+alloy-consensus.workspace = true
+thiserror.workspace = true
+
+tokio = { workspace = true, features = ["sync"] }
+nexum-keycard.workspace = true
+nexum-apdu-core.workspace = true
+async-trait = "0.1.88"
+parking_lot.workspace = true
