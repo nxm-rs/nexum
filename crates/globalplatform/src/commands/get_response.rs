@@ -28,6 +28,7 @@ apdu_pair! {
                 #[sw(SW_NO_ERROR)]
                 #[payload(field = "data")]
                 Success {
+                    /// Response data
                     data: Vec<u8>,
                 },
 
@@ -35,7 +36,9 @@ apdu_pair! {
                 #[sw(0x61, _)]
                 #[payload(field = "data")]
                 MoreData {
-                    sw2: u8, // remaining
+                    /// Remaining bytes
+                    sw2: u8,
+                    /// Response data
                     data: Vec<u8>,
                 },
             }

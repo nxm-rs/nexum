@@ -13,35 +13,33 @@ description = "GlobalPlatform implementation for smart card management"
 workspace = true
 
 [dependencies]
-## nexum-apdu
+# APDU dependencies
 nexum-apdu-core.workspace = true
 nexum-apdu-macros.workspace = true
 nexum-apdu-transport-pcsc.workspace = true
 
-## bytes
+# Data handling
 bytes.workspace = true
 iso7816-tlv.workspace = true
 hex.workspace = true
 
-## crypto
+# Crypto
 cbc.workspace = true
 cbc-mac.workspace = true
 cipher = { workspace = true, features = ["block-padding"] }
 des.workspace = true
 zeroize = { workspace = true, optional = true }
 
-## cli
+# CLI & UI
 clap = { workspace = true, features = ["derive"] }
 tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
+tracing.workspace = true
 
-## misc
+# Utilities
 rand.workspace = true
 thiserror = { workspace = true, optional = true }
 zip = { workspace = true, features = ["deflate"] }
 derive_more = { workspace = true, features = ["deref", "deref_mut"] }
-
-## tracing
-tracing.workspace = true
 
 [features]
 default = ["std", "zeroize"]

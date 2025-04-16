@@ -622,13 +622,21 @@ pub(crate) fn expand_response(
     // Extra error variants that are always included
     let extra_error_variants = quote! {
         /// Error from response parsing
+        ///
+        /// This variant represents errors that occur during the parsing of the response
+        /// from the card, rather than errors reported by the card itself.
         #[error(transparent)]
-        ResponseError(#[from] nexum_apdu_core::response::error::ResponseError),
+        ResponseError(#[from] nexum_apdu_core::Error),
 
         /// Unknown status word
+        ///
+        /// This variant is used when the card returns a status word that doesn't match
+        /// any of the explicitly defined error variants.
         #[error("Unknown status word: {sw1:02X}{sw2:02X}")]
         Unknown {
+            /// The first byte of the status word
             sw1: u8,
+            /// The second byte of the status word
             sw2: u8,
         }
     };
@@ -723,7 +731,7 @@ pub(crate) fn expand_response(
                         #name: match data_payload {
                             Some(bytes) => bytes.to_vec(),
                             None => return Err(#error_enum_name::ResponseError(
-                                nexum_apdu_core::response::error::ResponseError::Message(
+                                nexum_apdu_core::Error::message(
                                     format!("Expected payload for variant {} with status {:02X}{:02X}", #variant_name_str, sw1, sw2)
                                 )
                             ))
@@ -740,13 +748,13 @@ pub(crate) fn expand_response(
                         #name: match data_payload {
                             Some(bytes) => std::str::from_utf8(bytes).map_err(|_|
                                 #error_enum_name::ResponseError(
-                                    nexum_apdu_core::response::error::ResponseError::Message(
+                                    nexum_apdu_core::Error::message(
                                         format!("Invalid UTF-8 in payload for variant {}", #variant_name_str)
                                     )
                                 )
                             )?.to_string(),
                             None => return Err(#error_enum_name::ResponseError(
-                                nexum_apdu_core::response::error::ResponseError::Message(
+                                nexum_apdu_core::Error::message(
                                     format!("Expected payload for variant {} with status {:02X}{:02X}", #variant_name_str, sw1, sw2)
                                 )
                             ))
@@ -758,7 +766,7 @@ pub(crate) fn expand_response(
                         #name: match data_payload {
                             Some(_) => Default::default(),
                             None => return Err(#error_enum_name::ResponseError(
-                                nexum_apdu_core::response::error::ResponseError::Message(
+                                nexum_apdu_core::Error::message(
                                     format!("Expected payload for variant {} with status {:02X}{:02X}", #variant_name_str, sw1, sw2)
                                 )
                             ))
@@ -819,12 +827,21 @@ pub(crate) fn expand_response(
     // Generate the code
     let tokens = quote! {
         /// Successful response variants
+        ///
+        /// This enum contains all the possible successful responses for this APDU command.
+        /// Each variant represents a different success state, identified by specific status words
+        /// returned by the card and may include associated data from the response payload.
         #[derive(Debug, Clone, PartialEq, Eq)]
         #vis enum #ok_enum_name {
             #(#ok_variants,)*
         }
 
         /// Error response variants
+        ///
+        /// This enum contains all the possible error responses for this APDU command.
+        /// Each variant represents a specific error condition, identified by status words
+        /// returned by the card. Some error variants may include additional data
+        /// to provide more context about the error.
         #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
         #vis enum #error_enum_name {
             #(#error_variants,)*

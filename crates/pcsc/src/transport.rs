@@ -142,16 +142,13 @@ impl PcscTransport {
 }
 
 impl CardTransport for PcscTransport {
-    fn do_transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, TransportError> {
+    fn transmit_raw(&mut self, command: &[u8]) -> Result<Bytes, Error> {
         // Direct transmission without transaction handling
-        self.transmit_command(command).map_err(TransportError::from)
+        self.transmit_command(command)
+            .map_err(|e| Error::Message(e.to_string()))
     }
 
-    fn is_connected(&self) -> bool {
-        self.card.is_some()
-    }
-
-    fn reset(&mut self) -> Result<(), TransportError> {
+    fn reset(&mut self) -> Result<(), Error> {
         // End any active transaction
         self.transaction_active = false;
 
@@ -161,7 +158,8 @@ impl CardTransport for PcscTransport {
         }
 
         // Try to reconnect
-        self.connect_card().map_err(Into::into)
+        self.connect_card()
+            .map_err(|e| Error::Message(e.to_string()))
     }
 }
 
@@ -176,3 +174,40 @@ impl Drop for PcscTransport {
         }
     }
 }
+
+// // Custom Clone implementation that creates a new context and connection
+// impl Clone for PcscTransport {
+//     fn clone(&self) -> Self {
+//         // Create a new context with PCSC_SCOPE_USER (same as default)
+//         let context = match Context::establish(pcsc::Scope::User) {
+//             Ok(ctx) => ctx,
+//             Err(_) => {
+//                 // If we can't create a new context, return a disconnected transport
+//                 // This will likely fail at runtime if used, but we can't do much better
+//                 return Self {
+//                     context: Context::establish(pcsc::Scope::User).unwrap_or_else(|_| panic!("Failed to create PC/SC context")),
+//                     card: None,
+//                     reader_name: self.reader_name.clone(),
+//                     config: self.config.clone(),
+//                     transaction_active: false,
+//                 };
+//             }
+//         };
+
+//         // Create a new transport and attempt to connect
+//         let mut cloned = Self {
+//             context,
+//             card: None,
+//             reader_name: self.reader_name.clone(),
+//             config: self.config.clone(),
+//             transaction_active: false,
+//         };
+
+//         // Try to connect to the card if the original is connected
+//         if self.is_connected() {
+//             let _ = cloned.connect_card();
+//         }
+
+//         cloned
+//     }
+// }

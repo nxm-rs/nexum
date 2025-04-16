@@ -30,21 +30,22 @@ apdu_pair! {
 
         response {
             ok {
-                // Normal success (90 00)
+                /// Normal success (90 00)
                 #[sw(0x90, 0x00)]
                 #[payload(field = "fci")]
                 Selected {
+                    /// File Control Information
                     fci: Vec<u8>,
                 }
             }
 
             errors {
-                // File or application not found (6A 82)
+                /// File or application not found (6A 82)
                 #[sw(0x6A, 0x82)]
                 #[error("File or application not found")]
                 NotFound,
 
-                // Incorrect parameters P1-P2 (6A 86)
+                /// Incorrect parameters P1-P2 (6A 86)
                 #[sw(0x6A, 0x86)]
                 #[error("Incorrect parameters P1-P2")]
                 IncorrectParameters,

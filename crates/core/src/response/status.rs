@@ -34,6 +34,20 @@ impl StatusWord {
     pub const fn is_success(&self) -> bool {
         self.sw1 == 0x90 && self.sw2 == 0x00
     }
+
+    /// Check if this status word indicates more data is available (61 XX)
+    pub const fn is_more_data_available(&self) -> bool {
+        self.sw1 == 0x61
+    }
+
+    /// Get the number of remaining bytes when SW1 = 61
+    pub const fn remaining_bytes(&self) -> Option<u8> {
+        if self.sw1 == 0x61 {
+            Some(self.sw2)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<(u8, u8)> for StatusWord {
@@ -60,6 +74,17 @@ impl fmt::Display for StatusWord {
     }
 }
 
+/// Common status words
+pub mod common {
+    use super::StatusWord;
+
+    /// Success (90 00)
+    pub const SUCCESS: StatusWord = StatusWord::new(0x90, 0x00);
+
+    /// More data available (61 XX) - XX is the number of remaining bytes
+    pub const MORE_DATA: StatusWord = StatusWord::new(0x61, 0x00);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,5 +100,12 @@ mod tests {
     #[test]
     fn test_status_word_is_methods() {
         assert!(StatusWord::new(0x90, 0x00).is_success());
+        assert!(StatusWord::new(0x61, 0x10).is_more_data_available());
+    }
+
+    #[test]
+    fn test_status_word_remaining_bytes() {
+        assert_eq!(StatusWord::new(0x61, 0x15).remaining_bytes(), Some(0x15));
+        assert_eq!(StatusWord::new(0x90, 0x00).remaining_bytes(), None);
     }
 }

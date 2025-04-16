@@ -16,7 +16,6 @@ workspace = true
 nexum-apdu-core = { workspace = true }
 pcsc.workspace = true
 thiserror.workspace = true
-
 crossbeam-channel = { workspace = true, optional = true }
 
 [features]

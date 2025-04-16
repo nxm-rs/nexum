@@ -22,13 +22,7 @@ syn.workspace = true
 heck.workspace = true
 
 [dev-dependencies]
-## nexum-apdu
 nexum-apdu-core.workspace = true
-
-## bytes
 bytes.workspace = true
 iso7816-tlv.workspace = true
-
-## misc
 thiserror.workspace = true
-derive_more.workspace = true

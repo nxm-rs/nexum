@@ -1,147 +1,136 @@
-//! APDU response definitions and traits
+//! APDU response types and status codes
 //!
-//! This module provides types and traits for working with APDU responses
+//! This module provides types and enums for handling APDU responses
 //! according to ISO/IEC 7816-4.
 
-pub mod error;
 pub mod status;
 pub mod utils;
 
-use bytes::{BufMut, Bytes, BytesMut};
-use tracing::trace;
+use bytes::Bytes;
 
-use error::{ResponseError, StatusError};
+use crate::Error;
 use status::StatusWord;
 
-/// Trait for APDU responses
-pub trait ApduResponse: Sized {
-    /// Get the response payload data
-    fn payload(&self) -> &Option<Bytes>;
-
-    /// Get the status word
-    fn status(&self) -> StatusWord;
-
-    /// Check if the response indicates success
-    fn is_success(&self) -> bool {
-        self.status().is_success()
-    }
-
-    /// Create from raw APDU response data
-    fn from_bytes(data: &Bytes) -> Result<Self, ResponseError>;
+/// Core trait for parsing APDU responses
+pub trait ApduResponse<T>: Sized {
+    /// Parse the response from bytes
+    fn from_response(response: Response) -> Result<T, Error>;
 }
 
-/// Basic APDU response structure
+/// APDU response structure
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
-    /// Response payload data
-    payload: Option<Bytes>,
-    /// Status word
-    status: StatusWord,
+    /// Response status word
+    pub status: StatusWord,
+    /// Response data (if any)
+    pub data: Option<Bytes>,
 }
 
 impl Response {
-    /// Create a new response with payload and status
-    pub fn new(payload: Option<Bytes>, status: impl Into<StatusWord>) -> Self {
-        Self {
-            payload,
-            status: status.into(),
-        }
+    /// Create a new response
+    pub const fn new(status: StatusWord, data: Option<Bytes>) -> Self {
+        Self { status, data }
     }
 
-    /// Create a success response
-    pub const fn success(payload: Option<Bytes>) -> Self {
+    /// Create a success response (status 9000)
+    pub const fn success(data: Option<Bytes>) -> Self {
         Self {
-            payload,
             status: StatusWord::new(0x90, 0x00),
+            data,
         }
     }
 
-    /// Create an error response from a status word
-    pub fn error(status: impl Into<StatusWord>) -> Self {
-        Self {
-            payload: None,
-            status: status.into(),
+    /// Create a response with just a status word
+    pub const fn status_only(status: StatusWord) -> Self {
+        Self { status, data: None }
+    }
+
+    /// Parse a response from bytes
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() < 2 {
+            return Err(Error::parse("Response too short: must be at least 2 bytes"));
         }
-    }
 
-    /// Parse response from raw bytes (including status word)
-    pub fn from_bytes(data: &Bytes) -> Result<Self, ResponseError> {
-        let (status, payload) = utils::extract_status_and_payload(data)?;
+        let data_len = bytes.len() - 2;
+        let status = StatusWord::new(bytes[data_len], bytes[data_len + 1]);
 
-        trace!(
-            sw1 = format_args!("{:#04x}", status.sw1),
-            sw2 = format_args!("{:#04x}", status.sw2),
-            payload_len = payload.as_ref().map_or(0, |p| p.len()),
-            "Parsed APDU response"
-        );
-
-        Ok(Self { payload, status })
-    }
-
-    /// Get the status word as a tuple (SW1, SW2)
-    pub const fn status_tuple(&self) -> (u8, u8) {
-        (self.status.sw1, self.status.sw2)
-    }
-
-    /// Convert to a bytes result
-    pub fn into_bytes_result(self) -> Result<Option<Bytes>, StatusError> {
-        if self.is_success() {
-            Ok(self.payload)
+        let data = if data_len > 0 {
+            Some(Bytes::copy_from_slice(&bytes[0..data_len]))
         } else {
-            Err(StatusError::new(self.status.sw1, self.status.sw2))
-        }
+            None
+        };
+
+        Ok(Self { status, data })
     }
 
-    /// Convert to a bytes reference result
-    pub fn as_bytes_result(&self) -> Result<&Option<Bytes>, ResponseError> {
-        if self.is_success() {
-            Ok(&self.payload)
-        } else {
-            Err(StatusError::new(self.status.sw1, self.status.sw2).into())
-        }
-    }
-}
-
-impl ApduResponse for Response {
-    fn payload(&self) -> &Option<Bytes> {
-        &self.payload
+    /// Get the response payload
+    pub const fn payload(&self) -> &Option<Bytes> {
+        &self.data
     }
 
-    fn status(&self) -> StatusWord {
+    /// Get the response payload as a slice
+    pub fn payload_bytes(&self) -> Option<&[u8]> {
+        self.data.as_ref().map(|b| b.as_ref())
+    }
+
+    /// Get the response status
+    pub const fn status(&self) -> StatusWord {
         self.status
     }
 
-    fn from_bytes(data: &Bytes) -> Result<Self, ResponseError> {
-        Self::from_bytes(data)
+    /// Check if the response is successful (9000)
+    pub const fn is_success(&self) -> bool {
+        self.status.is_success()
+    }
+
+    /// Check if more data is available
+    pub const fn more_data_available(&self) -> bool {
+        self.status.is_more_data_available()
+    }
+
+    /// Get the number of additional bytes available
+    pub const fn bytes_available(&self) -> Option<u8> {
+        if self.status.sw1 == 0x61 {
+            Some(self.status.sw2)
+        } else {
+            None
+        }
+    }
+
+    /// Check if the response indicates wrong length
+    pub const fn indicates_wrong_length(&self) -> bool {
+        self.status.sw1 == 0x6C
+    }
+
+    /// Get the correct length if wrong length was indicated
+    pub const fn correct_length(&self) -> Option<u8> {
+        if self.indicates_wrong_length() {
+            Some(self.status.sw2)
+        } else {
+            None
+        }
+    }
+
+    /// Convert to bytes
+    pub fn to_bytes(&self) -> Bytes {
+        let result = self
+            .data
+            .as_ref()
+            .map_or_else(Bytes::new, |data| data.clone());
+
+        let status_bytes = [self.status.sw1, self.status.sw2];
+        let mut combined = bytes::BytesMut::with_capacity(result.len() + 2);
+        combined.extend_from_slice(&result);
+        combined.extend_from_slice(&status_bytes);
+
+        combined.freeze()
     }
 }
 
-impl TryFrom<&[u8]> for Response {
-    type Error = ResponseError;
-
-    fn try_from(data: &[u8]) -> Result<Self, ResponseError> {
-        Self::from_bytes(&Bytes::copy_from_slice(data))
-    }
-}
-
-// Allow creating Response from Bytes for compatibility with executor
-impl TryFrom<Bytes> for Response {
-    type Error = ResponseError;
-
-    fn try_from(data: Bytes) -> Result<Self, ResponseError> {
-        Self::from_bytes(&data)
-    }
-}
-
+/// Enable direct conversion from Response to Bytes
 impl From<Response> for Bytes {
     fn from(response: Response) -> Self {
-        let mut buf = BytesMut::with_capacity(response.payload.as_ref().map_or(0, |p| p.len()) + 2);
-        if let Some(payload) = response.payload {
-            buf.put_slice(&payload);
-        }
-        buf.put_u8(response.status.sw1);
-        buf.put_u8(response.status.sw2);
-        buf.freeze()
+        response.to_bytes()
     }
 }
 
@@ -150,53 +139,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_response_creation() {
-        let data = Some(Bytes::from_static(&[0x01, 0x02, 0x03][..]));
-        let resp = Response::new(data, (0x90, 0x00));
-        assert_eq!(
-            resp.payload(),
-            &Some(Bytes::from_static(&[0x01, 0x02, 0x03]))
-        );
-        assert_eq!(resp.status(), StatusWord::new(0x90, 0x00));
+    fn test_response_success() {
+        let resp = Response::success(Some(Bytes::from_static(&[0x01, 0x02, 0x03])));
         assert!(resp.is_success());
+        assert_eq!(resp.status.sw1, 0x90);
+        assert_eq!(resp.status.sw2, 0x00);
+        assert_eq!(resp.data.as_ref().unwrap().as_ref(), &[0x01, 0x02, 0x03]);
     }
 
     #[test]
     fn test_response_from_bytes() {
-        let data = Bytes::from_static(&[0x01, 0x02, 0x03, 0x90, 0x00]);
-        let resp = Response::from_bytes(&data).unwrap();
-        assert_eq!(
-            resp.payload().as_ref().unwrap().as_ref(),
-            &[0x01, 0x02, 0x03]
-        );
-        assert_eq!(resp.status(), StatusWord::new(0x90, 0x00));
+        // Response with data
+        let bytes = &[0x01, 0x02, 0x03, 0x90, 0x00];
+        let resp = Response::from_bytes(bytes).unwrap();
         assert!(resp.is_success());
+        assert_eq!(resp.data.as_ref().unwrap().as_ref(), &[0x01, 0x02, 0x03]);
 
-        let data = Bytes::from_static(&[0x90, 0x00]);
-        let resp = Response::from_bytes(&data).unwrap();
-        assert!(resp.payload().is_none());
-        assert_eq!(resp.status(), StatusWord::new(0x90, 0x00));
+        // Response with just status
+        let bytes = &[0x90, 0x00];
+        let resp = Response::from_bytes(bytes).unwrap();
         assert!(resp.is_success());
+        assert!(resp.data.is_none());
 
-        let data = Bytes::from_static(&[0x01]);
-        assert!(Response::from_bytes(&data).is_err());
+        // Error status
+        let bytes = &[0x69, 0x85];
+        let resp = Response::from_bytes(bytes).unwrap();
+        assert!(!resp.is_success());
+        assert_eq!(resp.status.sw1, 0x69);
+        assert_eq!(resp.status.sw2, 0x85);
     }
 
     #[test]
-    fn test_response_into_result() {
-        let data = Bytes::from_static(&[0x01, 0x02, 0x03][..]);
-        let success = Response::success(Some(data));
+    fn test_response_more_data() {
+        let resp = Response::status_only(StatusWord::new(0x61, 0x23));
+        assert!(resp.more_data_available());
+        assert_eq!(resp.bytes_available(), Some(0x23));
+    }
 
-        let result = success.into_bytes_result();
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap().as_ref(),
-            Some(&Bytes::from_static(&[0x01, 0x02, 0x03]))
-        );
-
-        let error = Response::error((0x6A, 0x82));
-        let result = error.into_bytes_result();
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().status.to_u16(), 0x6A82);
+    #[test]
+    fn test_response_wrong_length() {
+        let resp = Response::status_only(StatusWord::new(0x6C, 0x10));
+        assert!(resp.indicates_wrong_length());
+        assert_eq!(resp.correct_length(), Some(0x10));
     }
 }

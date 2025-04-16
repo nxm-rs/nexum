@@ -1,5 +1,6 @@
 //! Common utilities for GlobalPlatform operations
 
+/// TLV parsing utilities
 pub mod tlv {
     use bytes::Bytes;
     use iso7816_tlv::simple::Tlv;

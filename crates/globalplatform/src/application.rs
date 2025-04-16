@@ -11,21 +11,19 @@ use crate::commands::delete::DeleteOk;
 use crate::commands::get_status::GetStatusOk;
 use crate::commands::install::InstallOk;
 use crate::commands::select::SelectOk;
-use crate::{
-    Error, Result,
-    commands::{DeleteCommand, GetStatusCommand, InstallCommand, LoadCommand, SelectCommand},
-    constants::{SECURITY_DOMAIN_AID, get_status_p1, load_p1},
-    load::{CapFileInfo, LoadCommandStream},
-    secure_channel::create_secure_channel_provider,
-    session::{Keys, Session},
+use crate::commands::{
+    DeleteCommand, GetStatusCommand, InstallCommand, LoadCommand, SelectCommand,
 };
+use crate::constants::{SECURITY_DOMAIN_AID, get_status_p1, load_p1};
+use crate::error::{Error, Result};
+use crate::load::{CapFileInfo, LoadCommandStream};
+use crate::session::Session;
 
 /// GlobalPlatform card management application
 #[allow(missing_debug_implementations)]
 pub struct GlobalPlatform<E>
 where
     E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
-    Error: From<<E as ApduExecutorErrors>::Error>,
 {
     /// Card executor
     executor: E,
@@ -38,7 +36,6 @@ where
 impl<E> GlobalPlatform<E>
 where
     E: Executor + ResponseAwareExecutor + SecureChannelExecutor,
-    Error: From<<E as ApduExecutorErrors>::Error>,
 {
     /// Create a new GlobalPlatform instance
     pub const fn new(executor: E) -> Self {
@@ -60,7 +57,7 @@ where
         let cmd = SelectCommand::with_aid(aid.to_vec());
 
         // Execute command using typed execution flow
-        let response = self.executor.execute(&cmd)?;
+        let response = self.executor.execute(&cmd).map_err(Error::from)?;
 
         // Store response for possible later use
         if let Ok(raw_response) = self.executor.last_response() {
@@ -70,42 +67,28 @@ where
         Ok(response)
     }
 
-    /// Open a secure channel with default keys
-    pub fn open_secure_channel(&mut self) -> Result<()> {
-        self.open_secure_channel_with_keys(&Keys::default())
-    }
-
-    /// Open a secure channel with specific keys and security level
-    pub fn open_secure_channel_with_keys(&mut self, keys: &Keys) -> Result<()> {
-        let provider = create_secure_channel_provider(keys.clone());
-
-        self.executor
-            .open_secure_channel(&provider)
-            .map_err(Into::into)
-    }
-
     /// Delete an object
     pub fn delete_object(&mut self, aid: &[u8]) -> Result<DeleteOk> {
         let cmd = DeleteCommand::delete_object(aid);
-        self.executor.execute(&cmd).map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Error::from)
     }
 
     /// Delete an object and related objects
     pub fn delete_object_and_related(&mut self, aid: &[u8]) -> Result<DeleteOk> {
         let cmd = DeleteCommand::delete_object_and_related(aid);
-        self.executor.execute(&cmd).map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Error::from)
     }
 
     /// Get the status of applications
     pub fn get_applications_status(&mut self) -> Result<GetStatusOk> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::APPLICATIONS);
-        self.executor.execute(&cmd).map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Error::from)
     }
 
     /// Get the status of load files
     pub fn get_load_files_status(&mut self) -> Result<GetStatusOk> {
         let cmd = GetStatusCommand::all_with_type(get_status_p1::EXEC_LOAD_FILES);
-        self.executor.execute(&cmd).map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Error::from)
     }
 
     /// Install a package for load
@@ -118,7 +101,7 @@ where
         let sd_aid = security_domain_aid.unwrap_or(SECURITY_DOMAIN_AID);
 
         let cmd = InstallCommand::for_load(package_aid, sd_aid);
-        self.executor.execute(&cmd).map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Error::from)
     }
 
     /// Install for install and make selectable
@@ -141,7 +124,7 @@ where
             &[] as &[u8], // Empty token
         );
 
-        self.executor.execute(&cmd).map_err(Into::into)
+        self.executor.execute(&cmd).map_err(Error::from)
     }
 
     /// Load a CAP file
@@ -158,7 +141,7 @@ where
             // Get next block
             let (is_last, block_number, block_data) = stream
                 .next_block()
-                .ok_or(Error::Other("Unexpected end of data"))?;
+                .ok_or_else(|| Error::other("Unexpected end of data"))?;
 
             // Create LOAD command
             let p1 = if is_last {
@@ -169,10 +152,9 @@ where
             let cmd = LoadCommand::with_block_data(p1, block_number, block_data.to_vec());
 
             // Execute command
-            let _ = self
-                .executor
+            self.executor
                 .execute(&cmd)
-                .map_err(|_| Error::Other("Load failed"))?;
+                .map_err(|e| Error::from(e).with_context("Load failed"))?;
 
             // Call callback if provided
             if let Some(cb) = &mut callback {
@@ -279,10 +261,32 @@ where
 
     /// Close the secure channel
     pub fn close_secure_channel(&mut self) -> Result<()> {
-        // Reset the executor (will drop any secure channel processors)
-        self.executor.reset()?;
+        // Close the secure channel through the executor
+        self.executor.close_secure_channel().map_err(Error::from)?;
         self.session = None;
         Ok(())
+    }
+
+    /// Open a secure channel using default keys
+    pub fn open_secure_channel(&mut self) -> Result<()> {
+        // // First, reset any existing channel
+        // self.close_secure_channel()?;
+
+        // Select the card manager (ISD) first
+        self.select_card_manager()?;
+
+        // Open the secure channel through the executor
+        self.executor.open_secure_channel().map_err(Error::from)
+    }
+
+    /// Check if the secure channel is currently established
+    pub fn is_secure_channel_open(&self) -> bool {
+        self.executor.has_secure_channel()
+    }
+
+    /// Get the current security level of the secure channel
+    pub fn security_level(&self) -> SecurityLevel {
+        self.executor.security_level()
     }
 
     /// Get the last response
@@ -292,16 +296,14 @@ where
 
     /// Get card data including CPLC information
     pub fn get_card_data(&mut self) -> Result<Bytes> {
-        // If we don't have a secure channel, we need to open one
-        if self.session.is_none() {
-            self.open_secure_channel()?;
-        }
-
         // Simple GET DATA command for card data
         let get_data_cmd = Command::new(0x80, 0xCA, 0x00, 0x66).with_le(0x00);
 
         // Execute and get the response
-        let response = self.executor.transmit_raw(&get_data_cmd.to_bytes())?;
+        let response = self
+            .executor
+            .transmit_raw(&get_data_cmd.to_bytes())
+            .map_err(Error::from)?;
 
         // Check if the command was successful
         if response.len() >= 2 {
@@ -313,7 +315,7 @@ where
             }
         }
 
-        Err(Error::Other("Invalid response"))
+        Err(Error::other("Invalid response"))
     }
 
     /// Personalize a card application by storing data
@@ -322,10 +324,9 @@ where
         let cmd = InstallCommand::for_personalization(app_aid, data);
 
         // Execute the command
-        let _ = self
-            .executor
+        self.executor
             .execute(&cmd)
-            .map_err(|_| Error::Other("Personalization failed"))?;
+            .map_err(|e| Error::from(e).with_context("Personalization failed"))?;
 
         Ok(())
     }
@@ -335,7 +336,6 @@ where
 mod tests {
     use super::*;
     use hex_literal::hex;
-    use nexum_apdu_core::{CardExecutor, transport::error::TransportError};
 
     // Custom mock transport for tests
     #[derive(Debug)]
@@ -356,12 +356,12 @@ mod tests {
     }
 
     impl nexum_apdu_core::transport::CardTransport for TestTransport {
-        fn do_transmit_raw(
+        fn transmit_raw(
             &mut self,
             _command: &[u8],
-        ) -> std::result::Result<Bytes, TransportError> {
+        ) -> std::result::Result<Bytes, nexum_apdu_core::Error> {
             if self.responses.is_empty() {
-                return Err(TransportError::Transmission)?;
+                return Err(nexum_apdu_core::Error::other("No response available"));
             }
 
             if self.responses.len() == 1 {
@@ -371,11 +371,7 @@ mod tests {
             }
         }
 
-        fn is_connected(&self) -> bool {
-            true
-        }
-
-        fn reset(&mut self) -> std::result::Result<(), TransportError> {
+        fn reset(&mut self) -> std::result::Result<(), nexum_apdu_core::Error> {
             Ok(())
         }
     }
@@ -393,8 +389,11 @@ mod tests {
         let mut transport = TestTransport::new();
         transport.add_response(mock_select_response());
 
-        // Create executor with the transport
-        let executor: CardExecutor<TestTransport, Error> = CardExecutor::new(transport);
+        // Create secure channel with the mock transport
+        let secure_channel = crate::GPSecureChannel::new(transport, crate::Keys::default());
+
+        // Create executor with the secure channel
+        let executor = CardExecutor::new(secure_channel);
 
         // Create GlobalPlatform instance
         let mut gp = GlobalPlatform::new(executor);

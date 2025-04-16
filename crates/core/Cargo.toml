@@ -13,18 +13,9 @@ description = "Core traits and types for APDU (Application Protocol Data Unit) o
 workspace = true
 
 [dependencies]
-## bytes
 bytes.workspace = true
-
-## derivations
-derive_more = { workspace = true, features = ["display", "deref", "deref_mut"] }
-dyn-clone.workspace = true
-
-## misc
 hex.workspace = true
 thiserror = { workspace = true, optional = true }
-
-## tracing
 tracing = { workspace = true, features = ["attributes"] }
 
 [features]

@@ -2,8 +2,6 @@
 
 use std::fmt;
 
-use nexum_apdu_core::transport::error::TransportError;
-
 /// PC/SC-specific errors
 #[derive(Debug, thiserror::Error)]
 pub enum PcscError {
@@ -47,25 +45,6 @@ impl fmt::Display for PcscError {
             Self::TransactionInProgress => write!(f, "Transaction already in progress"),
             Self::NoTransaction => write!(f, "No active transaction"),
             Self::Other(msg) => write!(f, "{}", msg),
-        }
-    }
-}
-
-impl From<PcscError> for TransportError {
-    fn from(error: PcscError) -> Self {
-        match error {
-            PcscError::Pcsc(pcsc::Error::NoSmartcard) => Self::Device,
-            PcscError::Pcsc(pcsc::Error::ResetCard) => Self::Device,
-            PcscError::Pcsc(pcsc::Error::RemovedCard) => Self::Device,
-            PcscError::Pcsc(pcsc::Error::Timeout) => Self::Timeout,
-            PcscError::Pcsc(pcsc::Error::InsufficientBuffer) => Self::BufferTooSmall,
-            PcscError::Pcsc(e) => Self::Other(format!("PC/SC error: {}", e)),
-            PcscError::NoReadersAvailable => Self::Connection,
-            PcscError::ReaderNotFound(_) => Self::Connection,
-            PcscError::NoCard(_) => Self::Device,
-            PcscError::CardReset | PcscError::CardRemoved => Self::Device,
-            PcscError::TransactionInProgress | PcscError::NoTransaction => Self::Transmission,
-            PcscError::Other(msg) => Self::Other(msg),
         }
     }
 }

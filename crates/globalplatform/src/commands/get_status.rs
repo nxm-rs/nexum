@@ -55,9 +55,11 @@ apdu_pair! {
 
         response {
             ok {
+                /// Successful response
                 #[sw(SW_NO_ERROR)]
                 #[payload(field = "tlv_data")]
                 Success {
+                    /// TLV data
                     tlv_data: Vec<u8>,
                 },
 
@@ -65,7 +67,9 @@ apdu_pair! {
                 #[sw(0x61, _)]
                 #[payload(field = "tlv_data")]
                 MoreData {
+                    /// Remaining bytes
                     sw2: u8,
+                    /// Response data
                     tlv_data: Vec<u8>,
                 },
             }
@@ -109,7 +113,18 @@ impl GetStatusOk {
     }
 }
 
-/// Parse application entries
+/// Parse application entries from GET STATUS response
+///
+/// This function extracts and parses application information from the TLV data
+/// returned by the GET STATUS command. It converts the raw TLV data into a
+/// structured format that's easier to work with.
+///
+/// # Parameters
+/// * `data` - The successful response from the GET STATUS command
+///
+/// # Returns
+/// A vector of parsed `ApplicationInfo` structs containing information about
+/// each application found in the response data.
 pub fn parse_applications(data: GetStatusOk) -> Vec<ApplicationInfo> {
     parse_entries(data.tlv_data().as_slice(), EntryType::Application)
         .into_iter()
@@ -123,7 +138,18 @@ pub fn parse_applications(data: GetStatusOk) -> Vec<ApplicationInfo> {
         .collect()
 }
 
-/// Parse load file entries
+/// Parse load file entries from GET STATUS response
+///
+/// This function extracts and parses load file information from the TLV data
+/// returned by the GET STATUS command. It converts the raw TLV data into a
+/// structured format that's easier to work with.
+///
+/// # Parameters
+/// * `data` - The successful response from the GET STATUS command
+///
+/// # Returns
+/// A vector of parsed `LoadFileInfo` structs containing information about
+/// each load file (package) found in the response data.
 pub fn parse_load_files(data: GetStatusOk) -> Vec<LoadFileInfo> {
     parse_entries(data.tlv_data().as_slice(), EntryType::LoadFile)
         .into_iter()
@@ -138,24 +164,30 @@ pub fn parse_load_files(data: GetStatusOk) -> Vec<LoadFileInfo> {
 }
 
 /// Application information from GET STATUS
+///
+/// This struct represents information about an application or security domain
+/// installed on the card, as returned by the GET STATUS command.
 #[derive(Debug, Clone)]
 pub struct ApplicationInfo {
-    /// AID of the application
+    /// AID (Application Identifier) of the application
     pub aid: Bytes,
-    /// Lifecycle state
+    /// Lifecycle state of the application (as defined in GlobalPlatform specifications)
     pub lifecycle: u8,
-    /// Privileges
+    /// Privileges assigned to the application
     pub privileges: Bytes,
 }
 
 /// Load file information from GET STATUS
+///
+/// This struct represents information about a load file (package)
+/// installed on the card, as returned by the GET STATUS command.
 #[derive(Debug, Clone)]
 pub struct LoadFileInfo {
-    /// AID of the load file
+    /// AID (Application Identifier) of the load file
     pub aid: Bytes,
-    /// Lifecycle state
+    /// Lifecycle state of the load file (as defined in GlobalPlatform specifications)
     pub lifecycle: u8,
-    /// Associated modules (if requested)
+    /// Associated executable modules (applets) contained in this load file
     pub modules: Vec<Bytes>,
 }
 
@@ -167,14 +199,20 @@ const TAG_MODULE_AID: u8 = 0x84;
 const TAG_APPLICATION: u8 = 0xE3;
 const TAG_LOAD_FILE: u8 = 0xE2;
 
-/// Type of entry to parse
+/// Type of entry to parse in GET STATUS response
+///
+/// Represents the different types of entries that can be found in a GET STATUS response,
+/// which have different tag values and structure.
 #[derive(Debug, Copy, Clone)]
 enum EntryType {
+    /// Application or security domain entry (tag E3)
     Application,
+    /// Executable load file (package) entry (tag E2)
     LoadFile,
 }
 
 impl EntryType {
+    /// Returns the TLV tag value for this entry type
     const fn tag(&self) -> u8 {
         match self {
             Self::Application => TAG_APPLICATION,
@@ -183,13 +221,28 @@ impl EntryType {
     }
 }
 
-/// Parsed entry (either application or load file)
+/// Parsed entry from GET STATUS response
+///
+/// Represents an entry parsed from the GET STATUS response TLV data,
+/// which can be either an application or a load file.
 enum Entry {
+    /// Application or security domain entry
     Application(ApplicationInfo),
+    /// Executable load file (package) entry
     LoadFile(LoadFileInfo),
 }
 
 /// Parse all entries of a specific type from the response data
+///
+/// This function extracts all entries of the specified type from the raw TLV data
+/// returned by the GET STATUS command.
+///
+/// # Parameters
+/// * `data` - The raw TLV data from the GET STATUS response
+/// * `entry_type` - The type of entries to extract (Application or LoadFile)
+///
+/// # Returns
+/// A vector of parsed entries matching the specified type
 fn parse_entries(data: &[u8], entry_type: EntryType) -> Vec<Entry> {
     // Parse all TLVs at the top level
     let tlvs = Tlv::parse_all(data);
@@ -201,7 +254,17 @@ fn parse_entries(data: &[u8], entry_type: EntryType) -> Vec<Entry> {
         .collect()
 }
 
-/// Parse a single entry (application or load file)
+/// Parse a single entry (application or load file) from TLV data
+///
+/// This function parses the contents of a single TLV with tag E2 or E3
+/// to extract the fields that make up an application or load file entry.
+///
+/// # Parameters
+/// * `data` - The value part of a top-level TLV representing an entry
+/// * `entry_type` - The type of entry to parse (Application or LoadFile)
+///
+/// # Returns
+/// An optional parsed entry if successful, or None if required fields are missing
 fn parse_entry(data: &[u8], entry_type: EntryType) -> Option<Entry> {
     // Parse inner TLVs
     let tlvs = Tlv::parse_all(data);

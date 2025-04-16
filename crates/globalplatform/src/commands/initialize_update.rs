@@ -2,7 +2,6 @@
 //!
 //! This command is used to start a secure channel session.
 
-use nexum_apdu_core::response::error::ResponseError;
 use nexum_apdu_macros::apdu_pair;
 
 use crate::constants::*;
@@ -34,10 +33,15 @@ apdu_pair! {
                 /// Success response
                 #[sw(SW_NO_ERROR)]
                 Success {
+                    /// Key diversification data
                     key_diversification_data: [u8; 10],
+                    /// Key information
                     key_info: [u8; 2],
+                    /// Sequence counter
                     sequence_counter: [u8; 2],
+                    /// Card challenge
                     card_challenge: [u8; 6],
+                    /// Card cryptogram
                     card_cryptogram: [u8; 8],
                 },
             }
@@ -50,8 +54,6 @@ apdu_pair! {
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<InitializeUpdateOk, InitializeUpdateError> {
-                use nexum_apdu_core::ApduResponse;
-
                 let status = response.status();
                 let sw1 = status.sw1;
                 let sw2 = status.sw2;
@@ -84,7 +86,7 @@ apdu_pair! {
                                 })
                             }
                         }
-                        Err(ResponseError::Parse("Response data incorrect length").into())
+                        Err(nexum_apdu_core::Error::parse("Response data incorrect length").into())
                     }
                     SW_SECURITY_STATUS_NOT_SATISFIED => Err(InitializeUpdateError::SecurityStatusNotSatisfied),
                     _ => Err(InitializeUpdateError::Unknown {

@@ -106,15 +106,28 @@ pub(crate) fn expand_command(
 
     let tokens = quote! {
         /// APDU command implementation
+        ///
+        /// This struct represents an APDU command that can be sent to a smart card.
+        /// It encapsulates all the parameters required for the command, including
+        /// class (CLA), instruction (INS), parameters (P1, P2), command data, and
+        /// expected response length (Le).
         #vis struct #command_name {
+            /// Parameter 1 (P1) - specific meaning depends on the command
             p1: u8,
+            /// Parameter 2 (P2) - specific meaning depends on the command
             p2: u8,
+            /// Optional command data
             data: Option<bytes::Bytes>,
+            /// Expected response length
             le: Option<ExpectedLength>,
         }
 
         impl #command_name {
             /// Create a new command with given P1 and P2 parameters
+            ///
+            /// This is the basic constructor that initializes a command with the
+            /// specified P1 and P2 values. Data and expected length can be added
+            /// using the builder methods.
             pub const fn new(p1: u8, p2: u8) -> Self {
                 Self {
                     p1,
@@ -125,12 +138,18 @@ pub(crate) fn expand_command(
             }
 
             /// Add data to the command
+            ///
+            /// Sets the command data field (Lc + data). This is typically used
+            /// to provide parameters or input data for the command.
             pub fn with_data(mut self, data: impl Into<bytes::Bytes>) -> Self {
                 self.data = Some(data.into());
                 self
             }
 
             /// Set the expected length
+            ///
+            /// Specifies the maximum number of bytes expected in the response (Le).
+            /// This tells the card how much data the terminal expects to receive.
             pub const fn with_le(mut self, le: ExpectedLength) -> Self {
                 self.le = Some(le);
                 self
@@ -141,38 +160,57 @@ pub(crate) fn expand_command(
         }
 
         impl nexum_apdu_core::ApduCommand for #command_name {
+            /// The success response type for this command
             type Success = #ok_name;
+            
+            /// The error response type for this command
             type Error = #error_name;
+            
+            /// Converts a general APDU error into a command-specific error
+            fn convert_error(error: nexum_apdu_core::Error) -> Self::Error {
+                Self::Error::ResponseError(error)
+            }
 
+            /// Returns the command class (CLA) byte
             fn class(&self) -> u8 {
                 #cla
             }
 
+            /// Returns the instruction (INS) byte
             fn instruction(&self) -> u8 {
                 #ins
             }
 
+            /// Returns the first parameter (P1) byte
             fn p1(&self) -> u8 {
                 self.p1
             }
 
+            /// Returns the second parameter (P2) byte
             fn p2(&self) -> u8 {
                 self.p2
             }
 
+            /// Returns the command data field if present
             fn data(&self) -> Option<&[u8]> {
                 self.data.as_deref()
             }
 
+            /// Returns the expected response length (Le) if specified
             fn expected_length(&self) -> Option<ExpectedLength> {
                 self.le
             }
 
+            /// Returns the security level required for this command
             fn required_security_level(&self) -> SecurityLevel {
                 #required_security_level
             }
 
-            // Parse response implementation
+            /// Parses a raw APDU response into a command-specific success or error type
+            ///
+            /// This method interprets the status word (SW1-SW2) and response data
+            /// according to the command specification, returning either a success
+            /// variant or an appropriate error variant.
             #parse_impl
         }
     };

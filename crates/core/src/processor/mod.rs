@@ -1,251 +1,69 @@
-//! Command processors for APDU transformations
+//! Command processor for APDU commands
 //!
-//! This module provides abstractions for processing APDU commands before
-//! sending them to a card transport. Command processors can implement various
-//! transformations such as secure messaging, logging, or retry logic.
+//! This module provides traits and implementations for processing APDU commands
+//! before they are sent to the card. This allows adding functionality like
+//! secure channel encryption, extended APDUs, and other protocol features.
 
-pub mod error;
-pub mod secure;
+pub mod pipeline;
+pub mod processors;
 
 use std::fmt;
 
-use bytes::{BufMut, BytesMut};
-use dyn_clone::DynClone;
-use secure::SecurityLevel;
-use tracing::{debug, trace};
+use crate::{transport::CardTransport, Command, Error, Response};
 
-use crate::command::{Command, ExpectedLength};
-use crate::response::{Response, utils};
-use crate::transport::CardTransport;
-use crate::{ApduCommand, ApduResponse};
-pub use error::{ProcessorError, SecureProtocolError};
-
-/// Trait for command processors which transform commands
-/// before sending them to the transport
-pub trait CommandProcessor: Send + Sync + fmt::Debug + DynClone {
-    /// Process a command through this processor
+/// Trait for command processors
+pub trait CommandProcessor: Send + Sync + fmt::Debug {
+    /// Process a command and return a response
     ///
-    /// This method takes a command, potentially transforms it, sends it through
-    /// the transport, and potentially transforms the response.
-    fn process_command(
-        &mut self,
+    /// The processor can modify the command before sending it to the card,
+    /// or it can handle the command itself without sending anything.
+    fn process_command_with_adapter(
+        &self,
         command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError> {
-        trace!(
-            command = ?command,
-            processor = std::any::type_name::<Self>(),
-            "Processing command"
-        );
+        adapter: &mut dyn TransportAdapterTrait,
+    ) -> Result<Response, Error>;
+}
 
-        let result = self.do_process_command(command, transport);
+/// Trait for transport adapters, making it possible to use dynamic dispatch
+pub trait TransportAdapterTrait {
+    /// Transmit a raw command over the transport
+    fn transmit_raw(&mut self, command: &[u8]) -> Result<crate::Bytes, Error>;
+    
+    /// Reset the transport
+    fn reset(&mut self) -> Result<(), Error>;
+}
 
-        match &result {
-            Ok(response) => {
-                trace!(
-                    response = ?response,
-                    "Processed response"
-                );
-            }
-            Err(e) => {
-                debug!(
-                    error = ?e,
-                    "Error during command processing"
-                );
-            }
-        }
+/// Transport adapter for processors to use
+///
+/// This adapter allows processors to use a transport without owning it.
+#[derive(Debug)]
+pub struct TransportAdapter<'a, T: CardTransport> {
+    inner: &'a mut T,
+}
 
-        result
-    }
-
-    /// Internal implementation of process_command
-    fn do_process_command(
-        &mut self,
-        command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError>;
-
-    /// Get the security level provided by this processor
-    fn security_level(&self) -> SecurityLevel {
-        SecurityLevel::none()
-    }
-
-    /// Check if this processor is active/ready
-    fn is_active(&self) -> bool {
-        true
+impl<'a, T: CardTransport> TransportAdapter<'a, T> {
+    /// Create a new transport adapter
+    pub const fn new(transport: &'a mut T) -> Self {
+        Self { inner: transport }
     }
 }
 
-// Enable cloning for boxed processors
-dyn_clone::clone_trait_object!(CommandProcessor);
+impl<'a, T: CardTransport> TransportAdapterTrait for TransportAdapter<'a, T> {
+    fn transmit_raw(&mut self, command: &[u8]) -> Result<crate::Bytes, Error> {
+        self.inner.transmit_raw(command)
+    }
 
-/// Identity processor that doesn't modify commands
-#[derive(Debug, Clone)]
-pub struct IdentityProcessor;
-
-impl CommandProcessor for IdentityProcessor {
-    fn do_process_command(
-        &mut self,
-        command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError> {
-        // Convert command to bytes and send
-        let command_bytes = command.to_bytes();
-        let response_bytes = transport.transmit_raw(&command_bytes)?;
-
-        // Parse response
-        Response::from_bytes(&response_bytes).map_err(Into::into)
+    fn reset(&mut self) -> Result<(), Error> {
+        self.inner.reset()
     }
 }
 
-/// GET RESPONSE processor that handles automatic response chaining
-#[derive(Debug, Clone)]
-pub struct GetResponseProcessor {
-    /// Maximum number of response chains to follow
-    max_chains: usize,
-}
-
-impl GetResponseProcessor {
-    /// Create a new GET RESPONSE processor with the given maximum chain count
-    pub const fn new(max_chains: usize) -> Self {
-        Self { max_chains }
-    }
-}
-
-impl Default for GetResponseProcessor {
-    fn default() -> Self {
-        Self::new(10) // Reasonable default
-    }
-}
-
-impl CommandProcessor for GetResponseProcessor {
-    fn do_process_command(
-        &mut self,
-        command: &Command,
-        transport: &mut dyn CardTransport,
-    ) -> Result<Response, ProcessorError> {
-        // Convert command to bytes
-        let command_bytes = command.to_bytes();
-
-        // First send the original command
-        let response_bytes = transport.transmit_raw(&command_bytes)?;
-
-        // Extract status and payload
-        let ((sw1, sw2), payload) = utils::extract_response_parts(&response_bytes)?;
-
-        // If SW1=61, use GET RESPONSE to fetch more data
-        if sw1 == 0x61 {
-            let mut buffer = BytesMut::new();
-
-            // Save any payload data from initial response
-            if let Some(payload) = payload {
-                buffer.put(payload);
-            }
-
-            let mut chains = 0;
-            let mut current_sw1 = sw1;
-            let mut current_sw2 = sw2;
-
-            // Process GET RESPONSE chain
-            while current_sw1 == 0x61 && chains < self.max_chains {
-                // Build GET RESPONSE command
-                let get_response =
-                    Command::new(0x00, 0xC0, 0x00, 0x00).with_le(current_sw2 as ExpectedLength);
-                let get_resp_bytes = get_response.to_bytes();
-
-                trace!(
-                    remaining = current_sw2,
-                    chain_count = chains + 1,
-                    "Sending GET RESPONSE command"
-                );
-
-                // Send GET RESPONSE
-                let response_bytes = transport.transmit_raw(&get_resp_bytes)?;
-
-                // Extract status and payload from response
-                let ((new_sw1, new_sw2), new_payload) =
-                    utils::extract_response_parts(&response_bytes)?;
-
-                // Add payload to buffer
-                if let Some(payload) = new_payload {
-                    buffer.put(payload);
-                }
-
-                // Update status for potential next iteration
-                current_sw1 = new_sw1;
-                current_sw2 = new_sw2;
-                chains += 1;
-            }
-
-            if chains >= self.max_chains && current_sw1 == 0x61 {
-                return Err(ProcessorError::ChainLimitExceeded);
-            }
-
-            // Construct final response with accumulated data and final status word
-            let response = Response::new(Some(buffer.freeze()), (current_sw1, current_sw2));
-
-            trace!(
-                total_data_len = response
-                    .payload()
-                    .as_ref()
-                    .map_or(0, |payload| payload.len()),
-                final_sw = format!("{:02X}{:02X}", current_sw1, current_sw2),
-                "Completed response chaining"
-            );
-
-            return Ok(response);
-        }
-
-        // If no chaining needed, create response directly
-        Ok(Response::new(payload, (sw1, sw2)))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{ApduCommand, ApduResponse, transport::MockTransport};
-    use bytes::Bytes;
-
-    #[test]
-    fn test_identity_processor() {
-        let mut transport = MockTransport::with_response(Bytes::from_static(&[0x90, 0x00]));
-        let mut processor = IdentityProcessor;
-
-        let command = Command::new(0x00, 0xA4, 0x04, 0x00);
-        let response = processor.process_command(&command, &mut transport).unwrap();
-
-        assert_eq!(response.status().to_u16(), 0x9000);
-        assert_eq!(transport.commands[0], command.to_bytes());
+impl<'a, T: CardTransport> CardTransport for TransportAdapter<'a, T> {
+    fn transmit_raw(&mut self, command: &[u8]) -> Result<crate::Bytes, Error> {
+        self.inner.transmit_raw(command)
     }
 
-    #[test]
-    fn test_get_response_processor() {
-        let mut transport = MockTransport::new(Vec::new());
-
-        // First response: 61 05 (more data available)
-        transport.responses.push(Bytes::from_static(&[0x61, 0x05]));
-
-        // GET RESPONSE response: data + final status
-        transport.responses.push(Bytes::from_static(&[
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x90, 0x00,
-        ]));
-
-        let mut processor = GetResponseProcessor::default();
-
-        let command = Command::new(0x00, 0xB0, 0x00, 0x00);
-        let response = processor.process_command(&command, &mut transport).unwrap();
-
-        // Should have the combined data with final status
-        assert_eq!(
-            response.payload(),
-            &Some(Bytes::from_static(&[0x01, 0x02, 0x03, 0x04, 0x05]))
-        );
-        assert_eq!(response.status().to_u16(), 0x9000);
-
-        // Should have sent the original command and the GET RESPONSE command
-        assert_eq!(transport.commands[0], command.to_bytes());
-        let get_resp_cmd = Command::new(0x00, 0xC0, 0x00, 0x00).with_le(5);
-        assert_eq!(transport.commands[1], get_resp_cmd.to_bytes());
+    fn reset(&mut self) -> Result<(), Error> {
+        self.inner.reset()
     }
 }

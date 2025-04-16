@@ -29,6 +29,7 @@ use utils::error_tokens;
 /// # Example
 ///
 /// ```
+/// use nexum_apdu_macros::apdu_pair;
 /// use nexum_apdu_core::prelude::*;
 ///
 /// apdu_pair! {
@@ -52,7 +53,7 @@ use utils::error_tokens;
 ///                 #[sw(0x90, 0x00)]
 ///                 #[payload(field = "fci")]
 ///                 Selected {
-///                     fci: Option<Vec<u8>>,
+///                     fci: Vec<u8>,
 ///                 }
 ///             }
 ///
@@ -67,10 +68,6 @@ use utils::error_tokens;
 ///                     sw1: u8,
 ///                     sw2: u8,
 ///                 }
-///             }
-///
-///             methods {
-///                 // Custom methods here
 ///             }
 ///         }
 ///     }

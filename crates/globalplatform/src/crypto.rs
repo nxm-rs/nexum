@@ -15,11 +15,22 @@ use des::{Des, TdesEde3};
 
 use crate::Result;
 
+/// Key derivation purpose identifier (2 bytes)
 pub type Purpose = [u8; 2];
+
+/// Sequence counter for SCP02 protocol (2 bytes)
 pub type SequenceCounter = [u8; 2];
+
+/// Card challenge for mutual authentication (6 bytes)
 pub type CardChallenge = [u8; 6];
+
+/// Host challenge for mutual authentication (8 bytes)
 pub type HostChallenge = [u8; 8];
+
+/// Cryptogram for card or host authentication (8 bytes)
 pub type Cryptogram = [u8; 8];
+
+/// Message Authentication Code for SCP02 (8 bytes)
 pub type Scp02Mac = [u8; 8];
 
 /// Derivation purpose for encryption key
@@ -28,14 +39,22 @@ pub const DERIVATION_ENC: Purpose = [0x01, 0x82];
 pub const DERIVATION_MAC: Purpose = [0x01, 0x01];
 
 /// Placeholder struct for defining SCP02 cryptographic parameters
+/// 
+/// This struct serves as a type-level token for defining the key and IV sizes
+/// required for SCP02 cryptographic operations (16-byte keys and 8-byte IVs).
+/// It's used as a type parameter for the cryptographic primitives.
 #[allow(missing_debug_implementations)]
 pub struct Scp02;
 
+/// Implements the KeySizeUser trait to define the SCP02 key size (16 bytes)
 impl KeySizeUser for Scp02 {
+    /// Defines the SCP02 key size as 16 bytes (128 bits)
     type KeySize = U16;
 }
 
+/// Implements the IvSizeUser trait to define the SCP02 IV size (8 bytes)
 impl IvSizeUser for Scp02 {
+    /// Defines the SCP02 IV size as 8 bytes (64 bits)
     type IvSize = U8;
 }
 
@@ -78,14 +97,19 @@ pub fn derive_key(
     Ok(result)
 }
 
-/// Calculate a cryptogram using 3DES in CBC mode
+/// Calculate a cryptogram using 3DES in CBC mode for SCP02 mutual authentication
+///
+/// This function calculates either a host or card cryptogram used in the SCP02
+/// mutual authentication process. The cryptogram is created by encrypting a
+/// specific arrangement of the challenges and sequence counter.
 ///
 /// # Arguments
 ///
-/// * `enc_key` - The encryption key (16 bytes)
-/// * `host_challenge` - The host challenge (8 bytes)
+/// * `enc_key` - The session encryption key (16 bytes)
 /// * `sequence_counter` - The sequence counter (2 bytes)
 /// * `card_challenge` - The card challenge (6 bytes)
+/// * `host_challenge` - The host challenge (8 bytes)
+/// * `for_host` - If true, calculate the host cryptogram; if false, calculate the card cryptogram
 ///
 /// # Returns
 ///

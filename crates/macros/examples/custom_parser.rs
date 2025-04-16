@@ -26,35 +26,35 @@ apdu_pair! {
 
         response {
             ok {
-                // PIN verification successful
+                /// PIN verification successful
                 #[sw(0x90, 0x00)]
                 Verified,
 
-                // PIN attempts remaining
+                /// PIN attempts remaining
                 #[sw(0x63, _)]
                 AttemptsRemaining {
+                    /// PIN attempts remaining
                     count: u8,
                 }
             }
 
             errors {
-                // PIN blocked
+                /// PIN blocked
                 #[sw(0x69, 0x83)]
                 #[error("PIN is blocked")]
                 Blocked,
 
-                // PIN incorrect
+                /// PIN incorrect
                 #[sw(0x63, _)]
                 #[error("PIN incorrect, {count} attempts remaining")]
                 Incorrect {
+                    /// PIN attempts remaining
                     count: u8,
                 },
             }
 
             // Custom parser now takes the complete Response and returns a Result<OkEnum, ErrorEnum>
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<VerifyPinOk, VerifyPinError> {
-                use nexum_apdu_core::ApduResponse;
-
                 let status = response.status();
                 let sw1 = status.sw1;
                 let sw2 = status.sw2;
@@ -213,9 +213,7 @@ fn main() {
                 println!("PIN attempts remaining: {}", count);
                 if count == 0 {
                     return Err(VerifyPinError::ResponseError(
-                        nexum_apdu_core::response::error::ResponseError::Message(
-                            "PIN is blocked".to_string(),
-                        ),
+                        nexum_apdu_core::Error::message("PIN is blocked".to_string()),
                     ));
                 }
             }

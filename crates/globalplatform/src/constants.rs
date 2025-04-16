@@ -116,6 +116,7 @@ pub mod status {
     pub use gp::*;
     pub use iso7816::*;
 
+    /// Status words for ISO 7816-4
     pub mod iso7816 {
         use super::StatusWord;
 
@@ -161,6 +162,7 @@ pub mod status {
         pub const SW_APPLET_SELECT_FAILED: StatusWord = StatusWord::new(0x69, 0x99);
     }
 
+    /// Status words for GlobalPlatform commands and responses
     pub mod gp {
         use super::StatusWord;
 

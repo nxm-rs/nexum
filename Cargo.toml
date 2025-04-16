@@ -14,7 +14,7 @@ exclude = ["benches/", "tests/", "crates/**/examples/*"]
 
 [workspace.lints.rust]
 missing-debug-implementations = "warn"
-# missing-docs = "warn"
+missing-docs = "warn"
 unreachable-pub = "warn"
 unused-must-use = "deny"
 rust-2018-idioms = "deny"
@@ -36,50 +36,49 @@ check.all_features = true
 cargo.features = ["all"]
 
 [workspace.dependencies]
-# apdu crates
+# APDU crates
 nexum-apdu-core = { version = "0.1.0", path = "crates/core" }
 nexum-apdu-macros = { version = "0.1.0", path = "crates/macros" }
 nexum-apdu-globalplatform = { version = "0.1.0", path = "crates/globalplatform" }
 nexum-apdu-transport-pcsc = { version = "0.1.0", path = "crates/pcsc" }
 
-## pcsc
-pcsc = { version = "2.9.0", default-features = false }
-
-## misc
-bytes = { version = "1.10", default-features = false }
-thiserror = { version = "2.0", default-features = false }
-iso7816-tlv = { version = "0.4.4" }
-
-## sync
-crossbeam-channel = { version = "0.5", default-features = false }
-
-# Trait helpers
-auto_impl = "1"
-dyn-clone = "1"
-
-## crypto
+# Crypto
 cipher = { version = "0.4", default-features = false }
 cbc = { version = "0.1", default-features = false }
 cbc-mac = { version = "0.1", default-features = false }
 des = { version = "0.8", default-features = false }
 zeroize = { version = "1.8", features = ["derive"] }
 
-# For tests and examples
-rand = "0.9"
-hex = "0.4.3"
-tokio = { version = "1", default-features = false, features = ["full"] }
+# PC/SC
+pcsc = { version = "2.9.0", default-features = false }
 
-## macros
+# Serialization & parsing
+bytes = { version = "1.10", default-features = false }
+iso7816-tlv = { version = "0.4.4" }
+hex = "0.4.3"
+
+# Error handling
+thiserror = { version = "2.0", default-features = false }
+
+# Concurrency
+crossbeam-channel = { version = "0.5", default-features = false }
+
+# Trait helpers
+derive_more = { version = "2", default-features = false }
+
+# Macros
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full", "extra-traits"] }
 heck = "0.5"
-derive_more = { version = "2", default-features = false }
 
-## tracing
+# Logging & tracing
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 
-## misc
+# CLI
 clap = { version = "4.5" }
+
+# Miscellaneous
+rand = "0.9"
 zip = { version = "2.6", default-features = false }

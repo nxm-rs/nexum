@@ -13,8 +13,7 @@
 //! ```no_run
 //! # #[cfg(feature = "std")]
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use nexum_apdu_core::{CardExecutor, ApduCommand, Command};
-//! use nexum_apdu_core::prelude::Executor;
+//! use nexum_apdu_core::prelude::*;
 //! use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscConfig};
 //!
 //! // Create a PC/SC device manager
@@ -38,7 +37,7 @@
 //! let aid = hex::decode("A000000003000000").unwrap();
 //! let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid);
 //!
-//! match executor.transmit(&select_cmd.to_bytes()) {
+//! match executor.transmit_raw(&select_cmd.to_bytes()) {
 //!     Ok(response) => {
 //!         println!("Response: {:?}", response);
 //!     }

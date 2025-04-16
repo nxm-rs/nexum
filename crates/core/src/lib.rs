@@ -22,54 +22,60 @@
 pub use bytes::{Bytes, BytesMut};
 
 // Main modules
+pub mod card;
 pub mod command;
 pub mod error;
 pub mod executor;
 pub mod processor;
 pub mod response;
+pub mod secure_channel;
 pub mod transport;
 
-pub use command::{ApduCommand, Command};
-pub use error::Error;
-pub use executor::ext::{ResponseAwareExecutor, SecureChannelExecutor};
-pub use executor::{ApduExecutorErrors, CardExecutor, Executor};
+pub use command::{ApduCommand, Command, ExpectedLength};
+pub use error::{Error, ResultExt};
+pub use executor::Executor;
+pub use executor::response_aware::ResponseAwareExecutor;
+pub use processor::CommandProcessor;
+pub use processor::pipeline::ProcessorPipeline;
 pub use response::status::StatusWord;
-pub use response::{ApduResponse, Response, utils};
+pub use response::{ApduResponse, Response};
+pub use secure_channel::{SecureChannel, SecurityLevel};
 pub use transport::CardTransport;
 
 /// Prelude module containing commonly used traits and types
 pub mod prelude {
     // Core types
-    pub use crate::{Bytes, BytesMut, Error};
+    pub use crate::{Bytes, BytesMut, Error, ResultExt};
 
     // Command related
-    pub use crate::{
-        Command,
-        command::{ApduCommand, ExpectedLength},
-    };
+    pub use crate::Command;
+    pub use crate::command::{ApduCommand, ExpectedLength};
 
     // Response related
-    pub use crate::{
-        Response,
-        response::status::StatusWord,
-        response::{ApduResponse, utils as response_utils},
-    };
+    pub use crate::Response;
+    pub use crate::response::ApduResponse;
+    pub use crate::response::status::{StatusWord, common as status};
+    pub use crate::response::utils;
 
     // Transport layer
-    pub use crate::transport::{CardTransport, TransportError};
+    pub use crate::CardTransport;
 
     // Processor layer
-    pub use crate::processor::{
-        CommandProcessor, GetResponseProcessor, IdentityProcessor, ProcessorError,
-        secure::{SecureChannel, SecureChannelProvider, SecurityLevel},
-    };
+    pub use crate::processor::CommandProcessor;
+    pub use crate::processor::pipeline::ProcessorPipeline;
+    pub use crate::processor::processors::{GetResponseProcessor, IdentityProcessor};
+
+    // Secure channel layer
+    pub use crate::secure_channel::{SecureChannel, SecurityLevel};
 
     // Executor layer
-    pub use crate::{
-        executor::ext::{ResponseAwareExecutor, SecureChannelExecutor},
-        executor::{ApduExecutorErrors, CardExecutor, Executor},
-    };
+    pub use crate::executor::Executor;
+    pub use crate::executor::SecureChannelExecutor;
+    pub use crate::executor::response_aware::ResponseAwareExecutor;
+
+    pub use crate::card::CardExecutor;
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

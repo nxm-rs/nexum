@@ -57,6 +57,7 @@ apdu_pair! {
                 #[sw(SW_NO_ERROR)]
                 #[payload(field = "fci")]
                 Success {
+                    /// File Control Information
                     fci: Vec<u8>,
                 },
             }
