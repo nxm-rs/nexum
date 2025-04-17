@@ -1,10 +1,12 @@
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use crate::Keypair;
 
 use super::{CLA_GP, DeriveMode, KeyPath, prepare_derivation_parameters};
+use coins_bip32::path::DerivationPath;
 
+#[derive(Clone, Copy, Debug)]
 pub enum ExportOption {
     PrivateAndPublic = 0x00,
     PublicKeyOnly = 0x01,
@@ -17,10 +19,68 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0xC2,
-            required_security_level: SecurityLevel::authenticated_encrypted(),
+            required_security_level: SecurityLevel::full(),
 
             builders {
-                /// Create an EXPORT KEY command
+                /// Export the current key without derivation
+                pub fn from_current(what: ExportOption) -> Result<Self, crate::Error> {
+                    let command = Self::new(0x00, what as u8).with_le(0);
+                    Ok(command)
+                }
+
+                /// Export a key derived from the master key
+                pub fn from_master(
+                    what: ExportOption,
+                    path: Option<&DerivationPath>,
+                    make_current: bool,
+                ) -> Result<Self, crate::Error> {
+                    let derive_mode = if make_current {
+                        DeriveMode::Persistent
+                    } else {
+                        DeriveMode::Temporary
+                    };
+
+                    let key_path = match path {
+                        Some(path) => KeyPath::FromMaster(Some(path.clone())),
+                        None => KeyPath::FromMaster(None),
+                    };
+
+                    Self::with(what, &key_path, Some(derive_mode))
+                }
+
+                /// Export a key derived from the parent key
+                pub fn from_parent(
+                    what: ExportOption,
+                    path: &DerivationPath,
+                    make_current: bool,
+                ) -> Result<Self, crate::Error> {
+                    let derive_mode = if make_current {
+                        DeriveMode::Persistent
+                    } else {
+                        DeriveMode::Temporary
+                    };
+
+                    let key_path = KeyPath::FromParent(path.clone());
+                    Self::with(what, &key_path, Some(derive_mode))
+                }
+
+                /// Export a key derived from the current key
+                pub fn from_current_with_derivation(
+                    what: ExportOption,
+                    path: &DerivationPath,
+                    make_current: bool,
+                ) -> Result<Self, crate::Error> {
+                    let derive_mode = if make_current {
+                        DeriveMode::Persistent
+                    } else {
+                        DeriveMode::Temporary
+                    };
+
+                    let key_path = KeyPath::FromCurrent(path.clone());
+                    Self::with(what, &key_path, Some(derive_mode))
+                }
+
+                /// General purpose method (prefer using the more specific builders above)
                 pub fn with(
                     what: ExportOption,
                     key_path: &KeyPath,
@@ -40,38 +100,37 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success {
+                    /// Keypair that has been exported
                     keypair: Keypair,
                 }
             }
 
             errors {
                 /// Conditions not satisfied (e.g. secure channel + verified pin)
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied: Require secure channel and verified PIN")]
                 ConditionsNotSatisfied,
 
                 /// Incorrect P1/P2: Invalid export option
-                #[sw(status::SW_INCORRECT_P1P2)]
+                #[sw(SW_INCORRECT_P1P2)]
                 #[error("Incorrect P1/P2: Invalid export option")]
                 IncorrectP1P2,
 
                 /// Wrong Data: Invalid derivation path format
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong Data: Invalid derivation path format")]
                 WrongData,
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<ExportKeyOk, ExportKeyError> {
-                use nexum_apdu_core::ApduResponse;
-
                 match response.status() {
-                    status::SW_NO_ERROR => {
+                    SW_NO_ERROR => {
                         match response.payload() {
                             Some(payload) => {
                                 let keypair = Keypair::try_from(payload.as_ref())
-                                    .map_err(|e| nexum_apdu_core::response::error::ResponseError::Message(e.to_string()))?;
+                                    .map_err(|_| Error::ParseError("Unable to parse keypair"))?;
                                 Ok(ExportKeyOk::Success{
                                     keypair,
                                 })
@@ -79,9 +138,9 @@ apdu_pair! {
                             None => Err(ExportKeyError::WrongData),
                         }
                     },
-                    status::SW_CONDITIONS_NOT_SATISFIED => Err(ExportKeyError::ConditionsNotSatisfied),
-                    status::SW_INCORRECT_P1P2 => Err(ExportKeyError::IncorrectP1P2),
-                    status::SW_WRONG_DATA => Err(ExportKeyError::WrongData),
+                    SW_CONDITIONS_NOT_SATISFIED => Err(ExportKeyError::ConditionsNotSatisfied),
+                    SW_INCORRECT_P1P2 => Err(ExportKeyError::IncorrectP1P2),
+                    SW_WRONG_DATA => Err(ExportKeyError::WrongData),
                     _ => Err(ExportKeyError::Unknown {sw1: response.status().sw1, sw2: response.status().sw2}),
                 }
             }

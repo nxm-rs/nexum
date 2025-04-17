@@ -1,4 +1,4 @@
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use coins_bip32::path::DerivationPath;
@@ -11,7 +11,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0xC1,
-            required_security_level: SecurityLevel::encrypted(),
+            required_security_level: SecurityLevel::auth_mac(),
 
             builders {
                 /// Create a SET PINLESS PATH command with the nominated path
@@ -25,18 +25,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success
             }
 
             errors {
                 /// Conditions not satisfied (e.g. secure channel + verified pin)
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied: Require secure channel and verified pin")]
                 ConditionsNotSatisfied,
 
                 /// Data is not a multiple of 32 bytes
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data: Data must be a multiple of 32 bytes")]
                 WrongData,
             }

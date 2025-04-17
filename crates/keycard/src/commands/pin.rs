@@ -1,6 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use nexum_apdu_core::StatusWord;
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use super::CLA_GP;
@@ -13,7 +13,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0x20,
-            required_security_level: SecurityLevel::encrypted(),
+            required_security_level: SecurityLevel::enc_mac(),
 
             builders {
                 /// Create a VERIFY PIN command with PIN
@@ -26,7 +26,7 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
@@ -45,7 +45,7 @@ apdu_pair! {
                 },
 
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
             }
@@ -59,7 +59,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0x21,
-            required_security_level: SecurityLevel::authenticated_encrypted(),
+            required_security_level: SecurityLevel::full(),
 
             builders {
                 /// Create a CHANGE PIN command
@@ -82,23 +82,23 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Security status not satisfied: Must have secure channel open and verified PIN
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied: Must have secure channel open and verified PIN")]
                 SecurityStatusNotSatisfied,
 
                 /// Incorrect P1/P2: specified the incorrect PIN/PUK/Pairing code to be changed
-                #[sw(status::SW_INCORRECT_P1P2)]
+                #[sw(SW_INCORRECT_P1P2)]
                 #[error("Incorrect P1/P2: specified the incorrect PIN/PUK/Pairing code to be changed")]
                 IncorrectP1P2,
 
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
             }
@@ -112,7 +112,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0x22,
-            required_security_level: SecurityLevel::encrypted(),
+            required_security_level: SecurityLevel::enc_mac(),
 
             builders {
                 /// Create an UNBLOCK PIN command
@@ -128,18 +128,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// Security status not satisfied: Must have secure channel open
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied: Must have secure channel open")]
                 SecurityStatusNotSatisfied,
 
                 /// Conditions not satisfied: PIN must be blocked
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied: PIN must be blocked")]
                 ConditionsNotSatisfied,
 
@@ -157,7 +157,7 @@ apdu_pair! {
                 },
 
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
             }

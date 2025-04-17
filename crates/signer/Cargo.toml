@@ -4,18 +4,23 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
+## blockchain
 alloy-primitives.workspace = true
 alloy-network.workspace = true
 alloy-signer.workspace = true
 alloy-consensus.workspace = true
-thiserror.workspace = true
 
-tokio = { workspace = true, features = ["sync"] }
+## misc
+thiserror.workspace = true
+async-trait.workspace = true
+parking_lot.workspace = true
+
+## keycard
 nexum-keycard.workspace = true
 nexum-apdu-core.workspace = true
-async-trait = "0.1.88"
-parking_lot.workspace = true
+
+## async
+tokio = { workspace = true, features = ["sync"] }

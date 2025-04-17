@@ -1,6 +1,7 @@
 mod application_info;
 mod application_status;
 mod capabilities;
+mod exported_key;
 mod keypair;
 mod pairing_info;
 mod signature;
@@ -8,7 +9,8 @@ mod version;
 
 pub use application_info::ApplicationInfo;
 pub use application_status::ApplicationStatus;
-pub use capabilities::Capabilities;
+pub use capabilities::{Capabilities, Capability};
+pub use exported_key::ExportedKey;
 use iso7816_tlv::ber::{Tag, Tlv, Value};
 pub use keypair::*;
 pub use pairing_info::PairingInfo;

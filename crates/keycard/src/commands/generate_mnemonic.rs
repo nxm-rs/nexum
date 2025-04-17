@@ -1,5 +1,5 @@
 use coins_bip39::Mnemonic;
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use crate::Error;
@@ -12,7 +12,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0xD2,
-            required_security_level: SecurityLevel::encrypted(),
+            required_security_level: SecurityLevel::enc_mac(),
 
             builders {
                 /// Create a GENERATE MNEMONIC command with a given number of words (12, 15, 18, 21, 24)
@@ -28,15 +28,17 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
+                #[payload(field = "words")]
                 Success {
-                    seed: Vec<u8>
+                    /// An array of u16 representing the mnemonic words
+                    words: Vec<u8>
                 }
             }
 
             errors {
                 /// Incorrect P1/P2: Checksum is out of range (between 4 and 8)
-                #[sw(status::SW_INCORRECT_P1P2)]
+                #[sw(SW_INCORRECT_P1P2)]
                 #[error("Incorrect P1/P2: Checksum is out of range (between 4 and 8)")]
                 IncorrectChecksumSize,
             }
@@ -50,10 +52,10 @@ impl GenerateMnemonicOk {
         L: coins_bip39::Wordlist,
     {
         match self {
-            Self::Success { seed } => {
+            Self::Success { words: words_u16 } => {
                 let mut words = Vec::new();
 
-                for chunk in seed.chunks_exact(2) {
+                for chunk in words_u16.chunks_exact(2) {
                     if chunk.len() == 2 {
                         let index = u16::from_be_bytes([chunk[0], chunk[1]]) as usize;
                         words.push(L::get(index)?);

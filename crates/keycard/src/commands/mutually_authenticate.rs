@@ -1,6 +1,5 @@
 use crate::Challenge;
-use nexum_apdu_core::response::error::ResponseError;
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use crate::crypto::Cryptogram;
@@ -25,7 +24,7 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success {
                     cryptogram: Cryptogram,
                 },
@@ -33,7 +32,7 @@ apdu_pair! {
 
             errors {
                 /// Previous command was not OPEN SECURE CHANNEL
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied: Previous command was not OPEN SECURE CHANNEL")]
                 ConditionsNotSatisfied,
 
@@ -44,23 +43,22 @@ apdu_pair! {
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<MutuallyAuthenticateOk, MutuallyAuthenticateError> {
-                use nexum_apdu_core::ApduResponse;
-
                 match response.status() {
-                    status::SW_NO_ERROR => {
+                    SW_NO_ERROR => {
                         match response.payload() {
                             Some(payload) => {
+                                // Have to check the length here as the `from_slice` will panic otherwise
                                 if payload.len() != 32 {
-                                    return Err(ResponseError::Parse("Invalid payload length").into());
+                                    return Err(Error::ParseError("Invalid payload length"))?;
                                 }
                                 let cryptogram = Cryptogram::from_slice(payload);
                                 Ok(MutuallyAuthenticateOk::Success { cryptogram: *cryptogram })
                             },
-                            None => Err(ResponseError::Parse("No payload").into()),
+                            None => Err(Error::ParseError("No payload"))?,
                         }
                     },
-                    status::SW_CONDITIONS_NOT_SATISFIED => Err(MutuallyAuthenticateError::ConditionsNotSatisfied),
-                    status::SW_SECURITY_STATUS_NOT_SATISFIED => Err(MutuallyAuthenticateError::SecurityStatusNotSatisfied),
+                    SW_CONDITIONS_NOT_SATISFIED => Err(MutuallyAuthenticateError::ConditionsNotSatisfied),
+                    SW_SECURITY_STATUS_NOT_SATISFIED => Err(MutuallyAuthenticateError::SecurityStatusNotSatisfied),
                     _ => Err(MutuallyAuthenticateError::Unknown { sw1: response.status().sw1, sw2: response.status().sw2 }),
                 }
             }

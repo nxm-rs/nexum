@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
@@ -19,24 +18,9 @@ pbkdf2.workspace = true
 rand.workspace = true
 rand_v8.workspace = true
 sha2.workspace = true
-
 alloy-signer.workspace = true
 coins-bip32.workspace = true
 coins-bip39 = { workspace = true, features = ["english"] }
-
-base64.workspace = true
-unicode-normalization.workspace = true
-generic-array.workspace = true
-thiserror = { workspace = true, optional = true }
-anyhow.workspace = true
-tracing.workspace = true
-derive_more.workspace = true
-
-## bytes
-bytes.workspace = true
-iso7816-tlv.workspace = true
-
-## crypto
 aes.workspace = true
 block-padding.workspace = true
 cbc = { workspace = true, features = ["block-padding"] }
@@ -44,6 +28,19 @@ cbc-mac.workspace = true
 cipher.workspace = true
 k256.workspace = true
 zeroize = { workspace = true, optional = true }
+
+## bytes and encoding
+bytes.workspace = true
+iso7816-tlv.workspace = true
+base64.workspace = true
+unicode-normalization.workspace = true
+generic-array.workspace = true
+
+## misc
+thiserror = { workspace = true, optional = true }
+anyhow.workspace = true
+tracing.workspace = true
+derive_more.workspace = true
 
 [dev-dependencies]
 rand_v8.workspace = true

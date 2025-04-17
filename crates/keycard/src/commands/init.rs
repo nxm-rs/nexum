@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use crate::{
@@ -48,18 +48,18 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success,
             }
 
             errors {
                 /// INS not supported
-                #[sw(status::SW_INS_NOT_SUPPORTED)]
+                #[sw(SW_INS_NOT_SUPPORTED)]
                 #[error("Already initialized")]
                 AlreadyInitialized,
 
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
             }

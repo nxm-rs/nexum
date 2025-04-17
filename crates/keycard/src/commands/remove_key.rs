@@ -1,4 +1,4 @@
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use super::CLA_GP;
@@ -9,7 +9,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0xD3,
-            required_security_level: SecurityLevel::authenticated_mac(),
+            required_security_level: SecurityLevel::auth_mac(),
 
             builders {
                 /// Create a REMOVE KEY command
@@ -22,13 +22,13 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success
             }
 
             errors {
                 /// Conditions not satisfied: PIN not verified
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied: PIN not verified")]
                 ConditionsNotSatisfied,
             }

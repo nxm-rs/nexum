@@ -18,18 +18,24 @@ impl TryFrom<SelectOk> for ParsedSelectOk {
 
 #[derive(Debug)]
 pub enum ParsedSelectOk {
-    /// Regular response with application info
-    ApplicationInfo(ApplicationInfo),
-    /// Response in pre-initialized state (only public key - optional)
-    PreInitialized(Option<k256::PublicKey>),
+    /// Regular response with application info for an initialized card
+    InitializedWithKey(ApplicationInfo),
+    /// Response for a card that's not yet initialized (no master key generated/loaded)
+    InitializedNoKey(ApplicationInfo),
+    /// Response in pre-initialized state (only public key)
+    Uninitialized(Option<k256::PublicKey>),
 }
 
 impl fmt::Display for ParsedSelectOk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParsedSelectOk::ApplicationInfo(info) => write!(f, "{}", info),
-            ParsedSelectOk::PreInitialized(maybe_key) => {
-                writeln!(f, "Pre-initialized State:")?;
+            ParsedSelectOk::InitializedWithKey(info) => write!(f, "{}", info),
+            ParsedSelectOk::InitializedNoKey(info) => {
+                writeln!(f, "Initialized Card (with no key):")?;
+                write!(f, "{}", info)
+            }
+            ParsedSelectOk::Uninitialized(maybe_key) => {
+                writeln!(f, "Un-initialized State:")?;
                 match &maybe_key {
                     Some(key) => write!(f, "  Public Key: {:#?}", key),
                     None => write!(f, "  Public Key: None"),
@@ -49,11 +55,16 @@ impl TryFrom<&[u8]> for ParsedSelectOk {
         let ecc_public_key = Tag::try_from(tags::ECC_PUBLIC_KEY)?;
 
         if fci.tag() == &application_info {
-            Ok(ParsedSelectOk::ApplicationInfo(ApplicationInfo::try_from(
-                &fci,
-            )?))
+            let app_info = ApplicationInfo::try_from(&fci)?;
+
+            // Determine if the card is initialized by checking for key_uid
+            if app_info.key_uid.is_some() {
+                Ok(ParsedSelectOk::InitializedWithKey(app_info))
+            } else {
+                Ok(ParsedSelectOk::InitializedNoKey(app_info))
+            }
         } else if fci.tag() == &ecc_public_key {
-            Ok(ParsedSelectOk::PreInitialized(
+            Ok(ParsedSelectOk::Uninitialized(
                 *crate::types::PublicKey::try_from(&fci)?,
             ))
         } else {

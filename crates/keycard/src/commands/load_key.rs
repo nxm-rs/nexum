@@ -2,7 +2,7 @@ use bytes::Bytes;
 use iso7816_tlv::ber::{Tag, Tlv, Value};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use k256::{PublicKey, SecretKey};
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use super::CLA_GP;
@@ -13,7 +13,7 @@ apdu_pair! {
         command {
             cla: CLA_GP,
             ins: 0xD0,
-            required_security_level: SecurityLevel::authenticated_encrypted(),
+            required_security_level: SecurityLevel::full(),
 
             builders {
                 /// Create a LOAD KEY command for loading an ECC secp256k1 keypair
@@ -53,7 +53,7 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success {
                     /// Key UID
                     key_uid: [u8; 32],
@@ -62,7 +62,7 @@ apdu_pair! {
 
             errors {
                 /// Wrong data: format is invalid
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data: format is invalid")]
                 WrongData,
 
@@ -73,20 +73,18 @@ apdu_pair! {
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<LoadKeyOk, LoadKeyError> {
-                use nexum_apdu_core::ApduResponse;
-
                 match response.status() {
-                    status::SW_NO_ERROR => {
+                    SW_NO_ERROR => {
                         match response.payload() {
                             Some(payload) => Ok(LoadKeyOk::Success {
                                 key_uid: payload.to_vec().try_into()
-                                    .map_err(|_| LoadKeyError::WrongData)?,
+                                    .map_err(|_| Error::ParseError("Unable to parse key UID"))?,
                             }),
-                            None => Err(LoadKeyError::WrongData),
+                            None => Err(Error::ParseError("No payload received"))?,
                         }
                     },
-                    status::SW_WRONG_DATA => Err(LoadKeyError::WrongData),
-                    status::SW_INCORRECT_P1P2 => Err(LoadKeyError::IncorrectP1P2),
+                    SW_WRONG_DATA => Err(LoadKeyError::WrongData),
+                    SW_INCORRECT_P1P2 => Err(LoadKeyError::IncorrectP1P2),
                     _ => Err(LoadKeyError::Unknown{ sw1: response.status().sw1, sw2: response.status().sw2 }),
                 }
             }

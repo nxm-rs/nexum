@@ -1,10 +1,6 @@
-use cipher::Key;
-
-use crate::crypto::KeycardScp;
-
 /// Pairing information structure
 #[derive(Debug, Clone)]
 pub struct PairingInfo {
-    pub key: Key<KeycardScp>,
+    pub key: [u8; 32],
     pub index: u8,
 }

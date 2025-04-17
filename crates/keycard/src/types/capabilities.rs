@@ -39,8 +39,32 @@ impl Capabilities {
         Self(capabilities.iter().fold(0, |flags, &cap| flags | cap as u8))
     }
 
+    /// Create a new empty capabilities set with no capabilities
+    pub fn empty() -> Self {
+        Self(0)
+    }
+
     pub fn has_capability(&self, capability: Capability) -> bool {
         self.0 & capability as u8 != 0
+    }
+
+    /// Check if a capability is supported, returning an error if not
+    pub fn require_capability(&self, capability: Capability) -> crate::Result<()> {
+        if !self.has_capability(capability) {
+            let error_message = match capability {
+                Capability::SecureChannel => {
+                    "This card does not support the secure channel protocol"
+                }
+                Capability::KeyManagement => "This card does not support key management operations",
+                Capability::CredentialsManagement => {
+                    "This card does not support credentials management operations"
+                }
+                Capability::Ndef => "This card does not support NDEF operations",
+            };
+            Err(crate::Error::CapabilityNotSupported(error_message))
+        } else {
+            Ok(())
+        }
     }
 }
 

@@ -45,6 +45,7 @@ use crate::Error;
 
 pub const CLA_GP: u8 = 0x80;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersistentRecord {
     /// Store general public data
     Public = 0x00,

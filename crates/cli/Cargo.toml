@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
@@ -14,16 +13,23 @@ nexum-apdu-macros.workspace = true
 nexum-apdu-globalplatform.workspace = true
 nexum-apdu-transport-pcsc.workspace = true
 
+## keycard crates
 nexum-keycard.workspace = true
 nexum-keycard-signer.workspace = true
 
+## ui
 clap = { workspace = true, features = ["derive"] }
 
-alloy-primitives.workspace = true
+## blockchain
+alloy-primitives = { workspace = true, features = ["hex-compat"] }
+alloy-network.workspace = true
+alloy-signer.workspace = true
+alloy-consensus.workspace = true
+
+## misc
 tracing.workspace = true
 iso7816-tlv.workspace = true
-
 tracing-subscriber.workspace = true
-coins-bip32 = "0.12.0"
+coins-bip32.workspace = true
 tokio = { workspace = true, features = ["full"] }
-alloy = "0.14.0"
+rand = { workspace = true }

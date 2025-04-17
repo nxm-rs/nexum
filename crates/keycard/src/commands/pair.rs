@@ -1,6 +1,5 @@
 use crate::crypto::{Challenge, Cryptogram};
-use nexum_apdu_core::response::error::ResponseError;
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use super::CLA_GP;
@@ -27,14 +26,14 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 FirstStageSuccess {
                     cryptogram: Cryptogram,
                     challenge: Challenge,
                 },
 
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 FinalStageSuccess {
                     pairing_index: u8,
                     salt: Challenge,
@@ -43,34 +42,34 @@ apdu_pair! {
 
             errors {
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
 
                 /// Security status not satisfied: Client cryptogram verification fails
-                #[sw(status::SW_SECURITY_STATUS_NOT_SATISFIED)]
+                #[sw(SW_SECURITY_STATUS_NOT_SATISFIED)]
                 #[error("Security status not satisfied: Client cryptogram verification failed")]
                 SecurityStatusNotSatisfied,
 
                 /// File full: All available pairing slots are taken
-                #[sw(status::SW_FILE_FULL)]
+                #[sw(SW_FILE_FULL)]
                 #[error("File full: All available pairing slots are taken")]
                 FileFull,
 
                 /// Incorrect P1/P2: P1 is invalid or is 0x01 but the first phase was not completed
-                #[sw(status::SW_INCORRECT_P1P2)]
+                #[sw(SW_INCORRECT_P1P2)]
                 #[error("Incorrect P1/P2: P1 is invalid or is 0x01 but the first phase was not completed")]
                 IncorrectP1P2,
 
                 /// Conditions not satisfied: Secure channel is open
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied: Secure channel is open")]
                 ConditionsNotSatisfied,
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<PairOk, PairError> {
                 match response.status() {
-                    status::SW_NO_ERROR => {
+                    SW_NO_ERROR => {
                         if let Some(payload) = response.payload() {
                             match payload.len() {
                                 64 => {
@@ -87,12 +86,12 @@ apdu_pair! {
                             }
                         }
 
-                        Err(ResponseError::Parse("Invalid payload length").into())
+                        Err(Error::ParseError("Invalid payload length"))?
                     },
-                    status::SW_SECURITY_STATUS_NOT_SATISFIED => Err(PairError::SecurityStatusNotSatisfied),
-                    status::SW_FILE_FULL => Err(PairError::FileFull),
-                    status::SW_INCORRECT_P1P2 => Err(PairError::IncorrectP1P2),
-                    status::SW_CONDITIONS_NOT_SATISFIED => Err(PairError::ConditionsNotSatisfied),
+                    SW_SECURITY_STATUS_NOT_SATISFIED => Err(PairError::SecurityStatusNotSatisfied),
+                    SW_FILE_FULL => Err(PairError::FileFull),
+                    SW_INCORRECT_P1P2 => Err(PairError::IncorrectP1P2),
+                    SW_CONDITIONS_NOT_SATISFIED => Err(PairError::ConditionsNotSatisfied),
                     _ => Err(PairError::Unknown{sw1: response.status().sw1, sw2: response.status().sw2}),
                 }
             }

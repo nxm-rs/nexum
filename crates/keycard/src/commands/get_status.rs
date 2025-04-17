@@ -1,4 +1,4 @@
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use coins_bip32::path::DerivationPath;
@@ -31,13 +31,14 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 ApplicationStatus {
+                    /// The status of the Keycard application
                     status: ApplicationStatus,
                 },
 
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 KeyPathStatus {
                     path: DerivationPath,
                 }
@@ -51,10 +52,8 @@ apdu_pair! {
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<GetStatusOk, GetStatusError> {
-                use nexum_apdu_core::ApduResponse;
-
                 match response.status() {
-                    status::SW_NO_ERROR => {
+                    SW_NO_ERROR => {
                         match response.payload() {
                             Some(data) if data.len() % 4 == 0 => {
                                 let u32_iter = data.chunks(4).map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()));
@@ -65,7 +64,7 @@ apdu_pair! {
                             },
                             Some(data) => {
                                 let status = ApplicationStatus::try_from(data.as_ref())
-                                    .map_err(|e| nexum_apdu_core::response::error::ResponseError::Message(e.to_string()))?;
+                                    .map_err(|_| Error::ParseError("Unable to parse application status"))?;
                                 Ok(GetStatusOk::ApplicationStatus {
                                     status,
                                 })
@@ -73,7 +72,7 @@ apdu_pair! {
                             _ => Err(GetStatusError::IncorrectP1P2),
                         }
                     }
-                    status::SW_INCORRECT_P1P2 => Err(GetStatusError::IncorrectP1P2),
+                    SW_INCORRECT_P1P2 => Err(GetStatusError::IncorrectP1P2),
                     _ => Err(GetStatusError::Unknown { sw1: response.status().sw1, sw2: response.status().sw2 }),
                 }
             }

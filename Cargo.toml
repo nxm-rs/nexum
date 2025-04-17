@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/keycard", "crates/signer", "crates/cli"]
 resolver = "2"
 
 [workspace.package]
@@ -8,7 +8,6 @@ edition = "2024"
 rust-version = "1.85"
 authors = ["Nullis Contributors"]
 license = "AGPL-3.0-or-later"
-homepage = "https://nullisxyz.github.io/keycard"
 repository = "https://github.com/nullisxyz/keycard"
 keywords = ["smart-card", "cryptography", "iso7816", "apdu", "keycard"]
 categories = ["cryptography", "embedded", "hardware-support"]
@@ -65,21 +64,24 @@ block-buffer = { version = "0.11.0-rc.4", default-features = false }
 block-padding = { version = "0.4.0-rc.3", default-features = false }
 zeroize = { version = "1.8", features = ["derive"] }
 
-## bytes
+## bytes and encoding
+bytes = "1"
 base64 = "0.22"
 iso7816-tlv = "0.4.4"
 generic-array = "0.14"
 unicode-normalization = "0.1"
-bytes = "1"
+
+## async
+async-trait = "0.1.88"
 
 ## misc
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
-rand = "0.9"
+rand = { version = "0.9" }
 rand_v8 = { version = "0.8", package = "rand" }
 thiserror = "2.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 derive_more = { version = "2.0", features = ["from", "display", "into"] }
-tokio = { version = "1", default-features = false }
 parking_lot = "0.12"
+tokio = { version = "1", default-features = false }

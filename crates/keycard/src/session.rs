@@ -6,15 +6,12 @@
 use bytes::Bytes;
 use cipher::{Iv, Key};
 use k256::{PublicKey, SecretKey};
-use nexum_apdu_core::{
-    ApduCommand, ApduResponse, CardTransport, processor::SecureProtocolError,
-    response::error::ResponseError,
-};
+use nexum_apdu_core::prelude::*;
 use rand_v8::thread_rng;
 use zeroize::Zeroize;
 
 use crate::{
-    Challenge, OpenSecureChannelCommand, PairingInfo,
+    OpenSecureChannelCommand, OpenSecureChannelOk, PairingInfo,
     crypto::{
         ApduMeta, KeycardScp, calculate_mac, derive_session_keys, generate_ecdh_shared_secret,
     },
@@ -61,9 +58,12 @@ impl Session {
         card_public_key: &PublicKey,
         pairing_info: &PairingInfo,
         transport: &mut dyn CardTransport,
-    ) -> Result<Self, SecureProtocolError> {
+    ) -> Result<Self, Error> {
         // Generate an ephemeral keypair for the host for this session
         let host_private_key = SecretKey::random(&mut thread_rng());
+
+        // Generate the shared secret
+        let shared_secret = generate_ecdh_shared_secret(&host_private_key, card_public_key);
 
         let cmd = OpenSecureChannelCommand::with_pairing_index_and_pubkey(
             pairing_info.index,
@@ -71,42 +71,26 @@ impl Session {
         );
 
         // Send the command
-        let response_bytes = transport
-            .transmit_raw(&cmd.to_command().to_bytes())
-            .map_err(ResponseError::from)?;
-        let response = nexum_apdu_core::Response::from_bytes(&response_bytes)?;
+        let command_bytes = cmd.to_command().to_bytes();
+        let response_bytes = transport.transmit_raw(&command_bytes)?;
+        let response =
+            OpenSecureChannelCommand::parse_response_raw(Bytes::copy_from_slice(&response_bytes))
+                .map_err(|e| Error::Message(e.to_string()))?;
 
-        // Check for errors
-        if !response.is_success() {
-            return Err(SecureProtocolError::Protocol("Open secure channel failed"));
-        }
+        // Extract the challenge and IV using pattern matching for type safety
+        let OpenSecureChannelOk::Success { challenge, iv } = response;
 
-        match response.payload() {
-            Some(payload) => {
-                if payload.len() != 48 {
-                    return Err(SecureProtocolError::Protocol(
-                        "Invalid response data length",
-                    ));
-                }
+        // Derive the session keys
+        let (enc_key, mac_key) =
+            derive_session_keys(shared_secret, &pairing_info.key.into(), &challenge);
 
-                // Generate the shared secret
-                let shared_secret = generate_ecdh_shared_secret(&host_private_key, card_public_key);
-
-                // Derive the session keys
-                let challenge = Challenge::from_slice(&payload[..32]);
-                let iv = Iv::<KeycardScp>::clone_from_slice(&payload[32..48]);
-                let (enc_key, mac_key) =
-                    derive_session_keys(shared_secret, &pairing_info.key, challenge);
-
-                Ok(Self {
-                    keys: Keys::new(enc_key, mac_key),
-                    iv,
-                })
-            }
-            None => Err(SecureProtocolError::Protocol("No response payload")),
-        }
+        Ok(Self {
+            keys: Keys::new(enc_key, mac_key),
+            iv,
+        })
     }
 
+    #[cfg(test)]
     pub fn from_raw(
         enc_key: &Key<KeycardScp>,
         mac_key: &Key<KeycardScp>,

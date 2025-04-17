@@ -1,10 +1,9 @@
 use nexum_apdu_macros::apdu_pair;
 
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use rand::RngCore;
 
 use crate::types::Signature;
-use nexum_apdu_core::response::error::ResponseError;
 
 use super::CLA_GP;
 
@@ -34,32 +33,30 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success {
-                    /// The response data
+                    /// The signature from the card of the challenge
                     signature: crate::types::Signature,
                 }
             }
 
             errors {
                 /// Wrong data
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data")]
                 WrongData,
             }
 
             custom_parse = |response: &nexum_apdu_core::Response| -> Result<IdentOk, IdentError> {
-                use nexum_apdu_core::ApduResponse;
-
                 match response.status() {
-                    status::SW_NO_ERROR => match response.payload() {
+                    SW_NO_ERROR => match response.payload() {
                         Some(payload) => Ok(IdentOk::Success {
                             signature: Signature::try_from(payload.as_ref())
-                                .map_err(|e| ResponseError::Message(e.to_string()))?,
+                                .map_err(|_| Error::ParseError("Unable to parse signature"))?,
                         }),
-                        None => Err(ResponseError::Parse("No payload data").into()),
+                        None => Err(Error::ParseError("No payload data"))?,
                     },
-                    status::SW_WRONG_DATA => Err(IdentError::WrongData),
+                    SW_WRONG_DATA => Err(IdentError::WrongData),
                     _ => Err(IdentError::Unknown { sw1: response.status().sw1, sw2: response.status().sw2 }),
                 }
             }

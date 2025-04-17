@@ -1,96 +1,116 @@
-use nexum_apdu_core::CardExecutor;
+//! Session management for the Keycard CLI
+
+use nexum_apdu_core::prelude::*;
 use nexum_apdu_transport_pcsc::PcscTransport;
-use nexum_keycard::{Keycard, ParsedSelectOk};
-use std::path::PathBuf;
-use tracing::{debug, info};
+use nexum_keycard::{ApplicationInfo, Keycard, KeycardSecureChannel, PairingInfo};
+use tracing::{debug, error};
 
-use super::{apply_pairing_info, prompt_for_pin};
+type KeycardExecutor = CardExecutor<KeycardSecureChannel<PcscTransport>>;
 
-/// Initialize a Keycard session with a transport
+/// Default input request handler (asks for PIN/PUK/etc)
+pub fn default_input_request(prompt: &str) -> String {
+    use std::io::{self, Write};
+    print!("{}: ", prompt);
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
+}
+
+/// Default confirmation handler
+pub fn default_confirmation(message: &str) -> bool {
+    use std::io::{self, Write};
+    print!("{} (y/n): ", message);
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    let input = input.trim().to_lowercase();
+    input == "y" || input == "yes"
+}
+
+/// Initialize a keycard from transport and select the application
 pub fn initialize_keycard(
     transport: PcscTransport,
-) -> Result<
-    (
-        Keycard<CardExecutor<PcscTransport, nexum_keycard::Error>>,
-        ParsedSelectOk,
-    ),
-    Box<dyn std::error::Error>,
-> {
-    let executor = CardExecutor::new(transport);
-    let mut keycard = Keycard::new(executor);
+) -> Result<(Keycard<KeycardExecutor>, ApplicationInfo), Box<dyn std::error::Error>> {
+    // Create a keycard secure channel around the transport
+    let secure_channel = KeycardSecureChannel::new(transport);
 
-    // Select Keycard application
-    info!("Selecting Keycard application...");
-    let select_response = keycard.select_keycard()?;
+    // Create a CardExecutor from the secure channel
+    let card_executor = CardExecutor::new(secure_channel);
 
-    Ok((keycard, select_response))
+    // Create input and confirmation callbacks
+    let input_callback = Box::new(default_input_request);
+    let confirmation_callback = Box::new(default_confirmation);
+
+    // Create a new keycard with the executor
+    let mut keycard = Keycard::new(card_executor, input_callback, confirmation_callback)?;
+
+    // Select the keycard application
+    let app_info = keycard.select_keycard()?;
+
+    Ok((keycard, app_info))
 }
 
-/// Ensure a secure channel is established
-pub fn ensure_secure_channel(
-    keycard: &mut Keycard<CardExecutor<PcscTransport, nexum_keycard::Error>>,
-    _response: &ParsedSelectOk,
-    file: Option<&PathBuf>,
-    key_hex: Option<&String>,
-    index: Option<u8>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if !keycard.is_secure_channel_open() {
-        // Apply pairing info if provided
-        apply_pairing_info(keycard, file, key_hex, index)?;
-
-        // Open secure channel - adding a fix for the parameter issue
-        debug!("Opening secure channel");
-        // The function signature may have changed - we'll adapt our call
-        keycard.open_secure_channel()?;
-        info!("Secure channel opened successfully");
-    }
-
-    Ok(())
-}
-
-/// Ensure PIN is verified
-pub fn ensure_pin_verified(
-    keycard: &mut Keycard<CardExecutor<PcscTransport, nexum_keycard::Error>>,
-    pin: Option<&String>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if !keycard.is_pin_verified() {
-        let pin_to_use = match pin {
-            Some(p) => p.clone(),
-            None => prompt_for_pin()?,
-        };
-
-        debug!("Verifying PIN");
-        keycard.verify_pin(|| pin_to_use)?;
-        info!("PIN verified successfully");
-    }
-
-    Ok(())
-}
-
-/// Setup a Keycard session with secure channel and PIN verification
-pub fn setup_session(
+/// Initialize a keycard with pairing information
+pub fn initialize_keycard_with_pairing(
     transport: PcscTransport,
-    pin: Option<&String>,
-    file: Option<&PathBuf>,
-    key_hex: Option<&String>,
-    index: Option<u8>,
-) -> Result<
-    (
-        Keycard<CardExecutor<PcscTransport, nexum_keycard::Error>>,
-        ParsedSelectOk,
-    ),
-    Box<dyn std::error::Error>,
-> {
-    // Initialize Keycard
-    let (mut keycard, response) = initialize_keycard(transport)?;
+    pairing_args: &crate::utils::PairingArgs,
+) -> Result<(Keycard<KeycardExecutor>, Option<ApplicationInfo>), Box<dyn std::error::Error>> {
+    // Create a keycard secure channel around the transport
+    let secure_channel = KeycardSecureChannel::new(transport);
 
-    // Ensure secure channel
-    ensure_secure_channel(&mut keycard, &response, file, key_hex, index)?;
+    // Create a CardExecutor from the secure channel
+    let card_executor = CardExecutor::new(secure_channel);
 
-    // Verify PIN if provided
-    if pin.is_some() {
-        ensure_pin_verified(&mut keycard, pin)?;
+    // Create input and confirmation callbacks
+    let input_callback = Box::new(default_input_request);
+    let confirmation_callback = Box::new(default_confirmation);
+
+    // Create a new keycard with the executor
+    let mut keycard = Keycard::new(card_executor, input_callback, confirmation_callback)?;
+
+    // If we have pairing information, try to load and establish a secure channel
+    let pairing_info = get_pairing_info(pairing_args)?;
+    if let Some(info) = pairing_info {
+        debug!("Using pairing info with index {}", info.index);
+        keycard.set_pairing_info(info);
     }
 
-    Ok((keycard, response))
+    // Select the keycard application
+    let app_info = keycard.select_keycard().ok();
+
+    // If we have pairing info, try to open a secure channel
+    if keycard.pairing_info().is_some() && app_info.is_some() {
+        debug!("Opening secure channel");
+        match keycard.open_secure_channel() {
+            Ok(_) => debug!("Secure channel established successfully"),
+            Err(e) => {
+                error!("Failed to open secure channel: {:?}", e);
+                // Continue without secure channel
+            }
+        }
+    }
+
+    Ok((keycard, app_info))
+}
+
+/// Extract pairing information from pairing arguments
+pub fn get_pairing_info(
+    pairing_args: &crate::utils::PairingArgs,
+) -> Result<Option<PairingInfo>, Box<dyn std::error::Error>> {
+    if let Some(file) = &pairing_args.file {
+        debug!("Loading pairing info from file: {:?}", file);
+        let pairing_info = crate::utils::load_pairing_from_file(file)?;
+        return Ok(Some(pairing_info));
+    } else if let (Some(key), Some(index)) = (&pairing_args.key, pairing_args.index) {
+        debug!("Using pairing info from command line arguments");
+        let key_bytes = alloy_primitives::hex::decode(key)?;
+        // Create PairingInfo with the key and index
+        return Ok(Some(PairingInfo {
+            key: key_bytes.try_into().unwrap(),
+            index,
+        }));
+    }
+
+    Ok(None)
 }

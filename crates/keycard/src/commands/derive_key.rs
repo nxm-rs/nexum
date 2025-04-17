@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use nexum_apdu_globalplatform::constants::status;
+use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
 use super::{CLA_GP, DeriveMode, KeyPath, prepare_derivation_parameters};
@@ -29,23 +29,23 @@ apdu_pair! {
         response {
             ok {
                 /// Success response
-                #[sw(status::SW_NO_ERROR)]
+                #[sw(SW_NO_ERROR)]
                 Success
             }
 
             errors {
                 /// Conditions not satisfied
-                #[sw(status::SW_CONDITIONS_NOT_SATISFIED)]
+                #[sw(SW_CONDITIONS_NOT_SATISFIED)]
                 #[error("Conditions not satisfied")]
                 ConditionsNotSatisfied,
 
                 /// Wrong P1/P2: Attempted to derive key less than Invalid derivation sequence
-                #[sw(status::SW_WRONG_P1P2)]
+                #[sw(SW_WRONG_P1P2)]
                 #[error("Wrong P1/P2: Invalid derivation sequence")]
                 WrongP1P2,
 
                 /// Error response
-                #[sw(status::SW_WRONG_DATA)]
+                #[sw(SW_WRONG_DATA)]
                 #[error("Wrong data: Derivation sequence is invalid")]
                 WrongData,
             }
