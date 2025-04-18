@@ -52,6 +52,48 @@ where
         })
     }
 
+    /// Create a new KeycardSigner using a transport and known credentials
+    ///
+    /// This method makes it easier to create a signer programmatically with
+    /// known credentials, which is useful for automated signing processes.
+    ///
+    /// # Arguments
+    ///
+    /// * `transport` - The transport to use for communicating with the card
+    /// * `pin` - The known PIN for the card
+    /// * `pairing_key` - The 32-byte pairing key as a byte array
+    /// * `pairing_index` - The pairing index (0-99)
+    /// * `path` - The derivation path to use for operations
+    pub async fn with_known_credentials(
+        transport: T,
+        pin: String,
+        pairing_key: [u8; 32],
+        pairing_index: u8,
+        path: DerivationPath,
+    ) -> Result<Self> 
+    where 
+        T: 'static,  // Add a static lifetime bound to T
+    {
+        // Create pairing info from the provided key and index
+        let pairing_info = nexum_keycard::PairingInfo {
+            key: pairing_key,
+            index: pairing_index,
+        };
+
+        // Create a keycard with known credentials - directly use the transport
+        let keycard = Keycard::with_known_credentials(
+            transport,
+            pin,
+            pairing_info,
+        ).map_err(|e| alloy_signer::Error::Other(Box::new(e)))?;
+
+        // Wrap the keycard in Arc<Mutex<_>>
+        let keycard_mutex = Arc::new(Mutex::new(keycard));
+
+        // Create the signer
+        Self::new(keycard_mutex, path).await
+    }
+
     pub async fn set_derivation_path(&mut self, path: DerivationPath) -> Result<()> {
         self.address = KeycardSigner::address_helper(self.inner.clone(), &path).await?;
         self.derivation_path = path;

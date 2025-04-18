@@ -3,27 +3,31 @@ name = "nexum-keycard"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords.workspace = true
+description = "Rust implementation for interacting with Keycards for secure key management"
 
 [dependencies]
 ## nexum-apdu
 nexum-apdu-core.workspace = true
 nexum-apdu-globalplatform.workspace = true
 nexum-apdu-macros.workspace = true
+nexum-apdu-transport-pcsc.workspace = true
 
 ## crypto
 alloy-primitives = { workspace = true, features = ["k256"] }
+cbc = { workspace = true, features = ["block-padding"] }
+coins-bip39 = { workspace = true, features = ["english"] }
 pbkdf2.workspace = true
 rand.workspace = true
 rand_v8.workspace = true
 sha2.workspace = true
 alloy-signer.workspace = true
 coins-bip32.workspace = true
-coins-bip39 = { workspace = true, features = ["english"] }
 aes.workspace = true
 block-padding.workspace = true
-cbc = { workspace = true, features = ["block-padding"] }
 cbc-mac.workspace = true
 cipher.workspace = true
 k256.workspace = true

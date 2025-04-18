@@ -3,8 +3,11 @@ name = "nexum-keycard-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
+keywords.workspace = true
+description = "Command-line interface for managing Keycards"
 
 [dependencies]
 ## nexum-apdu
@@ -19,6 +22,7 @@ nexum-keycard-signer.workspace = true
 
 ## ui
 clap = { workspace = true, features = ["derive"] }
+colored.workspace = true
 
 ## blockchain
 alloy-primitives = { workspace = true, features = ["hex-compat"] }

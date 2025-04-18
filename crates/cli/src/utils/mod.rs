@@ -1,5 +1,6 @@
 //! Utility functions and types for the Keycard CLI
 
+pub mod display;
 pub mod reader;
 pub mod session;
 

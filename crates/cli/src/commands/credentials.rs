@@ -13,6 +13,8 @@ pub fn change_credential_command(
     new_value: &str,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
@@ -36,7 +38,19 @@ pub fn change_credential_command(
     // Change the credential
     keycard.change_credential(cred_type, new_value, true)?;
 
-    println!("Successfully changed {}", credential_type);
+    println!(
+        "{}",
+        display::success(format!("Successfully changed {}", credential_type).as_str())
+    );
+
+    let title = format!("New {}", credential_type.to_uppercase());
+    println!(
+        "{}",
+        display::key_value_box(&title, vec![(
+            credential_type.to_uppercase().as_str(),
+            new_value.to_string()
+        )])
+    );
 
     Ok(())
 }
@@ -48,6 +62,8 @@ pub fn unblock_pin_command(
     new_pin: &str,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Validate PUK and new PIN
     validate_puk(puk)?;
     validate_pin(new_pin)?;
@@ -58,8 +74,15 @@ pub fn unblock_pin_command(
     // Unblock PIN
     keycard.unblock_pin(puk, new_pin, true)?;
 
-    println!("PIN unblocked successfully");
-    println!("New PIN: {}", new_pin);
+    println!("{}", display::success("PIN unblocked successfully"));
+    println!(
+        "{}",
+        display::key_value_box("New PIN", vec![("PIN", new_pin.to_string())])
+    );
+    println!(
+        "{}",
+        display::info("You can now use your card with this new PIN")
+    );
 
     Ok(())
 }

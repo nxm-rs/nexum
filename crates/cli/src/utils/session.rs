@@ -44,7 +44,7 @@ pub fn initialize_keycard(
     };
 
     // Create a new keycard with the executor
-    let keycard = Keycard::from_transport(
+    let keycard = Keycard::from_interactive(
         transport,
         input_callback,
         confirmation_callback,

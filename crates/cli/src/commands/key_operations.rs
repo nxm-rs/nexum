@@ -16,6 +16,8 @@ pub fn generate_key_command(
     transport: PcscTransport,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
@@ -23,8 +25,14 @@ pub fn generate_key_command(
     info!("Generating master key");
     let key_uid = keycard.generate_key(true)?;
 
-    println!("Key generated successfully");
-    println!("Key UID: 0x{}", hex::encode(key_uid));
+    println!("{}", display::success("Key generated successfully"));
+    println!(
+        "{}",
+        display::key_value_box("Key Details", vec![(
+            "UID",
+            format!("0x{}", hex::encode(key_uid))
+        )])
+    );
 
     Ok(())
 }
@@ -36,6 +44,8 @@ pub fn export_key_command(
     derivation_args: &utils::DerivationArgs,
     export_option: ExportOption,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
@@ -46,33 +56,53 @@ pub fn export_key_command(
     // Export the key
     let keypair = keycard.export_key(export_option, &path)?;
 
-    // Display the key information
     println!(
-        "Key at path {} exported successfully",
-        path.derivation_string()
+        "{}",
+        display::success(
+            format!(
+                "Key at path {} exported successfully",
+                path.derivation_string()
+            )
+            .as_str()
+        )
     );
+
+    // Build our key value items
+    let mut key_items = Vec::new();
 
     // Display public key if available
     if let Some(public_key) = keypair.public_key() {
-        println!(
-            "Public key: 0x{}",
-            hex::encode(public_key.to_sec1_bytes().as_ref())
-        );
-        println!(
-            "Ethereum address: {}",
-            Address::from_public_key(&public_key.into())
-        );
+        key_items.push((
+            "Public key",
+            format!("0x{}", hex::encode(public_key.to_sec1_bytes().as_ref())),
+        ));
+        key_items.push((
+            "Ethereum address",
+            Address::from_public_key(&public_key.into()).to_string(),
+        ));
     }
 
     // Display private key if available
     if let Some(private_key) = keypair.private_key() {
-        println!("Private key: 0x{}", hex::encode(private_key.to_bytes()));
+        key_items.push((
+            "Private key",
+            format!("0x{}", hex::encode(private_key.to_bytes())),
+        ));
     }
 
     // Display chain code if available
     if let Some(chain_code) = keypair.chain_code() {
-        println!("Chain code: 0x{}", hex::encode(chain_code));
+        key_items.push(("Chain code", format!("0x{}", hex::encode(chain_code))));
     }
+
+    // Convert key_items to proper types
+    let fixed_items: Vec<(&str, String)> = key_items
+        .into_iter()
+        .map(|(k, v)| (k, v.to_string()))
+        .collect();
+
+    // Display all key information in a box
+    println!("{}", display::key_value_box("Key Information", fixed_items));
 
     Ok(())
 }
@@ -84,6 +114,8 @@ pub async fn sign_command(
     derivation_args: &utils::DerivationArgs,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Parse the data from hex
     let data_bytes = hex::decode(data)?;
 
@@ -100,10 +132,24 @@ pub async fn sign_command(
     // The actual path derivation is handled internally by the keycard
     let signature = keycard.sign(&data_bytes, &derivation_path, true)?;
 
-    // Display the signature
     println!(
-        "Signature: {}",
-        signature.as_bytes().encode_hex_with_prefix()
+        "{}",
+        display::success(
+            format!(
+                "Data signed successfully with key at {}",
+                derivation_args.path_string()
+            )
+            .as_str()
+        )
+    );
+
+    // Display the signature in a box format
+    println!(
+        "{}",
+        display::key_value_box("Signature", vec![(
+            "Value",
+            signature.as_bytes().encode_hex_with_prefix().to_string()
+        )])
     );
 
     Ok(())
@@ -184,8 +230,19 @@ pub fn load_seed_command(
     }?;
 
     // Handle the result
-    println!("Key loaded successfully from seed phrase");
-    println!("Key UID: {}", result.encode_hex_with_prefix());
+    use crate::utils::display;
+
+    println!(
+        "{}",
+        display::success("Key loaded successfully from seed phrase")
+    );
+    println!(
+        "{}",
+        display::key_value_box("Key Details", vec![(
+            "UID",
+            result.encode_hex_with_prefix()
+        )])
+    );
 
     Ok(())
 }
@@ -195,13 +252,16 @@ pub fn remove_key_command(
     transport: PcscTransport,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Remove the key
     keycard.remove_key(true)?;
 
-    println!("Key removed successfully");
+    println!("{}", display::success("Key removed successfully"));
+    println!("{}", display::info("The card no longer has a key loaded"));
 
     Ok(())
 }
@@ -212,6 +272,8 @@ pub fn set_pinless_path_command(
     path: &str,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
@@ -221,7 +283,15 @@ pub fn set_pinless_path_command(
     // Set the PIN-less path
     keycard.set_pinless_path(Some(&derivation_path), false)?;
 
-    println!("PIN-less path set to: {}", path);
+    println!("{}", display::success("PIN-less path set successfully"));
+    println!(
+        "{}",
+        display::key_value_box("PIN-less Path", vec![("Path", path.to_string())])
+    );
+    println!(
+        "{}",
+        display::info("This path can now be used for signing without requiring a PIN")
+    );
 
     Ok(())
 }
@@ -232,14 +302,25 @@ pub fn generate_mnemonic_command(
     words_count: u8,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
+    use crate::utils::display;
+
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Generate mnemonic
     let mnemonic = keycard.generate_mnemonic(words_count)?;
 
-    println!("Generated {} word mnemonic:", words_count);
-    println!("{}", mnemonic.to_phrase());
+    println!(
+        "{}",
+        display::success(format!("Generated {} word mnemonic", words_count).as_str())
+    );
+    println!("{}", display::sensitive_data_warning());
+
+    // Display the mnemonic in a key value box
+    println!(
+        "{}",
+        display::key_value_box("MNEMONIC PHRASE", vec![("Phrase", mnemonic.to_phrase())])
+    );
 
     Ok(())
 }

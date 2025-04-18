@@ -125,6 +125,10 @@ pub enum Error {
     #[error("Operation cancelled by user")]
     UserCancelled,
 
+    /// User interaction error
+    #[error("User interaction error: {0}")]
+    UserInteractionError(String),
+
     //
     // Command-specific errors
     //

@@ -9,10 +9,7 @@ mod utils;
 use commands::Commands;
 
 #[derive(Parser)]
-#[command(
-    version,
-    about = "Nexum Keycard CLI - A tool for managing Status Keycard"
-)]
+#[command(version, about = "Nexum Keycard CLI - A tool for managing Keycard")]
 struct Cli {
     /// Optional reader name to use (will auto-detect if not specified)
     #[arg(short, long)]

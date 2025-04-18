@@ -18,6 +18,9 @@ pub use secrets::Secrets;
 pub use secure_channel::KeycardSecureChannel;
 pub use types::{ApplicationInfo, ApplicationStatus, Keypair, PairingInfo, PublicKey};
 
+pub use nexum_apdu_core::prelude::CardExecutor;
+pub use nexum_apdu_transport_pcsc::{PcscDeviceManager, PcscTransport};
+
 /// Represents the version of the applet protocol
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppletVersion {
