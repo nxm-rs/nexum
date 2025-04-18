@@ -1,8 +1,7 @@
-use bytes::Bytes;
 use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
-use super::{CLA_GP, DeriveMode, KeyPath, prepare_derivation_parameters};
+use super::CLA_GP;
 
 apdu_pair! {
     /// DERIVE KEY command for Keycard
@@ -11,19 +10,6 @@ apdu_pair! {
             cla: CLA_GP,
             ins: 0xD1,
             required_security_level: SecurityLevel::mac_protected(),
-
-            builders {
-                /// Create a DERIVE_KEY command with the specified parameters.
-                pub fn with(key_path: &KeyPath, derive_mode: Option<DeriveMode>) -> Result<Self, crate::Error> {
-                    let (p1, data) = prepare_derivation_parameters(key_path, derive_mode)?;
-                    let command = Self::new(p1, 0x00).with_le(0);
-
-                    Ok(match data {
-                        Some(data) => command.with_data(Bytes::from(data)),
-                        None => command,
-                    })
-                }
-            }
         }
 
         response {

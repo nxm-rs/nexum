@@ -55,10 +55,6 @@ pub enum Commands {
         /// Pairing info for secure channel
         #[command(flatten)]
         pairing: crate::utils::PairingArgs,
-
-        /// Optional derivation path (e.g. m/44'/60'/0'/0/0)
-        #[arg(long)]
-        path: Option<String>,
     },
 
     /// Export the current key from the card
@@ -67,9 +63,13 @@ pub enum Commands {
         #[command(flatten)]
         pairing: crate::utils::PairingArgs,
 
-        /// Optional derivation path (e.g. m/44'/60'/0'/0/0)
-        #[arg(long)]
-        path: Option<String>,
+        /// Derivation path arguments
+        #[command(flatten)]
+        derivation: crate::utils::DerivationArgs,
+
+        /// Export option (what parts of the key to export)
+        #[arg(long = "export-option", value_enum, default_value_t = nexum_keycard::ExportOption::PublicKeyOnly)]
+        export_option: nexum_keycard::ExportOption,
     },
 
     /// Sign data with the current key
@@ -78,9 +78,9 @@ pub enum Commands {
         #[arg(required = true)]
         data: String,
 
-        /// Optional derivation path (e.g. m/44'/60'/0'/0/0)
-        #[arg(long)]
-        path: Option<String>,
+        /// Derivation path arguments
+        #[command(flatten)]
+        derivation: crate::utils::DerivationArgs,
 
         /// Pairing info for secure channel
         #[command(flatten)]
@@ -118,8 +118,8 @@ pub enum Commands {
 
     /// Set a PIN-less path for signature operations
     SetPinlessPath {
-        /// Derivation path (e.g. m/44'/60'/0'/0/0)
-        #[arg(required = true)]
+        /// Derivation path (e.g. m/44'/60'/0'/0/0) - required for this command
+        #[arg(long, required = true)]
         path: String,
 
         /// Pairing info for secure channel

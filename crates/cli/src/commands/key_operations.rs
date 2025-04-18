@@ -1,5 +1,6 @@
 //! Commands for key management operations
 
+use alloy_primitives::Address;
 use alloy_primitives::hex::{self, ToHexExt};
 use coins_bip32::path::DerivationPath;
 use nexum_apdu_transport_pcsc::PcscTransport;
@@ -14,7 +15,6 @@ use crate::utils;
 pub fn generate_key_command(
     transport: PcscTransport,
     pairing_args: &utils::PairingArgs,
-    _path: Option<&String>,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
@@ -33,30 +33,34 @@ pub fn generate_key_command(
 pub fn export_key_command(
     transport: PcscTransport,
     pairing_args: &utils::PairingArgs,
-    path: Option<&String>,
+    derivation_args: &utils::DerivationArgs,
+    export_option: ExportOption,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
+    // Parse the derivation path
+    let path = derivation_args.parse_derivation_path()?;
+    info!("Exporting key with path: {}", derivation_args.path_string());
+
     // Export the key
-    let keypair = if let Some(derivation_path) = path {
-        info!("Exporting key with path: {}", derivation_path);
-        // Parse the derivation path
-        let path = DerivationPath::from_str(derivation_path)?;
-        keycard.export_key_from_master(ExportOption::PrivateAndPublic, Some(&path), false, true)?
-    } else {
-        info!("Exporting current key");
-        keycard.export_key(ExportOption::PrivateAndPublic)?
-    };
+    let keypair = keycard.export_key(export_option, &path)?;
 
     // Display the key information
-    println!("Key exported successfully");
+    println!(
+        "Key at path {} exported successfully",
+        path.derivation_string()
+    );
 
     // Display public key if available
     if let Some(public_key) = keypair.public_key() {
         println!(
             "Public key: 0x{}",
             hex::encode(public_key.to_sec1_bytes().as_ref())
+        );
+        println!(
+            "Ethereum address: {}",
+            Address::from_public_key(&public_key.into())
         );
     }
 
@@ -77,7 +81,7 @@ pub fn export_key_command(
 pub async fn sign_command(
     transport: PcscTransport,
     data: &str,
-    path: Option<&String>,
+    derivation_args: &utils::DerivationArgs,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Parse the data from hex
@@ -86,25 +90,15 @@ pub async fn sign_command(
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
-    // Sign the data
-    let signature = if let Some(derivation_path_str) = path {
-        let derivation_path = DerivationPath::from_str(derivation_path_str)?;
-        info!(
-            "Signing with key at path: {}",
-            derivation_path.derivation_string()
-        );
-        // In this case, just sign with current key
-        // The actual path derivation is handled internally by the keycard
-        // and we are not passing a KeyPath object directly
-        keycard.sign(
-            &data_bytes,
-            nexum_keycard::KeyPath::FromMaster(Some(derivation_path)),
-            false,
-        )?
-    } else {
-        info!("Signing with current key");
-        keycard.sign(&data_bytes, nexum_keycard::KeyPath::Current, false)?
-    };
+    // Parse the derivation path
+    let derivation_path = derivation_args.parse_derivation_path()?;
+    info!(
+        "Signing with key at path: {}",
+        derivation_args.path_string()
+    );
+
+    // The actual path derivation is handled internally by the keycard
+    let signature = keycard.sign(&data_bytes, &derivation_path, true)?;
 
     // Display the signature
     println!(

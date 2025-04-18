@@ -2,8 +2,10 @@ use bytes::{Bytes, BytesMut};
 use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
-use super::{CLA_GP, DeriveMode, KeyPath, prepare_derivation_parameters};
+use super::{CLA_GP, DERIVE_FROM_MASTER, DERIVE_FROM_PINLESS, derivation_path_to_bytes};
 use crate::types::Signature;
+
+use coins_bip32::path::DerivationPath;
 
 apdu_pair! {
     /// SIGN command for Keycard
@@ -17,28 +19,21 @@ apdu_pair! {
                 /// Create a SIGN command
                 pub fn with(
                     data: &[u8; 32],
-                    key_path: &KeyPath,
-                    derive_mode: Option<DeriveMode>,
+                    path: &DerivationPath,
                 ) -> Result<Self, crate::Error> {
-                    let (p1, path_data) = prepare_derivation_parameters(key_path, derive_mode)?;
+                    let path_data = derivation_path_to_bytes(path);
 
                     // Combine data and path
-                    let buf = match path_data {
-                        Some(path_data) => {
-                            let mut buf = BytesMut::with_capacity(data.len() + path_data.len());
-                            buf.extend(data);
-                            buf.extend(path_data);
-                            buf.freeze()
-                        }
-                        None => Bytes::copy_from_slice(data.as_slice()),
-                    };
+                    let mut buf = BytesMut::with_capacity(data.len() + path_data.len());
+                    buf.extend(data);
+                    buf.extend(path_data);
 
-                    Ok(Self::new(p1, 0x00).with_data(buf).with_le(0))
+                    Ok(Self::new(DERIVE_FROM_MASTER, 0x00).with_data(buf.freeze()).with_le(0))
                 }
 
                 /// Sign with pinless path
                 pub fn with_pinless(data: &[u8; 32]) -> Self {
-                    Self::new(0x03, 0x00).with_data(Bytes::copy_from_slice(data.as_slice()))
+                    Self::new(DERIVE_FROM_PINLESS, 0x00).with_data(Bytes::copy_from_slice(data.as_slice()))
                 }
             }
         }

@@ -12,6 +12,29 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::str::FromStr;
+use coins_bip32::path::DerivationPath;
+
+/// Arguments for derivation path
+#[derive(Args, Debug, Clone)]
+pub struct DerivationArgs {
+    /// Derivation path (e.g. m/44'/60'/0'/0/0)
+    #[arg(long, default_value = "m/44'/60'/0'/0/0")]
+    pub path: String,
+}
+
+impl DerivationArgs {
+    /// Parse the derivation path
+    pub fn parse_derivation_path(&self) -> Result<DerivationPath, Box<dyn Error>> {
+        let path = DerivationPath::from_str(&self.path)?;
+        Ok(path)
+    }
+    
+    /// Get the path string representation
+    pub fn path_string(&self) -> &str {
+        &self.path
+    }
+}
 
 /// Common arguments for pairing information
 #[derive(Args, Debug, Clone)]

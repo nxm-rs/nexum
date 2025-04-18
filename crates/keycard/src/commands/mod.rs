@@ -1,6 +1,6 @@
-use coins_bip32::path::DerivationPath;
-
 pub mod derive_key;
+use bytes::{Bytes, BytesMut};
+use coins_bip32::path::DerivationPath;
 pub use derive_key::*;
 pub mod export_key;
 pub use export_key::*;
@@ -41,9 +41,10 @@ pub use store_data::*;
 pub mod unpair;
 pub use unpair::*;
 
-use crate::Error;
-
 pub const CLA_GP: u8 = 0x80;
+
+pub const DERIVE_FROM_MASTER: u8 = 0x01;
+pub const DERIVE_FROM_PINLESS: u8 = 0x03;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
@@ -56,91 +57,11 @@ pub enum PersistentRecord {
     Cashcard = 0x02,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum KeyPath {
-    /// Use the current key path (no derivation)
-    Current,
-    /// Derive from master key
-    FromMaster(Option<DerivationPath>),
-    /// Derive from parent key
-    FromParent(DerivationPath),
-    /// Derive from current key
-    FromCurrent(DerivationPath),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DeriveMode {
-    /// Derive without changing the current path (0x01)
-    Temporary = 0x01,
-    /// Derive and make it the new current path (0x02)
-    Persistent = 0x02,
-}
-
-/// Helper function to convert a derivation path to bytes
-fn path_to_bytes(path: &DerivationPath) -> Vec<u8> {
+pub(crate) fn derivation_path_to_bytes(path: &DerivationPath) -> Bytes {
     path.iter()
-        .flat_map(|&component| component.to_be_bytes())
-        .collect()
-}
-
-/// Prepares parameters for key derivation and export commands
-pub(crate) fn prepare_derivation_parameters(
-    key_path: &KeyPath,
-    derive_mode: Option<DeriveMode>,
-) -> Result<(u8, Option<Vec<u8>>), Error> {
-    match key_path {
-        KeyPath::Current => {
-            // No derivation, using current key
-            if derive_mode.is_some() {
-                return Err(crate::Error::InvalidDerivationArguments(
-                    "Derive mode should not be specified when using current key".into(),
-                ));
-            }
-            Ok((0x00, None))
-        }
-        KeyPath::FromMaster(path_opt) => {
-            // Derive from master
-            let derive_option = match derive_mode {
-                None => {
-                    return Err(Error::InvalidDerivationArguments(
-                        "Derive mode must be specified when deriving".into(),
-                    ));
-                }
-                Some(mode) => mode as u8,
-            };
-
-            let source_option = 0x00; // Master source
-            let p1 = derive_option | source_option;
-
-            // Convert path to bytes if provided, otherwise None
-            let data = path_opt.as_ref().map(path_to_bytes);
-
-            Ok((p1, data))
-        }
-        KeyPath::FromParent(path) | KeyPath::FromCurrent(path) => {
-            // Derive from parent or current
-            let derive_option = match derive_mode {
-                None => {
-                    return Err(Error::InvalidDerivationArguments(
-                        "Derive mode must be specified when deriving".into(),
-                    ));
-                }
-                Some(mode) => mode as u8,
-            };
-
-            // Set the source option based on key path
-            let source_option = match key_path {
-                KeyPath::FromParent(_) => 0x40,  // Parent source
-                KeyPath::FromCurrent(_) => 0x80, // Current source
-                _ => unreachable!(), // We're in a match arm that only handles these two variants
-            };
-
-            let p1 = derive_option | source_option;
-
-            // Convert path to bytes
-            let data = Some(path_to_bytes(path));
-
-            Ok((p1, data))
-        }
-    }
+        .fold(BytesMut::new(), |mut bytes, component| {
+            bytes.extend_from_slice(&component.to_be_bytes());
+            bytes
+        })
+        .freeze()
 }

@@ -67,17 +67,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     commands::init_command(transport, pin, puk, pairing_password, output.as_ref())?
                 }
                 Commands::Pair { output } => commands::pair_command(transport, output.as_ref())?,
-                Commands::GenerateKey { pairing, path } => {
-                    commands::generate_key_command(transport, pairing, path.as_ref())?
+                Commands::GenerateKey { pairing } => {
+                    commands::generate_key_command(transport, pairing)?
                 }
-                Commands::ExportKey { pairing, path } => {
-                    commands::export_key_command(transport, pairing, path.as_ref())?
-                }
+                Commands::ExportKey {
+                    pairing,
+                    derivation,
+                    export_option,
+                } => commands::export_key_command(transport, pairing, derivation, *export_option)?,
                 Commands::Sign {
                     data,
-                    path,
+                    derivation,
                     pairing,
-                } => commands::sign_command(transport, data, path.as_ref(), pairing).await?,
+                } => commands::sign_command(transport, data, derivation, pairing).await?,
                 Commands::ChangeCredential {
                     credential_type,
                     new_value,
@@ -114,12 +116,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     record_type,
                     data,
                     pairing,
-                } => commands::store_data_command(
-                    transport,
-                    *record_type,
-                    data.as_bytes(),
-                    pairing,
-                )?,
+                } => {
+                    commands::store_data_command(transport, *record_type, data.as_bytes(), pairing)?
+                }
                 Commands::GetData {
                     record_type,
                     pairing,

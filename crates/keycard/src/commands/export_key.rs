@@ -3,13 +3,17 @@ use nexum_apdu_macros::apdu_pair;
 
 use crate::Keypair;
 
-use super::{CLA_GP, DeriveMode, KeyPath, prepare_derivation_parameters};
+use super::{CLA_GP, DERIVE_FROM_MASTER, derivation_path_to_bytes};
 use coins_bip32::path::DerivationPath;
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum ExportOption {
+    /// Export both private and public key
     PrivateAndPublic = 0x00,
+    /// Export only the public key
     PublicKeyOnly = 0x01,
+    /// Export extended public key (with chain code)
     ExtendedPublicKey = 0x02,
 }
 
@@ -22,77 +26,14 @@ apdu_pair! {
             required_security_level: SecurityLevel::full(),
 
             builders {
-                /// Export the current key without derivation
-                pub fn from_current(what: ExportOption) -> Result<Self, crate::Error> {
-                    let command = Self::new(0x00, what as u8).with_le(0);
-                    Ok(command)
-                }
-
-                /// Export a key derived from the master key
-                pub fn from_master(
-                    what: ExportOption,
-                    path: Option<&DerivationPath>,
-                    make_current: bool,
-                ) -> Result<Self, crate::Error> {
-                    let derive_mode = if make_current {
-                        DeriveMode::Persistent
-                    } else {
-                        DeriveMode::Temporary
-                    };
-
-                    let key_path = match path {
-                        Some(path) => KeyPath::FromMaster(Some(path.clone())),
-                        None => KeyPath::FromMaster(None),
-                    };
-
-                    Self::with(what, &key_path, Some(derive_mode))
-                }
-
-                /// Export a key derived from the parent key
-                pub fn from_parent(
-                    what: ExportOption,
-                    path: &DerivationPath,
-                    make_current: bool,
-                ) -> Result<Self, crate::Error> {
-                    let derive_mode = if make_current {
-                        DeriveMode::Persistent
-                    } else {
-                        DeriveMode::Temporary
-                    };
-
-                    let key_path = KeyPath::FromParent(path.clone());
-                    Self::with(what, &key_path, Some(derive_mode))
-                }
-
-                /// Export a key derived from the current key
-                pub fn from_current_with_derivation(
-                    what: ExportOption,
-                    path: &DerivationPath,
-                    make_current: bool,
-                ) -> Result<Self, crate::Error> {
-                    let derive_mode = if make_current {
-                        DeriveMode::Persistent
-                    } else {
-                        DeriveMode::Temporary
-                    };
-
-                    let key_path = KeyPath::FromCurrent(path.clone());
-                    Self::with(what, &key_path, Some(derive_mode))
-                }
-
                 /// General purpose method (prefer using the more specific builders above)
-                pub fn with(
+                pub fn from_path(
                     what: ExportOption,
-                    key_path: &KeyPath,
-                    derive_mode: Option<DeriveMode>,
-                ) -> Result<Self, crate::Error> {
-                    let (p1, path_data) = prepare_derivation_parameters(key_path, derive_mode)?;
-
-                    let command = Self::new(p1, what as u8).with_le(0);
-                    Ok(match path_data {
-                        Some(path_data) => command.with_data(path_data),
-                        None => command,
-                    })
+                    derivation_path: &DerivationPath,
+                ) -> Self {
+                    Self::new(DERIVE_FROM_MASTER, what as u8)
+                        .with_le(0)
+                        .with_data(derivation_path_to_bytes(derivation_path))
                 }
             }
         }

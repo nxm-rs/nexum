@@ -17,6 +17,7 @@ alloy-consensus.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 parking_lot.workspace = true
+coins-bip32.workspace = true
 
 ## keycard
 nexum-keycard.workspace = true

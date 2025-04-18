@@ -449,138 +449,9 @@ where
     /// - `ExportOption::PrivateAndPublic` → Returns `ExportedKey::Complete`
     /// - `ExportOption::PublicKeyOnly` → Returns `ExportedKey::PublicOnly`
     /// - `ExportOption::ExtendedPublicKey` → Returns `ExportedKey::Extended`
-    pub fn export_key(&mut self, what: ExportOption) -> Result<ExportedKey> {
+    pub fn export_key(&mut self, what: ExportOption, path: &DerivationPath) -> Result<ExportedKey> {
         // Create command to export current key
-        let cmd = ExportKeyCommand::from_current(what)?;
-
-        // Execute the command
-        let response = self.executor.execute_secure(&cmd)?;
-
-        // Extract the keypair from the response
-        let ExportKeyOk::Success { keypair } = response;
-
-        // Convert to appropriate ExportedKey type based on what was requested
-        ExportedKey::try_from_keypair(keypair, what)
-    }
-
-    /// Export a key derived from the master key
-    ///
-    /// Returns an `ExportedKey` enum which contains the key data in a format that matches
-    /// the requested export option:
-    /// - `ExportOption::PrivateAndPublic` → Returns `ExportedKey::Complete`
-    /// - `ExportOption::PublicKeyOnly` → Returns `ExportedKey::PublicOnly`
-    /// - `ExportOption::ExtendedPublicKey` → Returns `ExportedKey::Extended`
-    pub fn export_key_from_master(
-        &mut self,
-        what: ExportOption,
-        path: Option<&DerivationPath>,
-        make_current: bool,
-        confirm: bool,
-    ) -> Result<ExportedKey> {
-        if make_current
-            && confirm
-            && !self.confirm_operation("Make the key derived from master the current key?")
-        {
-            return Err(Error::UserCancelled);
-        }
-
-        // Create command to export key derived from master
-        let cmd = ExportKeyCommand::from_master(what, path, make_current)?;
-
-        // Execute the command
-        let response = self.executor.execute_secure(&cmd)?;
-
-        // Extract the keypair from the response
-        let ExportKeyOk::Success { keypair } = response;
-
-        // Convert to appropriate ExportedKey type based on what was requested
-        ExportedKey::try_from_keypair(keypair, what)
-    }
-
-    /// Export a key derived from the parent key
-    ///
-    /// Returns an `ExportedKey` enum which contains the key data in a format that matches
-    /// the requested export option:
-    /// - `ExportOption::PrivateAndPublic` → Returns `ExportedKey::Complete`
-    /// - `ExportOption::PublicKeyOnly` → Returns `ExportedKey::PublicOnly`
-    /// - `ExportOption::ExtendedPublicKey` → Returns `ExportedKey::Extended`
-    pub fn export_key_from_parent(
-        &mut self,
-        what: ExportOption,
-        path: &DerivationPath,
-        make_current: bool,
-        confirm: bool,
-    ) -> Result<ExportedKey> {
-        if make_current && confirm && !self.confirm_operation("Make derived key current?") {
-            return Err(Error::UserCancelled);
-        }
-
-        // Create command to export key derived from parent
-        let cmd = ExportKeyCommand::from_parent(what, path, make_current)?;
-
-        // Execute the command
-        let response = self.executor.execute_secure(&cmd)?;
-
-        // Extract the keypair from the response
-        let ExportKeyOk::Success { keypair } = response;
-
-        // Convert to appropriate ExportedKey type based on what was requested
-        ExportedKey::try_from_keypair(keypair, what)
-    }
-
-    /// Export a key derived from the current key
-    ///
-    /// Returns an `ExportedKey` enum which contains the key data in a format that matches
-    /// the requested export option:
-    /// - `ExportOption::PrivateAndPublic` → Returns `ExportedKey::Complete`
-    /// - `ExportOption::PublicKeyOnly` → Returns `ExportedKey::PublicOnly`
-    /// - `ExportOption::ExtendedPublicKey` → Returns `ExportedKey::Extended`
-    pub fn export_key_from_current(
-        &mut self,
-        what: ExportOption,
-        path: &DerivationPath,
-        make_current: bool,
-        confirm: bool,
-    ) -> Result<ExportedKey> {
-        if make_current && confirm && !self.confirm_operation("Make derived key current?") {
-            return Err(Error::UserCancelled);
-        }
-
-        // Create command to export key derived from current
-        let cmd = ExportKeyCommand::from_current_with_derivation(what, path, make_current)?;
-
-        // Execute the command
-        let response = self.executor.execute_secure(&cmd)?;
-
-        // Extract the keypair from the response
-        let ExportKeyOk::Success { keypair } = response;
-
-        // Convert to appropriate ExportedKey type based on what was requested
-        ExportedKey::try_from_keypair(keypair, what)
-    }
-
-    /// Export a key with full control over derivation options (legacy method)
-    ///
-    /// Returns an `ExportedKey` enum which contains the key data in a format that matches
-    /// the requested export option:
-    /// - `ExportOption::PrivateAndPublic` → Returns `ExportedKey::Complete`
-    /// - `ExportOption::PublicKeyOnly` → Returns `ExportedKey::PublicOnly`
-    /// - `ExportOption::ExtendedPublicKey` → Returns `ExportedKey::Extended`
-    pub fn export_key_with_options(
-        &mut self,
-        what: ExportOption,
-        key_path: &KeyPath,
-        derive_mode: Option<DeriveMode>,
-    ) -> Result<ExportedKey> {
-        if let Some(DeriveMode::Persistent) = derive_mode {
-            let confirmed = self.confirm_operation("Make derived key current?");
-            if !confirmed {
-                return Err(Error::Message("Operation cancelled".to_string()));
-            }
-        }
-
-        // Create the export key command
-        let cmd = ExportKeyCommand::with(what, key_path, derive_mode)?;
+        let cmd = ExportKeyCommand::from_path(what, path);
 
         // Execute the command
         let response = self.executor.execute_secure(&cmd)?;
@@ -596,20 +467,16 @@ where
     pub fn sign(
         &mut self,
         data: &[u8],
-        key_path: KeyPath,
+        path: &DerivationPath,
         confirm: bool,
     ) -> Result<alloy_primitives::Signature> {
-        // Create description for confirmation
-        let path_str = match &key_path {
-            KeyPath::Current => "current key".to_string(),
-            KeyPath::FromMaster(Some(path)) => format!("master key with path {:?}", path),
-            KeyPath::FromMaster(None) => "master key".to_string(),
-            KeyPath::FromParent(path) => format!("parent key with path {:?}", path),
-            KeyPath::FromCurrent(path) => format!("current key with path {:?}", path),
-        };
-
         // Confirm the operation if a confirmation function is provided
-        if confirm && !self.confirm_operation(&format!("Sign data using {}?", path_str)) {
+        if confirm
+            && !self.confirm_operation(&format!(
+                "Sign data with key from path {}?",
+                path.derivation_string()
+            ))
+        {
             return Err(Error::UserCancelled);
         }
 
@@ -622,14 +489,8 @@ where
             .try_into()
             .map_err(|_| Error::InvalidData("Failed to convert data to 32-byte array"))?;
 
-        // If KeyPath is Current or FromCurrent variant, we should set the derive_mode parameter to None.
-        let derive_mode = match key_path {
-            KeyPath::Current | KeyPath::FromCurrent(_) => None,
-            _ => Some(DeriveMode::Temporary),
-        };
-
         // Create sign command
-        let cmd = SignCommand::with(&data_array, &key_path, derive_mode)?;
+        let cmd = SignCommand::with(&data_array, path)?;
 
         // Execute the command
         let SignOk::Success { signature } = self.executor.execute_secure(&cmd)?;
