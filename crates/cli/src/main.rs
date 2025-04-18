@@ -62,10 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     pin,
                     puk,
                     pairing_password,
-                    output,
-                } => {
-                    commands::init_command(transport, pin, puk, pairing_password, output.as_ref())?
-                }
+                } => commands::init_command(transport, pin, puk, pairing_password)?,
                 Commands::Pair { output } => commands::pair_command(transport, output.as_ref())?,
                 Commands::GenerateKey { pairing } => {
                     commands::generate_key_command(transport, pairing)?
@@ -102,7 +99,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     password,
                     language,
                     pairing,
-                } => commands::load_seed_command(transport, *password, &language, pairing)?,
+                } => commands::load_seed_command(transport, *password, language, pairing)?,
                 Commands::RemoveKey { pairing } => {
                     commands::remove_key_command(transport, pairing)?
                 }

@@ -123,9 +123,8 @@ fn connect_globalplatform(
     // Create keys based on option
     let gp = if use_default_key {
         // Use default keys (via DefaultGlobalPlatform)
-        let default_gp = DefaultGlobalPlatform::connect(&reader_name)
-            .map_err(|e| format!("Failed to connect to the reader: {}", e))?;
-        default_gp
+        DefaultGlobalPlatform::connect(&reader_name)
+            .map_err(|e| format!("Failed to connect to the reader: {}", e))?
     } else {
         // Use Keycard development keys
         // Create a key type that the SCP02 protocol can use

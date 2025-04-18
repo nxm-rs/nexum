@@ -211,57 +211,6 @@ impl<E: Executor> Keycard<E> {
         Ok(keycard)
     }
 
-    /// Set the callback for requesting input
-    pub fn with_input_callback<F>(mut self, callback: F) -> Self
-    where
-        F: Fn(&str) -> String + Send + Sync + 'static,
-    {
-        self.input_request_callback = Box::new(callback);
-        self
-    }
-
-    /// Set the callback for confirming critical operations
-    pub fn with_confirmation_callback<F>(mut self, callback: F) -> Self
-    where
-        F: Fn(&str) -> bool + Send + Sync + 'static,
-    {
-        self.confirmation_callback = Box::new(callback);
-        self
-    }
-
-    /// Get a reference to the executor
-    pub fn executor(&self) -> &E {
-        &self.executor
-    }
-
-    /// Get a mutable reference to the executor
-    pub fn executor_mut(&mut self) -> &mut E {
-        &mut self.executor
-    }
-
-    /// Set or update the pairing info for this Keycard
-    pub fn set_pairing_info(&mut self, pairing_info: PairingInfo) {
-        self.pairing_info = Some(pairing_info);
-    }
-
-    /// Load pairing information from external source
-    ///
-    /// This method allows setting up the Keycard with pairing information that was previously saved.
-    /// It returns an error if the card public key is not available, which is needed for secure channel.
-    pub fn load_pairing(&mut self, pairing_info: PairingInfo) -> Result<()> {
-        // Check if we have card public key (needed for secure channel)
-        if self.card_public_key.is_none() {
-            return Err(Error::Message(
-                "Card public key is required to load pairing".to_string(),
-            ));
-        }
-
-        // Store the pairing info
-        self.pairing_info = Some(pairing_info);
-
-        Ok(())
-    }
-
     /// Get the pairing info for this Keycard
     pub fn pairing_info(&self) -> Option<&PairingInfo> {
         self.pairing_info.as_ref()

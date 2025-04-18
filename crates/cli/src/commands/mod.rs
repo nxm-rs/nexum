@@ -39,10 +39,6 @@ pub enum Commands {
         /// Optional pairing password (default is random)
         #[arg(long)]
         pairing_password: Option<String>,
-
-        /// Optional output file to save pairing info
-        #[arg(short, long)]
-        output: Option<PathBuf>,
     },
 
     /// Pair with a Keycard

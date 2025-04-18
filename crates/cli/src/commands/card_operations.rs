@@ -26,7 +26,6 @@ pub fn init_command(
     pin: &Option<String>,
     puk: &Option<String>,
     pairing_password: &Option<String>,
-    output_file: Option<&PathBuf>,
 ) -> Result<(), Box<dyn Error>> {
     // Create a keycard instance
     let mut keycard = utils::session::initialize_keycard(transport, None)?;
@@ -50,18 +49,10 @@ pub fn init_command(
     keycard.initialize(&secrets, true)?;
 
     println!("Keycard initialized successfully!");
-    println!("Secrets (SAVE THESE!):");
+    println!("Secrets (SAVE THESE - THEY WON'T BE SHOWN AGAIN!):");
     println!("  PIN: {}", secrets.pin());
     println!("  PUK: {}", secrets.puk());
     println!("  Pairing password: {}", secrets.pairing_pass());
-
-    // Save pairing info if requested
-    if let Some(path) = output_file {
-        if let Some(pairing_info) = keycard.pairing_info() {
-            utils::save_pairing_to_file(pairing_info, path)?;
-            println!("Pairing information saved to {:?}", path);
-        }
-    }
 
     Ok(())
 }
