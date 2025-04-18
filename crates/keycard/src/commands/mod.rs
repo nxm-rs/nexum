@@ -45,7 +45,8 @@ use crate::Error;
 
 pub const CLA_GP: u8 = 0x80;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum PersistentRecord {
     /// Store general public data
     Public = 0x00,

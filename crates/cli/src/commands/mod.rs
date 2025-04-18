@@ -140,13 +140,13 @@ pub enum Commands {
 
     /// Store arbitrary data on the card
     StoreData {
-        /// Type tag for the data (0-255)
-        #[arg(long, default_value = "0")]
-        type_tag: u8,
-
         /// Data to store
         #[arg(required = true)]
         data: String,
+
+        /// Record type to use
+        #[arg(long = "record-type", value_enum, default_value_t = nexum_keycard::PersistentRecord::Public)]
+        record_type: nexum_keycard::PersistentRecord,
 
         /// Pairing info for secure channel
         #[command(flatten)]
@@ -155,9 +155,9 @@ pub enum Commands {
 
     /// Retrieve data from the card
     GetData {
-        /// Type tag of the data to retrieve (0-255)
-        #[arg(long, default_value = "0")]
-        type_tag: u8,
+        /// Record type to retrieve
+        #[arg(long = "record-type", value_enum, default_value_t = nexum_keycard::PersistentRecord::Public)]
+        record_type: nexum_keycard::PersistentRecord,
 
         /// Pairing info for secure channel
         #[command(flatten)]

@@ -111,13 +111,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     pairing,
                 } => commands::generate_mnemonic_command(transport, *words_count, pairing)?,
                 Commands::StoreData {
-                    type_tag,
+                    record_type,
                     data,
                     pairing,
-                } => commands::store_data_command(transport, *type_tag, data.as_bytes(), pairing)?,
-                Commands::GetData { type_tag, pairing } => {
-                    commands::get_data_command(transport, *type_tag, pairing)?
-                }
+                } => commands::store_data_command(
+                    transport,
+                    *record_type,
+                    data.as_bytes(),
+                    pairing,
+                )?,
+                Commands::GetData {
+                    record_type,
+                    pairing,
+                } => commands::get_data_command(transport, *record_type, pairing)?,
             }
         }
     }

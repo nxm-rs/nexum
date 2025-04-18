@@ -1805,6 +1805,7 @@ dependencies = [
  "cbc",
  "cbc-mac",
  "cipher",
+ "clap",
  "coins-bip32",
  "coins-bip39",
  "derive_more",

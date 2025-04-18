@@ -49,3 +49,8 @@ rand_v8.workspace = true
 default = ["std", "zeroize"]
 std = ["thiserror", "nexum-apdu-core/std", "cipher/std", "cbc-mac/std"]
 zeroize = ["dep:zeroize", "cipher/zeroize", "aes/zeroize"]
+cli = ["dep:clap"]
+
+[dependencies.clap]
+workspace = true
+optional = true

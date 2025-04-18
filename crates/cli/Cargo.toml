@@ -14,7 +14,7 @@ nexum-apdu-globalplatform.workspace = true
 nexum-apdu-transport-pcsc.workspace = true
 
 ## keycard crates
-nexum-keycard.workspace = true
+nexum-keycard = { workspace = true, features = ["cli"] }
 nexum-keycard-signer.workspace = true
 
 ## ui

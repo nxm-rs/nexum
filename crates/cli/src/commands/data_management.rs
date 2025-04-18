@@ -11,25 +11,21 @@ use crate::utils;
 /// Store data on the card
 pub fn store_data_command(
     transport: PcscTransport,
-    type_tag: u8,
+    record: PersistentRecord,
     data: &[u8],
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
-    // Convert type_tag to PersistentRecord
-    let record = match type_tag {
-        0 => PersistentRecord::Public,
-        1 => PersistentRecord::Ndef,
-        2 => PersistentRecord::Cashcard,
-        _ => PersistentRecord::Public, // Default to Public for unknown tags
-    };
-
-    // Store the data with the provided tag
+    // Store the data with the provided record type
+    let record_label = format!("{:?}", record);
     keycard.store_data(record, data)?;
 
-    println!("Data stored successfully with tag: {}", type_tag);
+    println!(
+        "Data stored successfully using {} record type",
+        record_label
+    );
 
     Ok(())
 }
@@ -37,7 +33,7 @@ pub fn store_data_command(
 /// Retrieve data from the card
 pub fn get_data_command(
     transport: PcscTransport,
-    type_tag: u8,
+    record: PersistentRecord,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
@@ -49,20 +45,13 @@ pub fn get_data_command(
         keycard.open_secure_channel()?;
     }
 
-    // Convert type_tag to PersistentRecord
-    let record = match type_tag {
-        0 => PersistentRecord::Public,
-        1 => PersistentRecord::Ndef,
-        2 => PersistentRecord::Cashcard,
-        _ => PersistentRecord::Public, // Default to Public for unknown tags
-    };
-
     // Get the data by record type
+    let record_label = format!("{:?}", record);
     let data = keycard.get_data(record)?;
 
     println!(
-        "Retrieved data with tag {}: {}",
-        type_tag,
+        "Retrieved data from {} record: {}",
+        record_label,
         hex::encode(&data)
     );
 
