@@ -1833,6 +1833,7 @@ dependencies = [
  "alloy-network",
  "alloy-primitives",
  "alloy-signer",
+ "cipher",
  "clap",
  "coins-bip32",
  "iso7816-tlv",

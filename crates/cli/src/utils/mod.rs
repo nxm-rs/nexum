@@ -5,6 +5,7 @@ pub mod session;
 
 use alloy_primitives::hex;
 use clap::Args;
+use coins_bip32::path::DerivationPath;
 use nexum_keycard::PairingInfo;
 use rand::Rng;
 use rand::distr::Alphanumeric;
@@ -13,7 +14,6 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
-use coins_bip32::path::DerivationPath;
 
 /// Arguments for derivation path
 #[derive(Args, Debug, Clone)]
@@ -29,7 +29,7 @@ impl DerivationArgs {
         let path = DerivationPath::from_str(&self.path)?;
         Ok(path)
     }
-    
+
     /// Get the path string representation
     pub fn path_string(&self) -> &str {
         &self.path

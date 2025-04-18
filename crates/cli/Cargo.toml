@@ -26,6 +26,8 @@ alloy-network.workspace = true
 alloy-signer.workspace = true
 alloy-consensus.workspace = true
 
+cipher.workspace = true
+
 ## misc
 tracing.workspace = true
 iso7816-tlv.workspace = true

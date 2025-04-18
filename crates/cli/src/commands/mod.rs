@@ -4,12 +4,14 @@ use std::error::Error;
 use std::path::PathBuf;
 
 // Re-export command handlers
+mod applet;
 mod card_operations;
 mod credentials;
 mod data_management;
 mod key_operations;
 
 // Re-export all command handlers
+pub use applet::*;
 pub use card_operations::*;
 pub use credentials::*;
 pub use data_management::*;
@@ -205,6 +207,10 @@ pub enum Commands {
 
     /// Factory reset the card
     FactoryReset,
+
+    /// Applet management commands
+    #[command(subcommand)]
+    Applet(applet::AppletCommands),
 }
 
 /// List all available readers
