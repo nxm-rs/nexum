@@ -64,7 +64,7 @@ impl<E: Executor> Keycard<E> {
         let app_info = select_keycard_with_transport(&mut transport)?;
 
         // Get the card's public key - this is required for secure channel
-        let card_public_key = match app_info.public_key.clone() {
+        let card_public_key = match app_info.public_key {
             Some(key) => key,
             None => {
                 return Err(Error::Message(
@@ -123,7 +123,7 @@ impl<E: Executor> Keycard<E> {
 
                     debug!(
                         "Using pairing key and index: {} (index: {})",
-                        hex::encode(&key),
+                        hex::encode(key),
                         index
                     );
 
@@ -135,7 +135,7 @@ impl<E: Executor> Keycard<E> {
         };
 
         // Configure the secure channel with the providers
-        secure_channel.configure_providers(card_public_key.clone(), pairing_provider, pin_provider);
+        secure_channel.configure_providers(card_public_key, pairing_provider, pin_provider);
 
         // Create an executor from the secure channel
         let executor = E::from(CardExecutor::new(secure_channel));

@@ -3,7 +3,6 @@
 use nexum_apdu_transport_pcsc::PcscTransport;
 use nexum_keycard::CredentialType;
 use std::error::Error;
-use tracing::debug;
 
 use crate::utils;
 
@@ -55,12 +54,6 @@ pub fn unblock_pin_command(
 
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
-
-    // We need a secure channel for unblocking PIN
-    if !keycard.is_secure_channel_open() && keycard.pairing_info().is_some() {
-        debug!("Opening secure channel");
-        keycard.open_secure_channel()?;
-    }
 
     // Unblock PIN
     keycard.unblock_pin(puk, new_pin, true)?;

@@ -4,7 +4,6 @@ use alloy_primitives::hex;
 use nexum_apdu_transport_pcsc::PcscTransport;
 use nexum_keycard::PersistentRecord;
 use std::error::Error;
-use tracing::debug;
 
 use crate::utils;
 
@@ -39,19 +38,14 @@ pub fn get_data_command(
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
-    // We need a secure channel to get data
-    if !keycard.is_secure_channel_open() && keycard.pairing_info().is_some() {
-        debug!("Opening secure channel");
-        keycard.open_secure_channel()?;
-    }
-
     // Get the data by record type
     let record_label = format!("{:?}", record);
     let data = keycard.get_data(record)?;
 
     println!(
-        "Retrieved data from {} record: {}",
+        "Retrieved data from {} record (length: {} bytes): {}",
         record_label,
+        data.len(),
         hex::encode(&data)
     );
 

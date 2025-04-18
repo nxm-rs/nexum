@@ -73,25 +73,22 @@ impl fmt::Display for ApplicationInfo {
         writeln!(f, "Application Info:")?;
         writeln!(f, "  Instance UID: {}", hex::encode(self.instance_uid))?;
 
-        if let Some(ref public_key) = self.public_key {
-            writeln!(
-                f,
-                "  Public Key: {}",
-                public_key.to_sec1_bytes().encode_hex_with_prefix()
-            )?;
-        } else {
-            writeln!(f, "  Public Key: None")?;
-        }
-
         writeln!(f, "  Version: {}", self.version)?;
-        writeln!(f, "  Remaining Slots: {}", self.remaining_slots)?;
+        writeln!(f, "  Remaining pairing slots: {}", self.remaining_slots)?;
 
         if let Some(ref key_uid) = self.key_uid {
             writeln!(f, "  Key UID: {}", key_uid.encode_hex_with_prefix())?;
         } else {
-            writeln!(f, "  Key UID: None")?;
+            writeln!(f, "  Key UID: None (Use GENERATE KEY)")?;
         }
 
-        write!(f, "  Capabilities: {}", self.capabilities)
+        writeln!(f, "  Capabilities: {}", self.capabilities)?;
+
+        write!(f, "  Secure channel public key: ")?;
+        if let Some(ref public_key) = self.public_key {
+            write!(f, "{}", public_key.to_sec1_bytes().encode_hex_with_prefix())
+        } else {
+            write!(f, "None")
+        }
     }
 }

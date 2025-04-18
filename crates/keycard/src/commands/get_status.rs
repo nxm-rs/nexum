@@ -69,7 +69,13 @@ apdu_pair! {
                                     status,
                                 })
                             },
-                            _ => Err(GetStatusError::IncorrectP1P2),
+                            // When it is currently the master key, there is no derivation path, therefore
+                            // there will be no payload returned.
+                            None => {
+                                Ok(GetStatusOk::KeyPathStatus {
+                                    path: DerivationPath::default(),
+                                })
+                            }
                         }
                     }
                     SW_INCORRECT_P1P2 => Err(GetStatusError::IncorrectP1P2),

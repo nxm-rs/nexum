@@ -56,6 +56,6 @@ impl fmt::Display for ApplicationStatus {
         writeln!(f, "Application Status:")?;
         writeln!(f, "  PIN retries remaining: {}", self.pin_retry_count)?;
         writeln!(f, "  PUK retries remaining: {}", self.puk_retry_count)?;
-        writeln!(f, "  Key initialized: {}", self.key_initialized)
+        write!(f, "  Key initialized: {}", self.key_initialized)
     }
 }

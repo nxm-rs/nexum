@@ -35,6 +35,14 @@ apdu_pair! {
                 #[error("Incorrect P1/P2: The record specified is not valid")]
                 IncorrectP1P2,
             }
+
+            custom_parse = |response: &nexum_apdu_core::Response| -> Result<GetDataOk, GetDataError> {
+                match response.status() {
+                    SW_NO_ERROR => Ok(GetDataOk::Success { data: response.payload().as_ref().unwrap_or(&Bytes::new()).to_vec() }),
+                    SW_INCORRECT_P1P2 => Err(GetDataError::IncorrectP1P2),
+                    _ => Err(GetDataError::Unknown { sw1: response.status().sw1, sw2: response.status().sw2 }),
+                }
+            }
         }
     }
 }

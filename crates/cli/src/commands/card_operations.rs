@@ -15,27 +15,7 @@ pub fn select_command(transport: PcscTransport) -> Result<(), Box<dyn Error>> {
 
     // Display card info
     info!("Keycard applet selected successfully.");
-    println!("Card Info:");
-    println!(
-        "  Instance: {}",
-        alloy_primitives::hex::encode(app_info.instance_uid)
-    );
-    println!("  Version: {}", app_info.version);
-    println!("  Free slots: {}", app_info.remaining_slots);
-    println!("  Capabilities: {}", app_info.capabilities);
-
-    match app_info.key_uid {
-        Some(key_uid) => println!("  Key UID: {}", alloy_primitives::hex::encode(key_uid)),
-        None => println!("  Key UID: None (use GENERATE KEY)"),
-    }
-
-    match app_info.public_key {
-        Some(public_key) => println!(
-            "  Secure channel public Key: {}",
-            alloy_primitives::hex::encode(public_key.to_sec1_bytes())
-        ),
-        None => println!("  Secure channel public Key: None"),
-    }
+    println!("{}", app_info);
 
     Ok(())
 }
@@ -145,31 +125,15 @@ pub fn get_status_command(
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
-    // Display basic card info
-    if let Ok(info) = keycard.select_keycard() {
-        println!("Card Info:");
-        println!(
-            "  Instance: {}",
-            alloy_primitives::hex::encode(info.instance_uid)
-        );
-        println!("  Version: {}", info.version);
-        println!("  Free slots: {}", info.remaining_slots);
-    }
+    // Given that can get pairing information, we can fetch all the data
+    let application_info = keycard.select_keycard()?;
+    let application_status = keycard.get_status()?;
+    let path = keycard.get_key_path()?;
 
-    // Try to get more detailed status if we have a secure channel
-    if let Ok(status) = keycard.get_status() {
-        println!("\nDetailed Status:");
-        println!("  PIN retry count: {}", status.pin_retry_count);
-        println!("  PUK retry count: {}", status.puk_retry_count);
-        println!("  Key initialized: {}", status.key_initialized);
-
-        // Show key path if available
-        if let Ok(path) = keycard.get_key_path() {
-            println!("  Current key path: {:?}", path);
-        } else {
-            println!("  No key path set");
-        }
-    }
+    // Display the information we have fetched
+    println!("{}", application_info);
+    println!("{}", application_status);
+    println!("  Current key path: {}", path.derivation_string());
 
     Ok(())
 }
