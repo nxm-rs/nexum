@@ -202,6 +202,9 @@ pub enum Commands {
         #[command(flatten)]
         pairing: crate::utils::PairingArgs,
     },
+
+    /// Factory reset the card
+    FactoryReset,
 }
 
 /// List all available readers

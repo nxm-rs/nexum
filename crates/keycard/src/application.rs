@@ -566,6 +566,22 @@ where
         Ok(())
     }
 
+    /// Factory reset the card
+    pub fn factory_reset(&mut self, confirm: bool) -> Result<()> {
+        // Confirm the operation if a confirmation function is provided
+        if confirm && !self.confirm_operation("Factory reset the card? This will erase all data.") {
+            return Err(Error::UserCancelled);
+        }
+
+        // Create the factory reset command
+        let cmd = FactoryResetCommand::reset();
+
+        // Execute the command
+        self.executor.execute(&cmd)?;
+
+        Ok(())
+    }
+
     /// Remove the current key from the card
     pub fn remove_key(&mut self, confirm: bool) -> Result<()> {
         // Check if the card supports key management

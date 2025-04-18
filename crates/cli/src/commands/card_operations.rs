@@ -128,12 +128,21 @@ pub fn get_status_command(
     // Given that can get pairing information, we can fetch all the data
     let application_info = keycard.select_keycard()?;
     let application_status = keycard.get_status()?;
-    let path = keycard.get_key_path()?;
 
     // Display the information we have fetched
     println!("{}", application_info);
     println!("{}", application_status);
-    println!("  Current key path: {}", path.derivation_string());
+
+    Ok(())
+}
+
+/// Factory reset the card
+pub fn factory_reset_command(transport: PcscTransport) -> Result<(), Box<dyn Error>> {
+    // Initialize keycard with no pairing info (no secure channel / pairing required for FACTORY RESET)
+    let mut keycard = utils::session::initialize_keycard(transport, None)?;
+
+    // Factory reset the card
+    keycard.factory_reset(true)?;
 
     Ok(())
 }

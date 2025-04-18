@@ -123,6 +123,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     record_type,
                     pairing,
                 } => commands::get_data_command(transport, *record_type, pairing)?,
+                Commands::FactoryReset => commands::factory_reset_command(transport)?,
             }
         }
     }
