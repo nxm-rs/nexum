@@ -110,29 +110,82 @@ pub async fn sign_command(
 }
 
 /// Load an existing key
-pub fn load_key_command(
+pub fn load_seed_command(
     transport: PcscTransport,
-    seed: &str,
+    password: bool,
+    language: &str,
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
-    // Check if the seed looks like a hex string and decode it
-    let seed_bytes = if seed.len() >= 2 && seed.starts_with("0x") {
-        hex::decode(&seed[2..])?
-    } else if seed.chars().all(|c| c.is_ascii_hexdigit()) {
-        hex::decode(seed)?
-    } else {
-        // We assume it's a mnemonic phrase, but we need to do a manual conversion
-        // since we don't have direct access to BIP39 from here
-        return Err("Mnemonic phrases are not supported yet. Please use hex seed instead.".into());
+    // Handle seed phrase input
+    // Import necessary components for BIP39
+    use coins_bip39::Mnemonic;
+    use coins_bip39::{
+        ChineseSimplified, ChineseTraditional, Czech, English, French, Italian, Japanese, Korean,
+        Portuguese, Spanish,
     };
 
-    // Load the key from seed
-    keycard.load_seed(&seed_bytes.try_into().unwrap(), true)?;
+    // Get mnemonic phrase from user using the utility function
+    let mnemonic_phrase = utils::session::default_input_request("Enter your seed phrase");
 
-    println!("Key loaded successfully");
+    // Get password if requested
+    let password = if password {
+        // User specified the --password flag, so prompt for it
+        Some(utils::session::default_input_request(
+            "Enter password for seed phrase",
+        ))
+    } else {
+        None
+    };
+
+    // Use a generic function to handle different language wordlists
+    fn parse_and_load_seed<L>(
+        phrase: &str,
+        password: Option<String>,
+        keycard: &mut nexum_keycard::Keycard<
+            nexum_apdu_core::prelude::CardExecutor<
+                nexum_keycard::KeycardSecureChannel<nexum_apdu_transport_pcsc::PcscTransport>,
+            >,
+        >,
+    ) -> Result<[u8; 32], Box<dyn Error>>
+    where
+        L: coins_bip39::Wordlist,
+    {
+        // Parse the mnemonic phrase
+        let mnemonic = Mnemonic::<L>::new_from_phrase(phrase)
+            .map_err(|e| format!("Failed to parse mnemonic: {}", e))?;
+
+        // Load the key from seed
+        Ok(match password {
+            Some(p) => keycard.load_seed(&mnemonic.to_seed(Some(&p))?, true)?,
+            None => keycard.load_seed(&mnemonic.to_seed(None)?, true)?,
+        })
+    }
+
+    // Call the appropriate function based on the selected language
+    let result = match language {
+        "english" => parse_and_load_seed::<English>(&mnemonic_phrase, password, &mut keycard),
+        "chinese_simplified" => {
+            parse_and_load_seed::<ChineseSimplified>(&mnemonic_phrase, password, &mut keycard)
+        }
+        "chinese_traditional" => {
+            parse_and_load_seed::<ChineseTraditional>(&mnemonic_phrase, password, &mut keycard)
+        }
+        "czech" => parse_and_load_seed::<Czech>(&mnemonic_phrase, password, &mut keycard),
+        "french" => parse_and_load_seed::<French>(&mnemonic_phrase, password, &mut keycard),
+        "italian" => parse_and_load_seed::<Italian>(&mnemonic_phrase, password, &mut keycard),
+        "japanese" => parse_and_load_seed::<Japanese>(&mnemonic_phrase, password, &mut keycard),
+        "korean" => parse_and_load_seed::<Korean>(&mnemonic_phrase, password, &mut keycard),
+        "portuguese" => parse_and_load_seed::<Portuguese>(&mnemonic_phrase, password, &mut keycard),
+        "spanish" => parse_and_load_seed::<Spanish>(&mnemonic_phrase, password, &mut keycard),
+        _ => return Err(format!("Unsupported language: {}", language).into()),
+    }?;
+
+    // Handle the result
+    println!("Key loaded successfully from seed phrase");
+    println!("Key UID: {}", result.encode_hex_with_prefix());
 
     Ok(())
 }

@@ -130,10 +130,14 @@ pub enum Commands {
     },
 
     /// Load an existing key onto the card
-    LoadKey {
-        /// BIP39 seed or private key in hex format
-        #[arg(required = true)]
-        seed: String,
+    LoadKeyFromSeed {
+        /// Optional password for seed phrase
+        #[arg(long)]
+        password: bool,
+
+        /// Language for the wordlist
+        #[arg(long, value_parser = ["english", "chinese_simplified", "chinese_traditional", "czech", "french", "italian", "japanese", "korean", "portuguese", "spanish"], default_value = "english")]
+        language: String,
 
         /// Pairing info for secure channel
         #[command(flatten)]

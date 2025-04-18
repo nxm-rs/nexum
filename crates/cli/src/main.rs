@@ -98,9 +98,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Commands::SetPinlessPath { path, pairing } => {
                     commands::set_pinless_path_command(transport, path, pairing)?
                 }
-                Commands::LoadKey { seed, pairing } => {
-                    commands::load_key_command(transport, seed, pairing)?
-                }
+                Commands::LoadKeyFromSeed {
+                    password,
+                    language,
+                    pairing,
+                } => commands::load_seed_command(transport, *password, &language, pairing)?,
                 Commands::RemoveKey { pairing } => {
                     commands::remove_key_command(transport, pairing)?
                 }

@@ -1836,6 +1836,7 @@ dependencies = [
  "cipher",
  "clap",
  "coins-bip32",
+ "coins-bip39",
  "iso7816-tlv",
  "nexum-apdu-core",
  "nexum-apdu-globalplatform",

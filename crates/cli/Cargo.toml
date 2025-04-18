@@ -33,5 +33,6 @@ tracing.workspace = true
 iso7816-tlv.workspace = true
 tracing-subscriber.workspace = true
 coins-bip32.workspace = true
+coins-bip39 = { workspace = true, features = ["all-langs"] }
 tokio = { workspace = true, features = ["full"] }
 rand = { workspace = true }
