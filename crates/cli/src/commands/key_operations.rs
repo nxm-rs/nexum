@@ -20,9 +20,6 @@ pub fn generate_key_command(
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
 
-    // Verify PIN
-    keycard.verify_pin()?;
-
     // Generate a new key
     info!("Generating master key");
     let key_uid = keycard.generate_key(true)?;
@@ -42,8 +39,6 @@ pub fn export_key_command(
     // Initialize keycard with pairing info
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
-
-    keycard.verify_pin()?;
 
     // Export the key
     let keypair = if let Some(derivation_path) = path {
@@ -94,8 +89,6 @@ pub async fn sign_command(
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
 
-    keycard.verify_pin()?;
-
     // Sign the data
     let signature = if let Some(derivation_path_str) = path {
         let derivation_path = DerivationPath::from_str(derivation_path_str)?;
@@ -135,8 +128,6 @@ pub fn load_key_command(
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
 
-    keycard.verify_pin()?;
-
     // Check if the seed looks like a hex string and decode it
     let seed_bytes = if seed.len() >= 2 && seed.starts_with("0x") {
         hex::decode(&seed[2..])?
@@ -165,8 +156,6 @@ pub fn remove_key_command(
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
 
-    keycard.verify_pin()?;
-
     // Remove the key
     keycard.remove_key(true)?;
 
@@ -184,8 +173,6 @@ pub fn set_pinless_path_command(
     // Initialize keycard with pairing info
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
-
-    keycard.verify_pin()?;
 
     // Parse the derivation path
     let derivation_path = DerivationPath::from_str(path)?;

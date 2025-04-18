@@ -287,15 +287,6 @@ where
             return Err(Error::Message("No card public key available".to_string()));
         }
 
-        // Get underlying transport to initialize session
-        let transport = self.executor.transport_mut();
-
-        // Initialize session with pairing info and card public key
-        transport.initialize_session(
-            self.card_public_key.as_ref().unwrap(),
-            self.pairing_info.as_ref().unwrap(),
-        )?;
-
         // Open the secure channel
         self.executor.open_secure_channel().map_err(Error::from)
     }
@@ -319,49 +310,6 @@ where
         self.pairing_info = Some(pairing_info.clone());
 
         Ok(pairing_info)
-    }
-
-    /// Establish a secure session with the card
-    ///
-    /// This method provides a convenient way to perform all the steps needed to establish
-    /// a secure session with the card: pairing, opening secure channel, and verifying PIN.
-    /// If pairing info is already available, it will use that instead of pairing again.
-    pub fn establish_session(&mut self, verify_pin: bool) -> Result<()> {
-        // Check if we need to pair
-        if self.pairing_info.is_none() {
-            // Perform pairing
-            self.pair()?;
-        }
-
-        // Open secure channel
-        self.open_secure_channel()?;
-
-        // Verify PIN if requested
-        if verify_pin {
-            self.verify_pin()?;
-        }
-
-        Ok(())
-    }
-
-    /// Verify the PIN to gain full access
-    /// This requires a secure channel with PIN verification capability
-    pub fn verify_pin(&mut self) -> Result<()> {
-        // Check if the card supports credentials management
-        self.capabilities
-            .require_capability(Capability::CredentialsManagement)?;
-
-        // Get the PIN from the user
-        let pin = self.request_input("Enter your PIN");
-
-        // Get the transport and directly call its verify_pin method
-        let transport = self.executor.transport_mut();
-
-        // Call verify_pin on the transport which will handle both
-        // command execution and security level update
-        transport.verify_pin(&pin)?;
-
-        Ok(())
     }
 
     /// Get the status of the Keycard application

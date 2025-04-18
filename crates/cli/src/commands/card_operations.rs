@@ -115,8 +115,6 @@ pub fn unpair_command(
         return Err("Pairing information is required for unpair command".into());
     }
 
-    keycard.verify_pin()?;
-
     // Unpair
     let index = keycard.pairing_info().unwrap().index;
     info!("Removing pairing with index {} from card", index);

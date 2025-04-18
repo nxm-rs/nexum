@@ -15,40 +15,50 @@ use crate::session::Session;
 use crate::types::PairingInfo;
 use crate::{Challenge, MutuallyAuthenticateOk, PairCommand, PairOk};
 
-/// Extension trait for KeycardSecureChannel functionality
+/// Extension trait for KeycardSecureChannel functionality (pairing)
 pub trait KeycardSecureChannelExt: CardTransport {
-    /// Initialize a session with card public key and pairing info
-    fn initialize_session(
-        &mut self,
-        card_public_key: &k256::PublicKey,
-        pairing_info: &PairingInfo,
-    ) -> crate::Result<()>;
-
     /// Pair with the card using a password
     fn pair(&mut self, password: &str) -> crate::Result<PairingInfo>;
-
-    /// Verify PIN to gain secure access
-    fn verify_pin(&mut self, pin: &str) -> crate::Result<bool>;
 }
 
-/// Implement the extension trait for KeycardSecureChannel
 impl<T: CardTransport> KeycardSecureChannelExt for KeycardSecureChannel<T> {
-    fn initialize_session(
-        &mut self,
-        card_public_key: &k256::PublicKey,
-        pairing_info: &PairingInfo,
-    ) -> crate::Result<()> {
-        self.initialize_session(card_public_key, pairing_info)
-            .map_err(crate::Error::from)
-    }
-
     fn pair(&mut self, password: &str) -> crate::Result<PairingInfo> {
         self.pair(password).map_err(crate::Error::from)
     }
+}
 
-    fn verify_pin(&mut self, pin: &str) -> crate::Result<bool> {
-        self.verify_pin(pin).map_err(crate::Error::from)
+/// Callback function type for requesting pairing information
+pub type PairingCallback = Box<dyn Fn() -> PairingInfo + Send + Sync>;
+
+/// Provider for pairing information
+pub enum PairingProvider {
+    /// Concrete pairing information
+    Info(PairingInfo),
+    /// Callback to request pairing information when needed
+    Callback(PairingCallback),
+}
+
+impl PairingProvider {
+    /// Get the pairing info from this provider
+    pub fn info(&self) -> crate::Result<&PairingInfo> {
+        match self {
+            Self::Info(info) => Ok(info),
+            Self::Callback(_) => Err(crate::Error::Message(
+                "Cannot get info directly from callback".to_string(),
+            )),
+        }
     }
+}
+
+/// Callback function type for requesting PIN
+pub type PinCallback = Box<dyn Fn() -> String + Send + Sync>;
+
+/// Provider for PIN information
+pub enum PinProvider {
+    /// Concrete PIN string
+    Pin(String),
+    /// Callback to request PIN when needed
+    Callback(PinCallback),
 }
 
 /// Secure Channel Protocol implementation for Keycard
@@ -61,11 +71,17 @@ pub struct KeycardSecureChannel<T: CardTransport> {
     security_level: SecurityLevel,
     /// Whether the secure channel is established
     established: bool,
+    /// Provider for pairing information
+    pairing_provider: Option<PairingProvider>,
+    /// Provider for PIN information
+    pin_provider: Option<PinProvider>,
+    /// Card public key for session initialization
+    card_public_key: Option<k256::PublicKey>,
 }
 
 impl<T: CardTransport> fmt::Debug for KeycardSecureChannel<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("KeycardSCP")
+        f.debug_struct("KeycardSecureChannel")
             .field("security_level", &self.security_level)
             .field("established", &self.established)
             .field("session_initialized", &self.session.is_some())
@@ -82,29 +98,27 @@ impl<T: CardTransport> KeycardSecureChannel<T> {
             session: None,
             security_level: SecurityLevel::none(),
             established: false,
+            pairing_provider: None,
+            pin_provider: None,
+            card_public_key: None,
         }
     }
 
-    /// Initialize the session for this secure channel using existing pairing info and public key
-    /// This prepares the session but does not establish the secure channel yet
-    pub fn initialize_session(
-        &mut self,
-        card_public_key: &k256::PublicKey,
-        pairing_info: &PairingInfo,
-    ) -> crate::Result<()> {
-        // Create a new session
-        let session = Session::new(card_public_key, pairing_info, &mut self.transport)?;
-
-        // Store the session
-        self.session = Some(session);
-
-        // Mutually authenticate
-        match self.authenticate() {
-            Ok(_) => Ok(()),
-            Err(err) => {
-                self.session = None;
-                Err(err)
-            }
+    /// Create a new secure channel with authentication providers
+    pub fn new_with_providers(
+        transport: T,
+        card_public_key: k256::PublicKey,
+        pairing_provider: PairingProvider,
+        pin_provider: PinProvider,
+    ) -> Self {
+        Self {
+            transport,
+            session: None,
+            security_level: SecurityLevel::none(),
+            established: false,
+            pairing_provider: Some(pairing_provider),
+            pin_provider: Some(pin_provider),
+            card_public_key: Some(card_public_key),
         }
     }
 
@@ -167,10 +181,104 @@ impl<T: CardTransport> KeycardSecureChannel<T> {
         }
     }
 
-    /// Verify PIN using the PIN request callback if available
-    pub fn verify_pin(&mut self, pin: &str) -> crate::Result<bool> {
-        if !self.is_established() {
-            return Err(Error::other("Secure channel not established").into());
+    /// Initialize the session for this secure channel using existing pairing info.
+    fn initialize_session(
+        &mut self,
+        card_public_key: Option<&k256::PublicKey>,
+        pairing_info: Option<&PairingInfo>,
+    ) -> crate::Result<()> {
+        // Determine the card public key to use
+        let card_key = match card_public_key {
+            Some(key) => {
+                // If a key is provided, store it for future use
+                self.card_public_key = Some(*key);
+                key
+            }
+            None => {
+                // Otherwise use the stored key
+                self.card_public_key.as_ref().ok_or_else(|| {
+                    crate::Error::Message("Card public key not provided and not stored".to_string())
+                })?
+            }
+        };
+
+        // Determine pairing info to use
+        let pairing = match pairing_info {
+            Some(info) => info,
+            None => {
+                match &mut self.pairing_provider {
+                    Some(PairingProvider::Info(info)) => info,
+                    Some(PairingProvider::Callback(callback)) => {
+                        // Call the callback to get the pairing info
+                        let info = callback();
+                        // Replace the callback with the obtained info to avoid calling it again
+                        self.pairing_provider = Some(PairingProvider::Info(info.clone()));
+                        match &self.pairing_provider {
+                            Some(provider) => provider.info()?,
+                            None => unreachable!(),
+                        }
+                    }
+                    None => {
+                        return Err(crate::Error::Message(
+                            "No pairing information provided".to_string(),
+                        ));
+                    }
+                }
+            }
+        };
+
+        // Create a new session
+        let session = Session::new(card_key, pairing, &mut self.transport)?;
+
+        // Store the session
+        self.session = Some(session);
+
+        Ok(())
+    }
+
+    /// Perform mutual authentication to establish the secure channel
+    fn authenticate(&mut self) -> crate::Result<()> {
+        debug!("Starting mutual authentication process");
+
+        // Generate a random challenge
+        let mut challenge = Challenge::default();
+        rng().fill_bytes(&mut challenge);
+
+        // Create the command
+        let cmd = MutuallyAuthenticateCommand::with_challenge(&challenge);
+
+        // Send through transport
+        let response_bytes = self.transmit_raw(&cmd.to_command().to_bytes())?;
+
+        // Parse the response
+        match MutuallyAuthenticateCommand::parse_response_raw(response_bytes) {
+            Ok(response) => {
+                // If we end up here, we can verify that we are using the same MAC key as the card
+                // and therefore mutual authentication was successful
+                let MutuallyAuthenticateOk::Success { cryptogram } = response;
+                debug!(
+                    response = %encode(cryptogram),
+                    "Mutual authentication successful"
+                );
+
+                // Update state
+                self.established = true;
+                self.security_level = SecurityLevel::enc_mac();
+
+                Ok(())
+            }
+            Err(_) => {
+                self.close()?;
+                Err(crate::Error::MutualAuthenticationFailed)
+            }
+        }
+    }
+
+    /// Verify PIN using the provided PIN string or the callback if available
+    fn verify_pin(&mut self, pin: &str) -> Result<bool, Error> {
+        // Make sure that we're at least at enc mac level for PIN verification
+        if !self.security_level.satisfies(&SecurityLevel::enc_mac()) {
+            self.open()?;
         }
 
         // Create the command
@@ -322,41 +430,6 @@ impl<T: CardTransport> KeycardSecureChannel<T> {
             }
         }
     }
-
-    /// Perform mutual authentication to establish the secure channel
-    fn authenticate(&mut self) -> crate::Result<()> {
-        debug!("Starting mutual authentication process");
-
-        // Generate a random challenge
-        let mut challenge = Challenge::default();
-        rng().fill_bytes(&mut challenge);
-
-        // Create the command
-        let cmd = MutuallyAuthenticateCommand::with_challenge(&challenge);
-
-        // Send through transport
-        let response_bytes = self.transmit_raw(&cmd.to_command().to_bytes())?;
-
-        // Parse the response
-        match MutuallyAuthenticateCommand::parse_response_raw(response_bytes) {
-            Ok(response) => {
-                // If we end up here, we can verify that we are using the same MAC key as the card
-                // and therefore mutual authentication was successful
-                let MutuallyAuthenticateOk::Success { cryptogram } = response;
-                debug!(
-                    response = %encode(cryptogram),
-                    "Mutual authentication successful"
-                );
-
-                // Update state
-                self.established = true;
-                self.security_level = SecurityLevel::enc_mac();
-
-                Ok(())
-            }
-            Err(_) => Err(crate::Error::MutualAuthenticationFailed),
-        }
-    }
 }
 
 impl<T: CardTransport> SecureChannel for KeycardSecureChannel<T> {
@@ -377,9 +450,15 @@ impl<T: CardTransport> SecureChannel for KeycardSecureChannel<T> {
 
         // Check if session has been initialized
         if self.session.is_none() {
-            return Err(Error::other(
-                "Session not initialized. Call initialize_session() first",
-            ));
+            // Initialize session if we have the necessary providers
+            if self.card_public_key.is_some() && self.pairing_provider.is_some() {
+                self.initialize_session(None, None)
+                    .map_err(|_| Error::other("Failed to initialize session"))?;
+            } else {
+                return Err(Error::other(
+                    "Session not initialized and missing card public key or pairing provider",
+                ));
+            }
         }
 
         // Perform mutual authentication to establish the secure channel
@@ -393,8 +472,8 @@ impl<T: CardTransport> SecureChannel for KeycardSecureChannel<T> {
 
     fn close(&mut self) -> Result<(), Error> {
         debug!("Closing Keycard secure channel");
+        self.reset()?;
         self.established = false;
-        self.security_level = SecurityLevel::none();
         Ok(())
     }
 
@@ -412,24 +491,35 @@ impl<T: CardTransport> SecureChannel for KeycardSecureChannel<T> {
             self.security_level, level
         );
 
-        if !self.is_established() {
-            return Err(Error::other("Secure channel not established"));
-        }
-
         // Check if we're already at or above the required level
         if self.security_level.satisfies(&level) {
             return Ok(());
         }
 
-        // For Keycard SCP, we only support upgrading to authentication through PIN verification
-        // which is now handled through the PIN callback
-        if level.authentication && !self.security_level.authentication {
-            return Err(Error::other(
-                "Authentication upgrade must be done with verify_pin",
-            ));
+        // If we need encryption/integrity and don't have them, we need to establish the channel
+        if (level.encryption && !self.security_level.encryption)
+            || (level.integrity && !self.security_level.integrity)
+        {
+            self.close()?;
+            self.open()?;
         }
 
-        // We already have encryption and integrity in KeycardSCP
+        // If we need authentication and don't have it, we need to verify the PIN
+        if level.authentication && !self.security_level.authentication {
+            // Verify PIN using the provider
+            let pin = match &self.pin_provider {
+                Some(PinProvider::Pin(pin)) => pin.clone(),
+                Some(PinProvider::Callback(callback)) => callback(),
+                None => {
+                    return Err(Error::other(
+                        "PIN required for authentication but no PIN provider available",
+                    ));
+                }
+            };
+
+            self.verify_pin(&pin)?;
+        }
+
         Ok(())
     }
 }
@@ -485,6 +575,9 @@ impl<T: CardTransport> CardTransport for KeycardSecureChannel<T> {
 
     fn reset(&mut self) -> Result<(), Error> {
         // Reset the underlying transport
+        self.session = None;
+        self.security_level = SecurityLevel::none();
+
         self.transport.reset()
     }
 }
@@ -532,6 +625,9 @@ mod tests {
             session: Some(session),
             security_level: SecurityLevel::enc_mac(),
             established: true,
+            pairing_provider: None,
+            pin_provider: None,
+            card_public_key: None,
         };
 
         // Create the same command as in the Go test

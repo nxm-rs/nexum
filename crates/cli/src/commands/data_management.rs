@@ -19,8 +19,6 @@ pub fn store_data_command(
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
 
-    keycard.verify_pin()?;
-
     // Convert type_tag to PersistentRecord
     let record = match type_tag {
         0 => PersistentRecord::Public,

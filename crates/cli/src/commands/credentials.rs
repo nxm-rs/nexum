@@ -18,8 +18,6 @@ pub fn change_credential_command(
     let (mut keycard, _) =
         utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
 
-    keycard.verify_pin()?;
-
     // Parse credential type
     let cred_type = match credential_type.to_lowercase().as_str() {
         "pin" => {
