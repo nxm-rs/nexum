@@ -104,22 +104,16 @@ impl<T: CardTransport> KeycardSecureChannel<T> {
         }
     }
 
-    /// Create a new secure channel with authentication providers
-    pub fn new_with_providers(
-        transport: T,
+    /// Configure this secure channel with providers after it has been created
+    pub fn configure_providers(
+        &mut self,
         card_public_key: k256::PublicKey,
         pairing_provider: PairingProvider,
         pin_provider: PinProvider,
-    ) -> Self {
-        Self {
-            transport,
-            session: None,
-            security_level: SecurityLevel::none(),
-            established: false,
-            pairing_provider: Some(pairing_provider),
-            pin_provider: Some(pin_provider),
-            card_public_key: Some(card_public_key),
-        }
+    ) {
+        self.card_public_key = Some(card_public_key);
+        self.pairing_provider = Some(pairing_provider);
+        self.pin_provider = Some(pin_provider);
     }
 
     /// Pair the card and initialize the secure channel

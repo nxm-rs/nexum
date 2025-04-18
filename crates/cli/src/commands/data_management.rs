@@ -16,8 +16,7 @@ pub fn store_data_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Convert type_tag to PersistentRecord
     let record = match type_tag {
@@ -42,8 +41,7 @@ pub fn get_data_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // We need a secure channel to get data
     if !keycard.is_secure_channel_open() && keycard.pairing_info().is_some() {

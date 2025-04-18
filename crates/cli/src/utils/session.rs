@@ -2,8 +2,8 @@
 
 use nexum_apdu_core::prelude::*;
 use nexum_apdu_transport_pcsc::PcscTransport;
-use nexum_keycard::{ApplicationInfo, Keycard, KeycardSecureChannel, PairingInfo};
-use tracing::{debug, error};
+use nexum_keycard::{Keycard, KeycardSecureChannel, PairingInfo};
+use tracing::debug;
 
 type KeycardExecutor = CardExecutor<KeycardSecureChannel<PcscTransport>>;
 
@@ -28,70 +28,31 @@ pub fn default_confirmation(message: &str) -> bool {
     input == "y" || input == "yes"
 }
 
-/// Initialize a keycard from transport and select the application
+/// Initialize a keycard with pairing information
 pub fn initialize_keycard(
     transport: PcscTransport,
-) -> Result<(Keycard<KeycardExecutor>, ApplicationInfo), Box<dyn std::error::Error>> {
-    // Create a keycard secure channel around the transport
-    let secure_channel = KeycardSecureChannel::new(transport);
-
-    // Create a CardExecutor from the secure channel
-    let card_executor = CardExecutor::new(secure_channel);
-
+    pairing_args: Option<&crate::utils::PairingArgs>,
+) -> Result<Keycard<KeycardExecutor>, Box<dyn std::error::Error>> {
     // Create input and confirmation callbacks
     let input_callback = Box::new(default_input_request);
     let confirmation_callback = Box::new(default_confirmation);
-
-    // Create a new keycard with the executor
-    let mut keycard = Keycard::new(card_executor, input_callback, confirmation_callback)?;
-
-    // Select the keycard application
-    let app_info = keycard.select_keycard()?;
-
-    Ok((keycard, app_info))
-}
-
-/// Initialize a keycard with pairing information
-pub fn initialize_keycard_with_pairing(
-    transport: PcscTransport,
-    pairing_args: &crate::utils::PairingArgs,
-) -> Result<(Keycard<KeycardExecutor>, Option<ApplicationInfo>), Box<dyn std::error::Error>> {
-    // Create a keycard secure channel around the transport
-    let secure_channel = KeycardSecureChannel::new(transport);
-
-    // Create a CardExecutor from the secure channel
-    let card_executor = CardExecutor::new(secure_channel);
-
-    // Create input and confirmation callbacks
-    let input_callback = Box::new(default_input_request);
-    let confirmation_callback = Box::new(default_confirmation);
-
-    // Create a new keycard with the executor
-    let mut keycard = Keycard::new(card_executor, input_callback, confirmation_callback)?;
 
     // If we have pairing information, try to load and establish a secure channel
-    let pairing_info = get_pairing_info(pairing_args)?;
-    if let Some(info) = pairing_info {
-        debug!("Using pairing info with index {}", info.index);
-        keycard.set_pairing_info(info);
-    }
+    let pairing_info = match pairing_args {
+        Some(args) => get_pairing_info(args)?,
+        None => None,
+    };
 
-    // Select the keycard application
-    let app_info = keycard.select_keycard().ok();
+    // Create a new keycard with the executor
+    let keycard = Keycard::from_transport(
+        transport,
+        input_callback,
+        confirmation_callback,
+        None,
+        pairing_info,
+    )?;
 
-    // If we have pairing info, try to open a secure channel
-    if keycard.pairing_info().is_some() && app_info.is_some() {
-        debug!("Opening secure channel");
-        match keycard.open_secure_channel() {
-            Ok(_) => debug!("Secure channel established successfully"),
-            Err(e) => {
-                error!("Failed to open secure channel: {:?}", e);
-                // Continue without secure channel
-            }
-        }
-    }
-
-    Ok((keycard, app_info))
+    Ok(keycard)
 }
 
 /// Extract pairing information from pairing arguments

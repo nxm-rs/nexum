@@ -7,6 +7,7 @@ mod secrets;
 mod secure_channel;
 mod session;
 mod types;
+mod validation;
 
 pub use application::{CredentialType, Keycard};
 pub use commands::*;

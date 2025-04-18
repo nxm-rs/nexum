@@ -10,7 +10,8 @@ use crate::utils;
 
 /// Select the Keycard application and display info
 pub fn select_command(transport: PcscTransport) -> Result<(), Box<dyn Error>> {
-    let (_, app_info) = utils::session::initialize_keycard(transport)?;
+    let mut keycard = utils::session::initialize_keycard(transport, None)?;
+    let app_info = keycard.select_keycard()?;
 
     // Display card info
     info!("Keycard applet selected successfully.");
@@ -22,6 +23,19 @@ pub fn select_command(transport: PcscTransport) -> Result<(), Box<dyn Error>> {
     println!("  Version: {}", app_info.version);
     println!("  Free slots: {}", app_info.remaining_slots);
     println!("  Capabilities: {}", app_info.capabilities);
+
+    match app_info.key_uid {
+        Some(key_uid) => println!("  Key UID: {}", alloy_primitives::hex::encode(key_uid)),
+        None => println!("  Key UID: None (use GENERATE KEY)"),
+    }
+
+    match app_info.public_key {
+        Some(public_key) => println!(
+            "  Secure channel public Key: {}",
+            alloy_primitives::hex::encode(public_key.to_sec1_bytes())
+        ),
+        None => println!("  Secure channel public Key: None"),
+    }
 
     Ok(())
 }
@@ -35,7 +49,7 @@ pub fn init_command(
     output_file: Option<&PathBuf>,
 ) -> Result<(), Box<dyn Error>> {
     // Create a keycard instance
-    let (mut keycard, _) = utils::session::initialize_keycard(transport)?;
+    let mut keycard = utils::session::initialize_keycard(transport, None)?;
 
     // Create secrets based on provided values or generate them
     let secrets = if pin.is_some() || puk.is_some() || pairing_password.is_some() {
@@ -80,7 +94,7 @@ pub fn pair_command(
     info!("Pairing with card");
 
     // Create a keycard instance
-    let (mut keycard, _) = utils::session::initialize_keycard(transport)?;
+    let mut keycard = utils::session::initialize_keycard(transport, None)?;
 
     // Perform the pairing
     let pairing_info = keycard.pair()?;
@@ -107,8 +121,7 @@ pub fn unpair_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // We need pairing info to unpair
     if keycard.pairing_info().is_none() {
@@ -130,11 +143,10 @@ pub fn get_status_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, app_info) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Display basic card info
-    if let Some(info) = app_info {
+    if let Ok(info) = keycard.select_keycard() {
         println!("Card Info:");
         println!(
             "  Instance: {}",
@@ -145,22 +157,18 @@ pub fn get_status_command(
     }
 
     // Try to get more detailed status if we have a secure channel
-    if keycard.is_secure_channel_open() {
-        if let Ok(status) = keycard.get_status() {
-            println!("\nDetailed Status:");
-            println!("  PIN retry count: {}", status.pin_retry_count);
-            println!("  PUK retry count: {}", status.puk_retry_count);
-            println!("  Key initialized: {}", status.key_initialized);
+    if let Ok(status) = keycard.get_status() {
+        println!("\nDetailed Status:");
+        println!("  PIN retry count: {}", status.pin_retry_count);
+        println!("  PUK retry count: {}", status.puk_retry_count);
+        println!("  Key initialized: {}", status.key_initialized);
 
-            // Show key path if available
-            if let Ok(path) = keycard.get_key_path() {
-                println!("  Current key path: {:?}", path);
-            } else {
-                println!("  No key path set");
-            }
+        // Show key path if available
+        if let Ok(path) = keycard.get_key_path() {
+            println!("  Current key path: {:?}", path);
+        } else {
+            println!("  No key path set");
         }
-    } else if keycard.pairing_info().is_some() {
-        println!("\nCould not open secure channel to get detailed status");
     }
 
     Ok(())

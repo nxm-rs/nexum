@@ -12,6 +12,7 @@ use crate::secure_channel::KeycardSecureChannelExt;
 use crate::types::{Capabilities, Capability, ExportedKey, Signature, Version};
 use crate::{ApplicationInfo, ApplicationStatus, Error, PairingInfo, Result};
 use crate::{Secrets, commands::*};
+use alloy_primitives::hex;
 use coins_bip32::path::DerivationPath;
 
 /// Type for function that provides an input string (ie. PIN)
@@ -38,6 +39,128 @@ pub struct Keycard<E: Executor> {
 }
 
 impl<E: Executor> Keycard<E> {
+    /// Create a new Keycard from a CardTransport with callbacks for user interaction
+    ///
+    /// This constructor allows providing optional PIN and pairing information.
+    /// If provided, it will set up the secure channel with the provided information.
+    /// If not provided, it will use the callbacks to request information when needed.
+    pub fn from_transport<T>(
+        mut transport: T,
+        input_request_callback: InputRequestFn,
+        confirmation_callback: ConfirmationFn,
+        pin: Option<String>,
+        pairing_info: Option<PairingInfo>,
+    ) -> Result<Self>
+    where
+        T: CardTransport + 'static,
+        E: From<CardExecutor<crate::secure_channel::KeycardSecureChannel<T>>>,
+    {
+        use crate::secure_channel::{KeycardSecureChannel, PairingProvider, PinProvider};
+        use crate::validation::{get_valid_pairing_index, get_valid_pairing_key, get_valid_pin};
+        use std::sync::Arc;
+        use tracing::{debug, warn};
+
+        // First, select the Keycard application to get the card's info directly from the transport
+        let app_info = select_keycard_with_transport(&mut transport)?;
+
+        // Get the card's public key - this is required for secure channel
+        let card_public_key = match app_info.public_key.clone() {
+            Some(key) => key,
+            None => {
+                return Err(Error::Message(
+                    "Card doesn't support secure channel: no public key available".to_string(),
+                ));
+            }
+        };
+
+        // Create a secure channel with the transport
+        let mut secure_channel = KeycardSecureChannel::new(transport);
+
+        // We need to use Arc to share the callbacks across closures
+        let input_callback = Arc::new(input_request_callback);
+
+        // Create PIN provider - either from provided PIN or create a callback with validation
+        let pin_provider = match pin {
+            Some(pin_str) => {
+                // Validate the provided PIN
+                match crate::validation::validate_pin(&pin_str) {
+                    Ok(valid_pin) => PinProvider::Pin(valid_pin),
+                    Err(e) => {
+                        warn!("Provided PIN is invalid: {}", e);
+
+                        // Fall back to callback method if the provided PIN is invalid
+                        let callback_ref = Arc::clone(&input_callback);
+                        let callback =
+                            Box::new(move || get_valid_pin(&|prompt| callback_ref(prompt), 3));
+                        PinProvider::Callback(callback)
+                    }
+                }
+            }
+            None => {
+                // Clone Arc for the closure
+                let callback_ref = Arc::clone(&input_callback);
+
+                // Create a new callback for PIN that prompts the user with validation
+                let callback = Box::new(move || get_valid_pin(&|prompt| callback_ref(prompt), 3));
+                PinProvider::Callback(callback)
+            }
+        };
+
+        // Create pairing provider - either from provided info or create a callback with validation
+        let pairing_provider = match pairing_info.clone() {
+            Some(info) => PairingProvider::Info(info),
+            None => {
+                // Clone Arc for the closure
+                let callback_ref = Arc::clone(&input_callback);
+
+                // Create a new callback for pairing with validation
+                let callback = Box::new(move || {
+                    // Get a valid pairing key (32 bytes) using the validation module
+                    let key = get_valid_pairing_key(&|prompt| callback_ref(prompt), 3);
+
+                    // Get a valid pairing index (0-99) using the validation module
+                    let index = get_valid_pairing_index(&|prompt| callback_ref(prompt), 3);
+
+                    debug!(
+                        "Using pairing key and index: {} (index: {})",
+                        hex::encode(&key),
+                        index
+                    );
+
+                    PairingInfo { key, index }
+                });
+
+                PairingProvider::Callback(callback)
+            }
+        };
+
+        // Configure the secure channel with the providers
+        secure_channel.configure_providers(card_public_key.clone(), pairing_provider, pin_provider);
+
+        // Create an executor from the secure channel
+        let executor = E::from(CardExecutor::new(secure_channel));
+
+        // Extract the callback from the Arc for the Keycard instance
+        let extracted_callback = match Arc::try_unwrap(input_callback) {
+            Ok(callback) => callback,
+            // If there are still other references, create a new one that forwards to one of the clones
+            Err(arc) => Box::new(move |prompt: &str| arc(prompt)),
+        };
+
+        // Create the Keycard instance with all the information we've gathered
+        let keycard = Self {
+            executor,
+            pairing_info,
+            card_public_key: Some(card_public_key),
+            application_info: Some(app_info.clone()),
+            capabilities: app_info.capabilities,
+            input_request_callback: extracted_callback,
+            confirmation_callback,
+        };
+
+        Ok(keycard)
+    }
+
     /// Create a new Keycard instance with an executor
     ///
     /// This constructor automatically selects the Keycard application and fetches its information
@@ -146,70 +269,21 @@ impl<E: Executor> Keycard<E> {
 
     /// Select the Keycard application on the device using the default AID
     pub fn select_keycard(&mut self) -> Result<ApplicationInfo> {
-        // Create a select command for Keycard using the default AID
-        let cmd = SelectCommand::with_aid(KEYCARD_AID.to_vec());
+        // Use the new standalone function with the executor's transport
+        let app_info = select_keycard_with_transport(self.executor.transport_mut())?;
 
-        // Execute the command
-        let select_response = self.executor.execute(&cmd)?;
+        // Store the application info
+        self.application_info = Some(app_info.clone());
 
-        // Parse the response
-        let parsed = ParsedSelectOk::try_from(select_response)?;
+        // Store capabilities
+        self.capabilities = app_info.capabilities;
 
-        // Extract and store the information
-        match &parsed {
-            ParsedSelectOk::InitializedWithKey(info) | ParsedSelectOk::InitializedNoKey(info) => {
-                // Store the application info
-                self.application_info = Some(info.clone());
-
-                // Store capabilities
-                self.capabilities = info.capabilities;
-
-                // Extract and store the public key if available
-                if let Some(pk) = &info.public_key {
-                    self.card_public_key = Some(*pk);
-                }
-            }
-            ParsedSelectOk::Uninitialized(maybe_key) => {
-                if let Some(key) = maybe_key {
-                    self.card_public_key = Some(*key);
-
-                    // For uninitialized cards with a public key, we assume they support
-                    // secure channel and credentials management capabilities
-                    self.capabilities = Capabilities::new(&[
-                        Capability::SecureChannel,
-                        Capability::CredentialsManagement,
-                    ]);
-                } else {
-                    // Uninitialized without a public key has at least credentials management capabilities
-                    self.capabilities = Capabilities::new(&[Capability::CredentialsManagement]);
-                }
-            }
+        // Extract and store the public key if available
+        if let Some(pk) = &app_info.public_key {
+            self.card_public_key = Some(*pk);
         }
 
-        match parsed {
-            ParsedSelectOk::InitializedWithKey(info) => Ok(info),
-            ParsedSelectOk::InitializedNoKey(info) => {
-                // Returns ApplicationInfo but warns that card is not initialized
-                // This allows consumers to see the card state but handle initialization
-                Ok(info)
-            }
-            ParsedSelectOk::Uninitialized(maybe_key) => {
-                // Create a minimal ApplicationInfo for the uninitialized card
-                let app_info = ApplicationInfo {
-                    instance_uid: [0; 16],                   // Empty instance UID
-                    public_key: maybe_key,                   // Use the public key if available
-                    version: Version { major: 0, minor: 0 }, // Set version to 0.0
-                    remaining_slots: 0,                      // No pairing slots yet
-                    key_uid: None,                           // No key UID yet
-                    capabilities: self.capabilities,         // Use capabilities set above
-                };
-
-                // Store the application info
-                self.application_info = Some(app_info.clone());
-
-                Ok(app_info)
-            }
-        }
+        Ok(app_info)
     }
 
     /// Initialize the Keycard card (factory reset)
@@ -700,7 +774,7 @@ where
         let cmd = GenerateMnemonicCommand::with_words(words)?;
 
         // Execute the command
-        let response = self.executor.execute(&cmd)?;
+        let response = self.executor.execute_secure(&cmd)?;
 
         // Convert to mnemonic phrase
         response.to_phrase()
@@ -864,6 +938,54 @@ where
         // Extract data from the response
         let GetDataOk::Success { data } = response;
         Ok(data)
+    }
+}
+
+/// Select the Keycard applet using the provided transport and return its application information
+pub fn select_keycard_with_transport<T: CardTransport>(
+    transport: &mut T,
+) -> Result<ApplicationInfo> {
+    // Create a select command for Keycard using the default AID
+    let cmd = SelectCommand::with_aid(KEYCARD_AID.to_vec());
+
+    // Execute the command
+    let command_bytes = cmd.to_command().to_bytes();
+    let response_bytes = transport.transmit_raw(&command_bytes)?;
+
+    // Parse the response using raw bytes
+    let select_response =
+        SelectCommand::parse_response_raw(bytes::Bytes::copy_from_slice(&response_bytes))
+            .map_err(|e| Error::Message(e.to_string()))?;
+
+    // Parse the response
+    let parsed = ParsedSelectOk::try_from(select_response)?;
+
+    // Return the appropriate ApplicationInfo based on the response
+    match parsed {
+        ParsedSelectOk::InitializedWithKey(info) => Ok(info),
+        ParsedSelectOk::InitializedNoKey(info) => Ok(info),
+        ParsedSelectOk::Uninitialized(maybe_key) => {
+            // Create a minimal ApplicationInfo for the uninitialized card
+            let capabilities = if maybe_key.is_some() {
+                // For uninitialized cards with a public key, assume they support
+                // secure channel and credentials management capabilities
+                Capabilities::new(&[Capability::SecureChannel, Capability::CredentialsManagement])
+            } else {
+                // Uninitialized without a public key has at least credentials management capabilities
+                Capabilities::new(&[Capability::CredentialsManagement])
+            };
+
+            let app_info = ApplicationInfo {
+                instance_uid: [0; 16],                   // Empty instance UID
+                public_key: maybe_key,                   // Use the public key if available
+                version: Version { major: 0, minor: 0 }, // Set version to 0.0
+                remaining_slots: 0,                      // No pairing slots yet
+                key_uid: None,                           // No key UID yet
+                capabilities,                            // Use capabilities set above
+            };
+
+            Ok(app_info)
+        }
     }
 }
 

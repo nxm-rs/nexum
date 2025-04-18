@@ -17,8 +17,7 @@ pub fn generate_key_command(
     _path: Option<&String>,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Generate a new key
     info!("Generating master key");
@@ -37,8 +36,7 @@ pub fn export_key_command(
     path: Option<&String>,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Export the key
     let keypair = if let Some(derivation_path) = path {
@@ -86,8 +84,7 @@ pub async fn sign_command(
     let data_bytes = hex::decode(data)?;
 
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Sign the data
     let signature = if let Some(derivation_path_str) = path {
@@ -125,8 +122,7 @@ pub fn load_key_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Check if the seed looks like a hex string and decode it
     let seed_bytes = if seed.len() >= 2 && seed.starts_with("0x") {
@@ -153,8 +149,7 @@ pub fn remove_key_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Remove the key
     keycard.remove_key(true)?;
@@ -171,8 +166,7 @@ pub fn set_pinless_path_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Parse the derivation path
     let derivation_path = DerivationPath::from_str(path)?;
@@ -192,10 +186,7 @@ pub fn generate_mnemonic_command(
     pairing_args: &utils::PairingArgs,
 ) -> Result<(), Box<dyn Error>> {
     // Initialize keycard with pairing info
-    let (mut keycard, _) =
-        utils::session::initialize_keycard_with_pairing(transport, pairing_args)?;
-
-    // keycard.verify_pin()?;
+    let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Generate mnemonic
     let mnemonic = keycard.generate_mnemonic(words_count)?;

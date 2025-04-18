@@ -2,7 +2,7 @@
 
 use nexum_apdu_transport_pcsc::PcscDeviceManager;
 use std::error::Error;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// Find a reader by name
 pub fn find_reader_by_name(
@@ -42,11 +42,11 @@ pub fn list_readers(manager: &PcscDeviceManager) -> Result<(), Box<dyn Error>> {
     let readers = manager.list_readers()?;
 
     if readers.is_empty() {
-        info!("No readers found");
+        println!("No readers found");
         return Ok(());
     }
 
-    info!("Found {} readers:", readers.len());
+    println!("Found {} readers:", readers.len());
 
     for (i, reader) in readers.iter().enumerate() {
         let card_status = if reader.has_card() {
@@ -55,7 +55,7 @@ pub fn list_readers(manager: &PcscDeviceManager) -> Result<(), Box<dyn Error>> {
             "No card"
         };
 
-        info!("{}. {} ({})", i + 1, reader.name(), card_status);
+        println!("{}. {} ({})", i + 1, reader.name(), card_status);
     }
 
     Ok(())
