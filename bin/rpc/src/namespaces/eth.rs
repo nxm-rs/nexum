@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use jsonrpsee::{core::RpcResult, ws_client::WsClient, RpcModule};
+use std::sync::Arc;
 
 use crate::rpc::upstream_request;
 
@@ -42,12 +42,14 @@ pub fn init(_: EthContext, client: Arc<WsClient>) -> RpcModule<EthContext> {
     eth_methods.iter().for_each(|method| {
         let _ = eth_module.register_async_method(method, upstream_request(method, client.clone()));
     });
-    
-    let _ = eth_module.register_method("eth_requestAccounts", |_, _, _| -> RpcResult<Vec<String>> {
-        let addresses: Vec<String> = vec!["0xE618050F1adb1F6bb7d03A3484346AC42F3E71EE".to_string()];
-        Ok(addresses)
-    });
-    
+
+    let _ =
+        eth_module.register_method("eth_requestAccounts", |_, _, _| -> RpcResult<Vec<String>> {
+            let addresses: Vec<String> =
+                vec!["0xE618050F1adb1F6bb7d03A3484346AC42F3E71EE".to_string()];
+            Ok(addresses)
+        });
+
     let _ = eth_module.register_method("eth_accounts", |_, _, _| -> RpcResult<Vec<String>> {
         let addresses: Vec<String> = vec!["0xE618050F1adb1F6bb7d03A3484346AC42F3E71EE".to_string()];
         Ok(addresses)

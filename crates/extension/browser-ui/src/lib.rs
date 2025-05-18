@@ -46,13 +46,21 @@ fn update_current_chain_callback(active_tab: ReadSignal<Option<tabs::Info>>) -> 
     }
 }
 
-async fn init(set_active_tab: WriteSignal<Option<tabs::Info>>, set_mm_appear: WriteSignal<bool>, set_is_injected_tab: WriteSignal<bool>) {
+async fn init(
+    set_active_tab: WriteSignal<Option<tabs::Info>>,
+    set_mm_appear: WriteSignal<bool>,
+    set_is_injected_tab: WriteSignal<bool>,
+) {
     // Get and set the active tab
     let active_tab = tabs::get_active_tab().await;
     if let Some(tab) = &active_tab {
         set_active_tab.set(Some(tab.clone()));
         if let Some(url) = &tab.url {
-            set_is_injected_tab.set(url.starts_with("https://") || url.starts_with("http://") || url.starts_with("file://"));
+            set_is_injected_tab.set(
+                url.starts_with("https://")
+                    || url.starts_with("http://")
+                    || url.starts_with("file://"),
+            );
         }
     }
 
@@ -78,7 +86,10 @@ pub fn App() -> impl IntoView {
     frame_connect(set_frame_state);
 
     // Set up the 1-second interval for updating the current chain
-    let interval = gloo_timers::callback::Interval::new(1000, update_current_chain_callback(active_tab.clone()));
+    let interval = gloo_timers::callback::Interval::new(
+        1000,
+        update_current_chain_callback(active_tab.clone()),
+    );
 
     // Automatically clear the interval when the component is cle/workspaces/ferris/crates/browser-uianed up
     on_cleanup(move || {

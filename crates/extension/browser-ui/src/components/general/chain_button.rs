@@ -18,14 +18,22 @@ pub fn ChainButton(
 ) -> impl IntoView {
     // A chain can be selected if it is connected and a tab is available
     let is_selectable = frame_state.with(|state| {
-        state.available_chains.get(&chain)
+        state
+            .available_chains
+            .get(&chain)
             .map(|connection_state| connection_state.is_disconnected())
             .unwrap_or(false)
-            && state.current_chain_in_tab.map(|current_chain| current_chain != chain).unwrap_or(true)
+            && state
+                .current_chain_in_tab
+                .map(|current_chain| current_chain != chain)
+                .unwrap_or(true)
     }) && tab.get().is_some();
 
     let selected = frame_state.with(|state| {
-        state.current_chain_in_tab.map(|current_chain| current_chain == chain).unwrap_or(false)
+        state
+            .current_chain_in_tab
+            .map(|current_chain| current_chain == chain)
+            .unwrap_or(false)
     });
 
     // Define the handle_click function

@@ -4,8 +4,8 @@ use clap::Parser;
 use cli::Cli;
 
 mod cli;
-mod logging;
 mod config;
+mod logging;
 mod namespaces;
 mod rpc;
 

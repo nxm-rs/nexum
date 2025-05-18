@@ -63,7 +63,10 @@ fn port_on_disconnect(extension: Arc<Extension>, port: JsValue) {
             }
 
             if let Some(ref closure) = *on_disconnect_inner.borrow() {
-                if port::remove_on_disconnect_listener(port_inner.clone(), closure.as_ref().unchecked_ref::<Function>())
+                if port::remove_on_disconnect_listener(
+                    port_inner.clone(),
+                    closure.as_ref().unchecked_ref::<Function>(),
+                )
                 .is_err()
                 {
                     warn!(
@@ -80,9 +83,7 @@ fn port_on_disconnect(extension: Arc<Extension>, port: JsValue) {
     *on_disconnect.borrow_mut() = Some(on_disconnect_closure);
 
     if let Some(ref closure) = *on_disconnect.borrow() {
-        if let Err(e) =
-            port::add_on_disconnect_listener(port, closure.as_ref().unchecked_ref())
-        {
+        if let Err(e) = port::add_on_disconnect_listener(port, closure.as_ref().unchecked_ref()) {
             warn!("Failed to add onDisconnect listener: {:?}", e);
         }
     }
