@@ -1,5 +1,7 @@
 /target
 dist
+.data/
+.envrc
 
 
 # We keep the symbolic link
