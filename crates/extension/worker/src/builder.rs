@@ -10,7 +10,11 @@ use serde_wasm_bindgen::{from_value, to_value};
 use tracing::info;
 use wasm_bindgen::JsValue;
 
-use crate::{origin_from_url, state::{set_icon_for_connection_state, ExtensionState}, Extension, Provider, CLIENT_STATUS_ALARM_KEY};
+use crate::{
+    origin_from_url,
+    state::{set_icon_for_connection_state, ExtensionState},
+    Extension, Provider, CLIENT_STATUS_ALARM_KEY,
+};
 
 pub struct ExtensionBuilder {
     state: Option<Arc<Mutex<ExtensionState>>>,
@@ -56,7 +60,16 @@ impl ExtensionBuilder {
         };
         self.state = Some(Arc::new(Mutex::new(state)));
 
-        set_icon_for_connection_state(&self.state.as_ref().unwrap().lock().await.frame_state.frame_connected);
+        set_icon_for_connection_state(
+            &self
+                .state
+                .as_ref()
+                .unwrap()
+                .lock()
+                .await
+                .frame_state
+                .frame_connected,
+        );
 
         let _ = action::set_popup(to_value(&PopupDetails {
             popup: "index.html".to_string(),

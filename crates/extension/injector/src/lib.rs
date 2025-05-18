@@ -17,7 +17,13 @@ fn handle_runtime_message(payload: JsValue) {
     };
 
     if ProtocolMessage::is_valid(&payload) {
-        if let Err(e) = window.post_message(&payload, &window.location().origin().expect("Failed to get window origin.")) {
+        if let Err(e) = window.post_message(
+            &payload,
+            &window
+                .location()
+                .origin()
+                .expect("Failed to get window origin."),
+        ) {
             error!("Failed to post message to window: {:?}", e);
         }
     } else {
@@ -59,7 +65,10 @@ fn setup_page_message_listener() {
 
 // Inject the frame script into the page
 fn inject_frame_script() {
-    let document = match web_sys::window().expect("Failed to get window in inject_frame_script").document() {
+    let document = match web_sys::window()
+        .expect("Failed to get window in inject_frame_script")
+        .document()
+    {
         Some(doc) => doc,
         None => {
             error!("No document object available.");
@@ -68,7 +77,9 @@ fn inject_frame_script() {
     };
 
     let script = match document.create_element("script") {
-        Ok(element) => element.dyn_into::<HtmlScriptElement>().expect("Failed to cast element to script element."),
+        Ok(element) => element
+            .dyn_into::<HtmlScriptElement>()
+            .expect("Failed to cast element to script element."),
         Err(e) => {
             error!("Failed to create script element: {:?}", e);
             return;

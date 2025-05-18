@@ -48,9 +48,7 @@ pub async fn get(name: &str) -> Result<Option<AlarmInfo>, JsValue> {
         Ok(None)
     } else {
         match from_value(result) {
-            Ok(alarm_info) => {
-                Ok(Some(alarm_info))
-            }
+            Ok(alarm_info) => Ok(Some(alarm_info)),
             Err(err) => {
                 error!("Failed to parse response for alarm '{}': {:?}", name, err);
                 Err(JsValue::from_str(&format!(

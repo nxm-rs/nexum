@@ -109,8 +109,11 @@ pub(crate) fn set_icon_for_connection_state(state: &ConnectionState) {
         ConnectionState::Disconnected => "icons/icon96moon.png",
     };
 
-    action::set_icon(to_value(&TabIconDetails {
-        path: Some(IconPath::Single(path.to_string())),
-        ..Default::default()
-    }).unwrap());
+    action::set_icon(
+        to_value(&TabIconDetails {
+            path: Some(IconPath::Single(path.to_string())),
+            ..Default::default()
+        })
+        .unwrap(),
+    );
 }

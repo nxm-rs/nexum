@@ -1,6 +1,6 @@
+use anyhow::Result;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-use anyhow::Result;
 
 use crate::config;
 
