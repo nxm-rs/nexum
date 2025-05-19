@@ -161,7 +161,8 @@ impl App {
             let paragraph = Paragraph::new(masked_pwd).block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(format!(" {prompt} ")),
+                    .title(format!(" {prompt} "))
+                    .border_style(Style::default().fg(Color::Blue)),
             );
             let prompt_area = frame.area().centered(
                 Constraint::Length(
