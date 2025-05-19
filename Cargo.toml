@@ -16,8 +16,9 @@ members = [
     "crates/extension/injected/",
     "crates/extension/injector/",
     "crates/extension/browser-ui/",
+    "crates/tui/",
 ]
-default-members = ["bin/rpc"]
+default-members = ["bin/rpc", "crates/tui/"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -44,6 +45,7 @@ jsonrpsee = { version = "0.24.7", features = ["wasm-client", "jsonrpsee-core", "
 url = "2.5.2"
 uuid = { version = "1", features = ["v4", "js"] }
 gloo-timers = { version = "0.3.0", features = ["futures"] }
+tokio = { version = "1.45.0", features = ["full"] }
 
 console_error_panic_hook = "0.1.7"
 
