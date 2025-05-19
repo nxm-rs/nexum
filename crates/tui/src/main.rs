@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use alloy::signers::{k256::ecdsa::SigningKey, local::LocalSigner};
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use eyre::OptionExt;
 use futures::StreamExt;
@@ -154,14 +155,20 @@ impl App {
 }
 
 /// Returns all the keystore file paths in the foundry keystore directory.
-fn load_keystores() -> eyre::Result<Vec<PathBuf>> {
+fn load_keystores() -> eyre::Result<Vec<KeystoreWallet>> {
     let home_dir = std::env::home_dir().ok_or_eyre("home directory not found")?;
     let foundry_keystore_dir = home_dir.join(".foundry/keystores");
     let foundry_keystore_files = std::fs::read_dir(foundry_keystore_dir)?;
 
     Ok(foundry_keystore_files
         .into_iter()
-        .filter_map(|f| f.ok().map(|f| f.path()))
+        .filter_map(|f| {
+            f.ok().map(|f| KeystoreWallet {
+                path: f.path(),
+                name: f.file_name().to_string_lossy().to_string(),
+                signer: None,
+            })
+        })
         .collect::<Vec<_>>())
 }
 
@@ -169,9 +176,29 @@ trait HandleEvent {
     fn handle_key(&mut self, event: &KeyEvent);
 }
 
+struct KeystoreWallet {
+    name: String,
+    path: PathBuf,
+    signer: Option<LocalSigner<SigningKey>>,
+}
+
+impl KeystoreWallet {
+    /// Returns if the keystore is locked.
+    fn is_locked(&self) -> bool {
+        self.signer.is_none()
+    }
+
+    /// Try to decrypt the keystore with given password.
+    fn try_unlock(&mut self, password: String) -> eyre::Result<()> {
+        let signer = LocalSigner::<SigningKey>::decrypt_keystore(&self.path, password)?;
+        self.signer = Some(signer);
+        Ok(())
+    }
+}
+
 struct WalletPane {
     is_active: bool,
-    keystores: Vec<PathBuf>,
+    keystores: Vec<KeystoreWallet>,
     list_state: RwLock<ListState>,
     active_wallet_idx: Option<usize>,
 }
@@ -185,16 +212,19 @@ impl Widget for &WalletPane {
         let list = List::new(
             self.keystores
                 .iter()
-                .filter_map(|f| f.file_name().map(|f| f.to_str().map(|s| s.to_owned())))
-                .flatten()
                 .enumerate()
                 .map(|(idx, k)| {
+                    let name = Text::from(format!(
+                        "{} {}",
+                        if k.is_locked() { "🔒" } else { "🔓" },
+                        k.name.clone()
+                    ));
                     if let Some(active_wallet_idx) = self.active_wallet_idx
                         && idx == active_wallet_idx
                     {
-                        Text::from(k).style(Style::default().bold().fg(Color::Blue))
+                        name.style(Style::default().bold().fg(Color::Blue))
                     } else {
-                        Text::from(k)
+                        name
                     }
                 })
                 .collect::<Vec<_>>(),
@@ -252,14 +282,14 @@ impl WalletPane {
         self.is_active = is_active;
     }
 
-    fn set_active_wallet_to_selected_index(&mut self) {
+    fn set_active_wallet_to_selected_index(&mut self) -> Option<usize> {
         let list_state = self
             .list_state
             .read()
             .expect("failed to get read lock on list state");
-        if let Some(selected_idx) = list_state.selected() {
-            self.active_wallet_idx = Some(selected_idx);
-        }
+        let idx = list_state.selected();
+        self.active_wallet_idx = idx;
+        idx
     }
 }
 
@@ -268,7 +298,7 @@ impl HandleEvent for WalletPane {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => self.select_previous(),
             KeyCode::Down | KeyCode::Char('j') => self.select_next(),
-            KeyCode::Enter => self.set_active_wallet_to_selected_index(),
+            KeyCode::Enter => if let Some(idx) = self.set_active_wallet_to_selected_index() {},
             _ => {}
         }
     }

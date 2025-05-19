@@ -16,4 +16,4 @@ tokio = { workspace = true }
 eyre = "0.6.12"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures = { workspace = true }
-alloy = "1.0.3"
+alloy = { version = "1.0.3", features = ["signer-keystore"] }
