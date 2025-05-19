@@ -19,7 +19,7 @@ use ratatui::{
     widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Widget},
     DefaultTerminal, Frame,
 };
-use tokio::sync::mpsc::{self};
+use tokio::sync::mpsc;
 use tracing_subscriber::EnvFilter;
 
 /// Returns the base config directory for nexum. It also creates the directory
@@ -27,7 +27,7 @@ use tracing_subscriber::EnvFilter;
 fn config_dir() -> eyre::Result<PathBuf> {
     let dir = std::env::home_dir()
         .ok_or_eyre("home directory not found")?
-        .join(".nexum");
+        .join(".nxm");
     if !dir.exists() {
         std::fs::create_dir(&dir)?
     }
@@ -84,7 +84,6 @@ struct App {
     wallet_pane: WalletPane,
     prompt: Option<String>,
     prompt_input: String,
-    // prompt_sender: mpsc::UnboundedSender<String>,
     prompt_receiver: mpsc::UnboundedReceiver<String>,
 }
 
@@ -107,7 +106,6 @@ impl Default for App {
             },
             prompt: None,
             prompt_input: "".to_string(),
-            // prompt_sender: sender,
             prompt_receiver: receiver,
         }
     }
