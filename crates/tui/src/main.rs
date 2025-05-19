@@ -14,6 +14,7 @@ use ratatui::{
     layout::{Constraint, Layout},
     prelude::{Buffer, Rect},
     style::{Color, Style, Stylize},
+    text::Text,
     widgets::{Block, Borders, FrameExt, List, ListState, StatefulWidget, Widget},
     DefaultTerminal, Frame,
 };
@@ -48,11 +49,6 @@ async fn main() -> eyre::Result<()> {
         .with_writer(tui_logger)
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-    tracing::info!("info");
-    tracing::warn!("warn");
-    tracing::error!("error");
-    tracing::debug!("debug");
-    tracing::trace!("trace");
 
     let terminal = ratatui::init();
     let app_result = App::default().run(terminal).await;
@@ -97,6 +93,7 @@ impl Default for App {
                 is_active: true,
                 keystores: load_keystores().unwrap_or_default(),
                 list_state: RwLock::new(list_state),
+                active_wallet_idx: None,
             },
         }
     }
@@ -176,6 +173,7 @@ struct WalletPane {
     is_active: bool,
     keystores: Vec<PathBuf>,
     list_state: RwLock<ListState>,
+    active_wallet_idx: Option<usize>,
 }
 
 impl Widget for &WalletPane {
@@ -189,6 +187,16 @@ impl Widget for &WalletPane {
                 .iter()
                 .filter_map(|f| f.file_name().map(|f| f.to_str().map(|s| s.to_owned())))
                 .flatten()
+                .enumerate()
+                .map(|(idx, k)| {
+                    if let Some(active_wallet_idx) = self.active_wallet_idx
+                        && idx == active_wallet_idx
+                    {
+                        Text::from(k).style(Style::default().bold().fg(Color::Blue))
+                    } else {
+                        Text::from(k)
+                    }
+                })
                 .collect::<Vec<_>>(),
         )
         .highlight_symbol("> ")
@@ -209,7 +217,7 @@ impl Widget for &WalletPane {
 
 impl WalletPane {
     fn select_next(&self) {
-        let list_state = &mut *self.get_list_state();
+        let list_state = &mut *self.get_list_state_w();
         if let Some(selected_idx) = list_state.selected() {
             if selected_idx < self.keystores.len() - 1 {
                 list_state.select_next();
@@ -222,7 +230,7 @@ impl WalletPane {
     }
 
     fn select_previous(&self) {
-        let list_state = &mut *self.get_list_state();
+        let list_state = &mut *self.get_list_state_w();
         if let Some(selected_idx) = list_state.selected() {
             if selected_idx > 0 {
                 list_state.select_previous();
@@ -234,7 +242,7 @@ impl WalletPane {
         }
     }
 
-    fn get_list_state(&self) -> RwLockWriteGuard<'_, ListState> {
+    fn get_list_state_w(&self) -> RwLockWriteGuard<'_, ListState> {
         self.list_state
             .write()
             .expect("failed to get write lock on list state")
@@ -243,6 +251,16 @@ impl WalletPane {
     fn set_is_active(&mut self, is_active: bool) {
         self.is_active = is_active;
     }
+
+    fn set_active_wallet_to_selected_index(&mut self) {
+        let list_state = self
+            .list_state
+            .read()
+            .expect("failed to get read lock on list state");
+        if let Some(selected_idx) = list_state.selected() {
+            self.active_wallet_idx = Some(selected_idx);
+        }
+    }
 }
 
 impl HandleEvent for WalletPane {
@@ -250,6 +268,7 @@ impl HandleEvent for WalletPane {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => self.select_previous(),
             KeyCode::Down | KeyCode::Char('j') => self.select_next(),
+            KeyCode::Enter => self.set_active_wallet_to_selected_index(),
             _ => {}
         }
     }
