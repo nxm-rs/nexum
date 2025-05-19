@@ -18,7 +18,7 @@ pub struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     tracing_subscriber::fmt::init();
     rpc::run_server(args.listen_addr.parse()?, args.rpc_url.as_str())
