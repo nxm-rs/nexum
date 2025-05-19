@@ -8,3 +8,5 @@ be:
 	mkdir -p crates/extension/dist/browser-ui
 	cp -r crates/extension/browser-ui/public/** crates/extension/dist/
 	cp -r crates/extension/browser-ui/dist/* crates/extension/dist/browser-ui/
+re:
+	web-ext run -s crates/extension/dist
