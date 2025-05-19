@@ -16,9 +16,10 @@ use ratatui::{
     prelude::{Buffer, Rect},
     style::{Color, Style, Stylize},
     text::Text,
-    widgets::{Block, Borders, FrameExt, List, ListState, StatefulWidget, Widget},
+    widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Widget},
     DefaultTerminal, Frame,
 };
+use tokio::sync::mpsc::{self};
 use tracing_subscriber::EnvFilter;
 
 /// Returns the base config directory for nexum. It also creates the directory
@@ -81,12 +82,19 @@ struct App {
     pub should_quit: bool,
     pub active_pane: AppPane,
     wallet_pane: WalletPane,
+    prompt: Option<String>,
+    prompt_input: String,
+    // prompt_sender: mpsc::UnboundedSender<String>,
+    prompt_receiver: mpsc::UnboundedReceiver<String>,
 }
 
 impl Default for App {
     fn default() -> Self {
         let mut list_state = ListState::default();
         list_state.select_first();
+
+        // this is unbounded because unbounded's sender.send is sync
+        let (sender, receiver) = mpsc::unbounded_channel();
         Self {
             should_quit: false,
             active_pane: AppPane::Wallet,
@@ -95,7 +103,12 @@ impl Default for App {
                 keystores: load_keystores().unwrap_or_default(),
                 list_state: RwLock::new(list_state),
                 active_wallet_idx: None,
+                prompt_sender: sender.clone(),
             },
+            prompt: None,
+            prompt_input: "".to_string(),
+            // prompt_sender: sender,
+            prompt_receiver: receiver,
         }
     }
 }
@@ -112,6 +125,7 @@ impl App {
             tokio::select! {
                 _ = interval.tick() => { terminal.draw(|f| self.render(f).expect("failed to render"))?; },
                 Some(Ok(event)) = events.next() => self.handle_event(&event),
+                Some(prompt) = self.prompt_receiver.recv() => self.prompt = Some(prompt),
             }
         }
         Ok(())
@@ -135,20 +149,64 @@ impl App {
             });
         frame.render_widget(dashboard_block, right_area);
 
+        // render the popup password prompt
+        self.render_prompt(frame);
+
         Ok(())
+    }
+
+    fn render_prompt(&mut self, frame: &mut Frame) {
+        if let Some(prompt) = &self.prompt {
+            let masked_pwd = "*".repeat(self.prompt_input.len());
+            let paragraph = Paragraph::new(masked_pwd).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!(" {prompt} ")),
+            );
+            let prompt_area = frame.area().centered(
+                Constraint::Length(
+                    prompt
+                        .len()
+                        .max(52)
+                        .try_into()
+                        .expect("cannot convert to u16"),
+                ),
+                Constraint::Length(3),
+            );
+            frame.render_widget(paragraph, prompt_area);
+        }
     }
 
     fn handle_event(&mut self, event: &Event) {
         if let Some(key) = event.as_key_press_event() {
-            match (&self.active_pane, key.code) {
-                (_, KeyCode::Char('q') | KeyCode::Esc) => self.should_quit = true,
-                (_, KeyCode::Tab) => {
-                    self.active_pane = self.active_pane.next();
-                    self.wallet_pane
-                        .set_is_active(matches!(self.active_pane, AppPane::Wallet));
-                }
-                (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
-                _ => {}
+            match self.prompt {
+                Some(_) => match key.code {
+                    KeyCode::Char(ch) => self.prompt_input.push(ch),
+                    KeyCode::Backspace => {
+                        self.prompt_input.pop();
+                    }
+                    KeyCode::Esc => {
+                        self.prompt = None;
+                        self.prompt_input.clear();
+                    }
+                    KeyCode::Enter => {
+                        self.prompt = None;
+                        let input = self.prompt_input.clone();
+                        self.prompt_input.clear();
+                        self.wallet_pane.on_prompt_input(input);
+                    }
+                    _ => {}
+                },
+                None => match (&self.active_pane, key.code) {
+                    (_, KeyCode::Char('q') | KeyCode::Esc) => self.should_quit = true,
+                    (_, KeyCode::Tab) => {
+                        self.active_pane = self.active_pane.next();
+                        self.wallet_pane
+                            .set_is_active(matches!(self.active_pane, AppPane::Wallet));
+                    }
+                    (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
+                    _ => {}
+                },
             }
         }
     }
@@ -201,6 +259,7 @@ struct WalletPane {
     keystores: Vec<KeystoreWallet>,
     list_state: RwLock<ListState>,
     active_wallet_idx: Option<usize>,
+    prompt_sender: mpsc::UnboundedSender<String>,
 }
 
 impl Widget for &WalletPane {
@@ -291,6 +350,22 @@ impl WalletPane {
         self.active_wallet_idx = idx;
         idx
     }
+
+    fn on_prompt_input(&mut self, input: String) {
+        if let Some(idx) = self.active_wallet_idx
+            && self.keystores[idx].is_locked()
+        {
+            let keystore = &mut self.keystores[idx];
+            if keystore.try_unlock(input).is_err() {
+                self.prompt_sender
+                    .send(format!(
+                        "[{}] Incorrect password! Try again.",
+                        keystore.name
+                    ))
+                    .expect("sending password retry prompt failed");
+            }
+        }
+    }
 }
 
 impl HandleEvent for WalletPane {
@@ -298,7 +373,16 @@ impl HandleEvent for WalletPane {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => self.select_previous(),
             KeyCode::Down | KeyCode::Char('j') => self.select_next(),
-            KeyCode::Enter => if let Some(idx) = self.set_active_wallet_to_selected_index() {},
+            KeyCode::Enter => {
+                if let Some(idx) = self.set_active_wallet_to_selected_index()
+                    && self.keystores[idx].is_locked()
+                {
+                    let keystore = &self.keystores[idx];
+                    self.prompt_sender
+                        .send(format!("Enter password for {}", keystore.name))
+                        .expect("sending password prompt request failed");
+                }
+            }
             _ => {}
         }
     }
