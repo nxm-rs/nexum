@@ -9,11 +9,13 @@ repository.workspace = true
 exclude.workspace = true
 
 [dependencies]
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracing.workspace = true
+tracing-subscriber.workspace = true
 ratatui = { version = "0.30.0-alpha.3", features = ["unstable-widget-ref"] }
-tokio = { workspace = true }
-eyre = "0.6.12"
+tokio.workspace = true
 crossterm = { version = "0.29.0", features = ["event-stream"] }
-futures = { workspace = true }
+futures.workspace = true
 alloy = { version = "1.0.3", features = ["signer-keystore"] }
+clap.workspace = true
+rpc.workspace = true
+eyre.workspace = true

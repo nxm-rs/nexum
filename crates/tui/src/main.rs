@@ -2,12 +2,15 @@
 
 use std::{
     fs::OpenOptions,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     sync::{RwLock, RwLockWriteGuard},
     time::Duration,
 };
 
+use ::rpc::run_server;
 use alloy::signers::{k256::ecdsa::SigningKey, local::LocalSigner};
+use clap::Parser;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use eyre::OptionExt;
 use futures::StreamExt;
@@ -45,6 +48,22 @@ fn tui_logger() -> impl std::io::Write {
         .expect("failed to open log file")
 }
 
+#[derive(Parser)]
+struct Args {
+    #[arg(short = 'H', long, default_value = "127.0.0.1")]
+    host: IpAddr,
+    #[arg(short, long, default_value = "1248")]
+    port: u16,
+    #[arg(short, long, default_value = "wss://eth.drpc.org")]
+    rpc_url: String,
+}
+
+impl Args {
+    fn listen_addr(&self) -> SocketAddr {
+        SocketAddr::new(self.host, self.port)
+    }
+}
+
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt()
@@ -52,8 +71,16 @@ async fn main() -> eyre::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
+    let args = Args::parse();
+    let rpc_handle = run_server(args.listen_addr(), &args.rpc_url).await?;
+
     let terminal = ratatui::init();
-    let app_result = App::default().run(terminal).await;
+
+    // run the loop until the tui quits or the server quits
+    let app_result = tokio::select! {
+        app_result = App::default().run(terminal) => { app_result }
+        _ = rpc_handle.stopped() => { Ok(()) }
+    };
     ratatui::restore();
     app_result
 }
