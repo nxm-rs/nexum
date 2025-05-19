@@ -135,7 +135,7 @@ pub fn upstream_request(
     }
 }
 
-async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> anyhow::Result<ServerHandle> {
+pub async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> anyhow::Result<ServerHandle> {
     let listener = TcpListener::bind(listen_addr).await?;
     let rpc: Arc<WsClient> = Arc::new(WsClientBuilder::default().build(rpc_url).await?);
 

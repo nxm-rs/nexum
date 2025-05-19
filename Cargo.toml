@@ -9,7 +9,6 @@ exclude = [".github/"]
 
 [workspace]
 members = [
-    "bin/rpc/",
     "crates/primitives/",
     "crates/extension/chrome-sys/",
     "crates/extension/worker/",
@@ -17,8 +16,9 @@ members = [
     "crates/extension/injector/",
     "crates/extension/browser-ui/",
     "crates/tui/",
+    "crates/rpc/",
 ]
-default-members = ["bin/rpc", "crates/tui/"]
+default-members = ["crates/rpc", "crates/tui/"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
