@@ -84,7 +84,7 @@ where
     }
 }
 
-pub async fn run(addr: String, rpc_url: String) -> anyhow::Result<ServerHandle> {
+pub async fn run(addr: String, rpc_url: String) -> eyre::Result<ServerHandle> {
     let addr = addr.parse::<SocketAddr>()?;
     run_server(addr, rpc_url.as_str()).await
 }
@@ -135,7 +135,7 @@ pub fn upstream_request(
     }
 }
 
-async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> anyhow::Result<ServerHandle> {
+pub async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> eyre::Result<ServerHandle> {
     let listener = TcpListener::bind(listen_addr).await?;
     let rpc: Arc<WsClient> = Arc::new(WsClientBuilder::default().build(rpc_url).await?);
 
@@ -233,7 +233,7 @@ async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> anyhow::Result<Se
                         // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
                         // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
                         // as workaround.
-                        svc.call(req).await.map_err(|e| anyhow::anyhow!("{:?}", e))
+                        svc.call(req).await.map_err(|e| eyre::eyre!("{:?}", e))
                     }
                     .boxed()
                 } else {
@@ -251,7 +251,7 @@ async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> anyhow::Result<Se
                         // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
                         // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
                         // as workaround.
-                        rp.map_err(|e| anyhow::anyhow!("{:?}", e))
+                        rp.map_err(|e| eyre::eyre!("{:?}", e))
                     }
                     .boxed()
                 }
