@@ -1,4 +1,5 @@
-be:
+alias be := build-ext
+build-ext:
 	wasm-pack build -t web --release -d ../dist/worker/ crates/extension/worker
 	wasm-pack build -t web --release -d ../dist/injected/ crates/extension/injected
 	wasm-pack build -t web --release -d ../dist/injector/ crates/extension/injector
@@ -8,3 +9,7 @@ be:
 	mkdir -p crates/extension/dist/browser-ui
 	cp -r crates/extension/browser-ui/public/** crates/extension/dist/
 	cp -r crates/extension/browser-ui/dist/* crates/extension/dist/browser-ui/
+
+alias re := run-ext
+run-ext:
+	web-ext run -s crates/extension/dist

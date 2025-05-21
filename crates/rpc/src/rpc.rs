@@ -11,12 +11,14 @@ use jsonrpsee::server::middleware::rpc::{RpcServiceBuilder, RpcServiceT};
 use jsonrpsee::server::{
     serve_with_graceful_shutdown, stop_channel, ServerHandle, StopHandle, TowerServiceBuilder,
 };
-use jsonrpsee::types::{ErrorCode, ErrorObject, Params, Request};
+use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params, Request};
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use jsonrpsee::{MethodResponse, Methods, RpcModule};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::net::TcpListener;
+use tokio::sync::mpsc::{self, channel, Receiver};
+use tokio::sync::oneshot;
 use tower::Service;
 use tracing::trace;
 
@@ -84,16 +86,22 @@ where
     }
 }
 
-pub async fn run(addr: String, rpc_url: String) -> eyre::Result<ServerHandle> {
+pub async fn run(
+    addr: String,
+    rpc_url: String,
+) -> eyre::Result<(
+    ServerHandle,
+    mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+)> {
     let addr = addr.parse::<SocketAddr>()?;
     run_server(addr, rpc_url.as_str()).await
 }
 
 // Define a function that returns the future
-pub fn upstream_request(
+pub fn upstream_request<C>(
     method_name: &'static str,
     shared_client: Arc<WsClient>,
-) -> impl Fn(Params<'static>, Arc<()>, jsonrpsee::Extensions) -> BoxFuture<'static, RpcResult<Value>>
+) -> impl Fn(Params<'static>, Arc<C>, jsonrpsee::Extensions) -> BoxFuture<'static, RpcResult<Value>>
        + Send
        + Sync
        + Clone
@@ -102,7 +110,7 @@ pub fn upstream_request(
     let shared_client = Arc::clone(&shared_client);
 
     move |params: Params<'static>,
-          _: Arc<()>,
+          _: Arc<C>,
           _: jsonrpsee::Extensions|
           -> BoxFuture<'static, RpcResult<Value>> {
         let client = Arc::clone(&shared_client);
@@ -135,7 +143,41 @@ pub fn upstream_request(
     }
 }
 
-pub async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> eyre::Result<ServerHandle> {
+/// Requests that need some interactive or external input to compute the response
+pub enum InteractiveRequest {
+    EthRequestAccounts,
+    EthAccounts,
+}
+
+/// Responses for the interactive requests
+pub enum InteractiveResponse {
+    EthRequestAccounts(Vec<String>),
+    EthAccounts(Vec<String>),
+}
+
+#[derive(Clone)]
+pub struct GlobalRpcContext {
+    pub sender: mpsc::Sender<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+}
+
+pub fn json_rpc_internal_error<E>(err: E) -> ErrorObjectOwned
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    ErrorObject::owned(
+        ErrorCode::InternalError.code(),
+        format!("{:?}", err),
+        None::<()>,
+    )
+}
+
+pub async fn run_server(
+    listen_addr: SocketAddr,
+    rpc_url: &str,
+) -> eyre::Result<(
+    ServerHandle,
+    Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+)> {
     let listener = TcpListener::bind(listen_addr).await?;
     let rpc: Arc<WsClient> = Arc::new(WsClientBuilder::default().build(rpc_url).await?);
 
@@ -156,8 +198,12 @@ pub async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> eyre::Result<
     // can also be used to stop the server.
     let (stop_handle, server_handle) = stop_channel();
 
-    let mut methods = RpcModule::new(());
-    methods.merge(eth::init((), rpc.clone())).unwrap();
+    let (sender, receiver) = channel(100);
+    let global_ctx = GlobalRpcContext { sender };
+    let mut methods = RpcModule::new(global_ctx.clone());
+    methods
+        .merge(eth::init(global_ctx.clone(), rpc.clone()))
+        .unwrap();
     methods.merge(net::init((), rpc.clone())).unwrap();
     methods.merge(web3::init((), rpc.clone())).unwrap();
     methods.merge(wallet::init((), rpc.clone())).unwrap();
@@ -265,5 +311,5 @@ pub async fn run_server(listen_addr: SocketAddr, rpc_url: &str) -> eyre::Result<
         }
     });
 
-    Ok(server_handle)
+    Ok((server_handle, receiver))
 }

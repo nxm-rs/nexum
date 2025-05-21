@@ -2,12 +2,17 @@
 
 use std::{
     fs::OpenOptions,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     sync::{RwLock, RwLockWriteGuard},
     time::Duration,
 };
 
-use alloy::signers::{k256::ecdsa::SigningKey, local::LocalSigner};
+use alloy::{
+    primitives::Address,
+    signers::{k256::ecdsa::SigningKey, local::LocalSigner},
+};
+use clap::Parser;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use eyre::OptionExt;
 use futures::StreamExt;
@@ -19,7 +24,11 @@ use ratatui::{
     widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Widget},
     DefaultTerminal, Frame,
 };
-use tokio::sync::mpsc;
+use rpc::{
+    rpc::{InteractiveRequest, InteractiveResponse},
+    run_server,
+};
+use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
 /// Returns the base config directory for nexum. It also creates the directory
@@ -45,6 +54,22 @@ fn tui_logger() -> impl std::io::Write {
         .expect("failed to open log file")
 }
 
+#[derive(Parser)]
+struct Args {
+    #[arg(short = 'H', long, default_value = "127.0.0.1")]
+    host: IpAddr,
+    #[arg(short, long, default_value = "1248")]
+    port: u16,
+    #[arg(short, long, default_value = "wss://eth.drpc.org")]
+    rpc_url: String,
+}
+
+impl Args {
+    fn listen_addr(&self) -> SocketAddr {
+        SocketAddr::new(self.host, self.port)
+    }
+}
+
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt()
@@ -52,8 +77,16 @@ async fn main() -> eyre::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
+    let args = Args::parse();
+    let (rpc_handle, request_receiver) = run_server(args.listen_addr(), &args.rpc_url).await?;
+
     let terminal = ratatui::init();
-    let app_result = App::default().run(terminal).await;
+
+    // run the loop until the tui quits or the server quits
+    let app_result = tokio::select! {
+        app_result = App::new(request_receiver).run(terminal) => { app_result }
+        _ = rpc_handle.stopped() => { Ok(()) }
+    };
     ratatui::restore();
     app_result
 }
@@ -85,10 +118,18 @@ struct App {
     prompt: Option<String>,
     prompt_input: String,
     prompt_receiver: mpsc::UnboundedReceiver<String>,
+    request_receiver: mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    const FRAMES_PER_SECOND: u64 = 60;
+
+    fn new(
+        request_receiver: mpsc::Receiver<(
+            InteractiveRequest,
+            oneshot::Sender<InteractiveResponse>,
+        )>,
+    ) -> Self {
         let mut list_state = ListState::default();
         list_state.select_first();
 
@@ -107,12 +148,9 @@ impl Default for App {
             prompt: None,
             prompt_input: "".to_string(),
             prompt_receiver: receiver,
+            request_receiver,
         }
     }
-}
-
-impl App {
-    const FRAMES_PER_SECOND: u64 = 60;
 
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> eyre::Result<()> {
         let period = Duration::from_secs_f32(1.0 / (Self::FRAMES_PER_SECOND as f32));
@@ -124,6 +162,10 @@ impl App {
                 _ = interval.tick() => { terminal.draw(|f| self.render(f).expect("failed to render"))?; },
                 Some(Ok(event)) = events.next() => self.handle_event(&event),
                 Some(prompt) = self.prompt_receiver.recv() => self.prompt = Some(prompt),
+                Some((req, res_sender)) = self.request_receiver.recv() => {
+                    // TODO: this probably shouldn't be awaited, will probably block the UI
+                    self.handle_request(req, res_sender).await;
+                }
             }
         }
         Ok(())
@@ -206,6 +248,39 @@ impl App {
                     (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
                     _ => {}
                 },
+            }
+        }
+    }
+
+    async fn handle_request(
+        &self,
+        request: InteractiveRequest,
+        response_sender: oneshot::Sender<InteractiveResponse>,
+    ) {
+        match request {
+            InteractiveRequest::EthRequestAccounts => {
+                response_sender
+                    .send(InteractiveResponse::EthRequestAccounts(
+                        if let Some(addr) = self.wallet_pane.active_account() {
+                            vec![addr.to_string()]
+                        } else {
+                            vec![]
+                        },
+                    ))
+                    .inspect_err(|_| tracing::error!("failed to send eth_requestAccounts response"))
+                    .ok();
+            }
+            InteractiveRequest::EthAccounts => {
+                response_sender
+                    .send(InteractiveResponse::EthAccounts(
+                        if let Some(addr) = self.wallet_pane.active_account() {
+                            vec![addr.to_string()]
+                        } else {
+                            vec![]
+                        },
+                    ))
+                    .inspect_err(|_| tracing::error!("failed to send eth_accounts response"))
+                    .ok();
             }
         }
     }
@@ -363,6 +438,17 @@ impl WalletPane {
                     ))
                     .expect("sending password retry prompt failed");
             }
+        }
+    }
+
+    fn active_account(&self) -> Option<Address> {
+        if let Some(idx) = self.active_wallet_idx {
+            self.keystores[idx]
+                .signer
+                .as_ref()
+                .map(|signer| signer.address())
+        } else {
+            None
         }
     }
 }

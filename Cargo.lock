@@ -5851,10 +5851,12 @@ name = "tui"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "clap",
  "crossterm",
  "eyre",
  "futures",
  "ratatui",
+ "rpc",
  "tokio",
  "tracing",
  "tracing-subscriber",

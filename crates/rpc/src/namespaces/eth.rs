@@ -1,12 +1,19 @@
-use jsonrpsee::{core::RpcResult, ws_client::WsClient, RpcModule};
+use jsonrpsee::{
+    core::RpcResult,
+    types::{ErrorCode, ErrorObject},
+    ws_client::WsClient,
+    RpcModule,
+};
 use std::sync::Arc;
+use tokio::sync::oneshot;
 
-use crate::rpc::upstream_request;
+use crate::rpc::{
+    json_rpc_internal_error, upstream_request, GlobalRpcContext, InteractiveRequest,
+    InteractiveResponse,
+};
 
-pub type EthContext = ();
-
-pub fn init(_: EthContext, client: Arc<WsClient>) -> RpcModule<EthContext> {
-    let mut eth_module = RpcModule::new(());
+pub fn init(context: GlobalRpcContext, client: Arc<WsClient>) -> RpcModule<GlobalRpcContext> {
+    let mut eth_module = RpcModule::new(context);
     let eth_methods = vec![
         "eth_syncing",
         "eth_chainId",
@@ -43,17 +50,37 @@ pub fn init(_: EthContext, client: Arc<WsClient>) -> RpcModule<EthContext> {
         let _ = eth_module.register_async_method(method, upstream_request(method, client.clone()));
     });
 
-    let _ =
-        eth_module.register_method("eth_requestAccounts", |_, _, _| -> RpcResult<Vec<String>> {
-            let addresses: Vec<String> =
-                vec!["0xE618050F1adb1F6bb7d03A3484346AC42F3E71EE".to_string()];
-            Ok(addresses)
-        });
+    let _ = eth_module.register_async_method(
+        "eth_requestAccounts",
+        async |_, ctx, _| -> RpcResult<Vec<String>> {
+            let (sender, receiver) = oneshot::channel::<InteractiveResponse>();
+            ctx.sender
+                .send((InteractiveRequest::EthRequestAccounts, sender))
+                .await
+                .map_err(json_rpc_internal_error)?;
+            let response = receiver.await.map_err(json_rpc_internal_error)?;
+            match response {
+                InteractiveResponse::EthRequestAccounts(accounts) => Ok(accounts),
+                _ => Err(ErrorObject::from(ErrorCode::InternalError)),
+            }
+        },
+    );
 
-    let _ = eth_module.register_method("eth_accounts", |_, _, _| -> RpcResult<Vec<String>> {
-        let addresses: Vec<String> = vec!["0xE618050F1adb1F6bb7d03A3484346AC42F3E71EE".to_string()];
-        Ok(addresses)
-    });
+    let _ = eth_module.register_async_method(
+        "eth_accounts",
+        async |_, ctx, _| -> RpcResult<Vec<String>> {
+            let (sender, receiver) = oneshot::channel::<InteractiveResponse>();
+            ctx.sender
+                .send((InteractiveRequest::EthAccounts, sender))
+                .await
+                .map_err(json_rpc_internal_error)?;
+            let response = receiver.await.map_err(json_rpc_internal_error)?;
+            match response {
+                InteractiveResponse::EthAccounts(accounts) => Ok(accounts),
+                _ => Err(ErrorObject::from(ErrorCode::InternalError)),
+            }
+        },
+    );
 
     eth_module
 }
