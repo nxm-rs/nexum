@@ -20,8 +20,9 @@ use ratatui::{
     layout::{Constraint, Layout},
     prelude::{Buffer, Rect},
     style::{Color, Style, Stylize},
+    symbols,
     text::Text,
-    widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Tabs, Widget},
     DefaultTerminal, Frame,
 };
 use rpc::{
@@ -92,6 +93,7 @@ async fn main() -> eyre::Result<()> {
 }
 
 enum AppPane {
+    Tabs,
     Wallet,
     Dashboard,
 }
@@ -105,15 +107,59 @@ impl Default for AppPane {
 impl AppPane {
     fn next(&self) -> Self {
         match self {
+            Self::Tabs => Self::Wallet,
             Self::Wallet => Self::Dashboard,
-            Self::Dashboard => Self::Wallet,
+            Self::Dashboard => Self::Tabs,
+        }
+    }
+}
+
+enum AppTab {
+    Main,
+    Settings,
+}
+
+impl Default for AppTab {
+    fn default() -> Self {
+        Self::Main
+    }
+}
+
+impl AppTab {
+    fn next(&self) -> Self {
+        match self {
+            Self::Main => Self::Settings,
+            Self::Settings => Self::Main,
+        }
+    }
+
+    fn prev(&self) -> Self {
+        match self {
+            Self::Main => Self::Settings,
+            Self::Settings => Self::Main,
+        }
+    }
+
+    fn id_to_tab(id: usize) -> Option<Self> {
+        match id {
+            1 => Some(Self::Main),
+            2 => Some(Self::Settings),
+            _ => None,
+        }
+    }
+
+    fn to_id(&self) -> usize {
+        match self {
+            Self::Main => 0,
+            Self::Settings => 1,
         }
     }
 }
 
 struct App {
     pub should_quit: bool,
-    pub active_pane: AppPane,
+    pub active_app_pane: AppPane,
+    active_tab: AppTab,
     wallet_pane: WalletPane,
     prompt: Option<String>,
     prompt_input: String,
@@ -137,7 +183,8 @@ impl App {
         let (sender, receiver) = mpsc::unbounded_channel();
         Self {
             should_quit: false,
-            active_pane: AppPane::Wallet,
+            active_app_pane: AppPane::Wallet,
+            active_tab: AppTab::default(),
             wallet_pane: WalletPane {
                 is_active: true,
                 keystores: load_keystores().unwrap_or_default(),
@@ -172,25 +219,65 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) -> eyre::Result<()> {
-        let horizontal = Layout::horizontal([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]);
-        let [left_area, right_area] = horizontal.areas(frame.area());
-
+        let full_area = frame.area();
         let active_border_style = Style::default().fg(Color::Blue);
         let inactive_border_style = Style::default();
 
-        frame.render_widget_ref(&self.wallet_pane, left_area);
+        // render the tabs
+        let tabs = Tabs::new(
+            vec!["Wallet", "Settings"]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, s)| format!("{s}[{}]", idx + 1))
+                .collect::<Vec<_>>(),
+        )
+        .block(
+            Block::bordered().border_style(if matches!(self.active_app_pane, AppPane::Tabs) {
+                active_border_style
+            } else {
+                inactive_border_style
+            }),
+        )
+        .highlight_style(Style::default().bg(Color::Blue).fg(Color::Black).bold())
+        .select(self.active_tab.to_id())
+        .divider(symbols::line::VERTICAL)
+        .padding(" ", " ");
+        let tab_area = Rect {
+            x: 0,
+            y: 0,
+            width: full_area.width,
+            height: 3,
+        };
+        frame.render_widget(tabs, tab_area);
 
-        let dashboard_block = Block::default()
-            .title("Dashboard")
-            .borders(Borders::ALL)
-            .border_style(match self.active_pane {
-                AppPane::Wallet => inactive_border_style,
-                AppPane::Dashboard => active_border_style,
-            });
-        frame.render_widget(dashboard_block, right_area);
+        match self.active_tab {
+            AppTab::Main => {
+                let tab_inner = Rect {
+                    x: full_area.x,
+                    y: full_area.y + 3,
+                    width: full_area.width,
+                    height: full_area.height - 3,
+                };
+                let horizontal =
+                    Layout::horizontal([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]);
+                let [left_area, right_area] = horizontal.areas(tab_inner);
 
-        // render the popup password prompt
-        self.render_prompt(frame);
+                frame.render_widget_ref(&self.wallet_pane, left_area);
+                let dashboard_block = Block::default()
+                    .title("Dashboard")
+                    .borders(Borders::ALL)
+                    .border_style(match self.active_app_pane {
+                        AppPane::Wallet => inactive_border_style,
+                        AppPane::Dashboard => active_border_style,
+                        AppPane::Tabs => inactive_border_style,
+                    });
+                frame.render_widget(dashboard_block, right_area);
+
+                // render the popup password prompt
+                self.render_prompt(frame);
+            }
+            AppTab::Settings => {}
+        }
 
         Ok(())
     }
@@ -238,14 +325,22 @@ impl App {
                     }
                     _ => {}
                 },
-                None => match (&self.active_pane, key.code) {
+                None => match (&self.active_app_pane, key.code) {
                     (_, KeyCode::Char('q') | KeyCode::Esc) => self.should_quit = true,
+                    (_, KeyCode::Char('1')) => self.active_tab = AppTab::id_to_tab(1).unwrap(),
+                    (_, KeyCode::Char('2')) => self.active_tab = AppTab::id_to_tab(2).unwrap(),
                     (_, KeyCode::Tab) => {
-                        self.active_pane = self.active_pane.next();
+                        self.active_app_pane = self.active_app_pane.next();
                         self.wallet_pane
-                            .set_is_active(matches!(self.active_pane, AppPane::Wallet));
+                            .set_is_active(matches!(self.active_app_pane, AppPane::Wallet));
                     }
                     (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
+                    (AppPane::Tabs, KeyCode::Right | KeyCode::Char('l')) => {
+                        self.active_tab = self.active_tab.next();
+                    }
+                    (AppPane::Tabs, KeyCode::Left | KeyCode::Char('h')) => {
+                        self.active_tab = self.active_tab.prev();
+                    }
                     _ => {}
                 },
             }
