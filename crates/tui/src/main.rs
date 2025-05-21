@@ -13,6 +13,7 @@ use alloy::{
     signers::{k256::ecdsa::SigningKey, local::LocalSigner},
 };
 use clap::Parser;
+use config_tab::ConfigTab;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use eyre::OptionExt;
 use futures::StreamExt;
@@ -20,8 +21,9 @@ use ratatui::{
     layout::{Constraint, Layout},
     prelude::{Buffer, Rect},
     style::{Color, Style, Stylize},
+    symbols,
     text::Text,
-    widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Tabs, Widget},
     DefaultTerminal, Frame,
 };
 use rpc::{
@@ -31,17 +33,10 @@ use rpc::{
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
-/// Returns the base config directory for nexum. It also creates the directory
-/// if it doesn't exist yet.
-fn config_dir() -> eyre::Result<PathBuf> {
-    let dir = std::env::home_dir()
-        .ok_or_eyre("home directory not found")?
-        .join(".nxm");
-    if !dir.exists() {
-        std::fs::create_dir(&dir)?
-    }
-    Ok(dir)
-}
+use config::{config_dir, load_config, Config};
+
+mod config;
+mod config_tab;
 
 fn tui_logger() -> impl std::io::Write {
     let log_file = config_dir()
@@ -80,11 +75,14 @@ async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let (rpc_handle, request_receiver) = run_server(args.listen_addr(), &args.rpc_url).await?;
 
+    let config = load_config()?;
+    tracing::debug!(?config, formatted = ?toml::to_string_pretty(&config)?);
+
     let terminal = ratatui::init();
 
     // run the loop until the tui quits or the server quits
     let app_result = tokio::select! {
-        app_result = App::new(request_receiver).run(terminal) => { app_result }
+        app_result = App::new(request_receiver, config).run(terminal) => { app_result }
         _ = rpc_handle.stopped() => { Ok(()) }
     };
     ratatui::restore();
@@ -92,6 +90,7 @@ async fn main() -> eyre::Result<()> {
 }
 
 enum AppPane {
+    Tabs,
     Wallet,
     Dashboard,
 }
@@ -105,20 +104,65 @@ impl Default for AppPane {
 impl AppPane {
     fn next(&self) -> Self {
         match self {
+            Self::Tabs => Self::Wallet,
             Self::Wallet => Self::Dashboard,
-            Self::Dashboard => Self::Wallet,
+            Self::Dashboard => Self::Tabs,
+        }
+    }
+}
+
+enum AppTab {
+    Main,
+    Settings,
+}
+
+impl Default for AppTab {
+    fn default() -> Self {
+        Self::Main
+    }
+}
+
+impl AppTab {
+    fn next(&self) -> Self {
+        match self {
+            Self::Main => Self::Settings,
+            Self::Settings => Self::Main,
+        }
+    }
+
+    fn prev(&self) -> Self {
+        match self {
+            Self::Main => Self::Settings,
+            Self::Settings => Self::Main,
+        }
+    }
+
+    fn id_to_tab(id: usize) -> Option<Self> {
+        match id {
+            1 => Some(Self::Main),
+            2 => Some(Self::Settings),
+            _ => None,
+        }
+    }
+
+    fn to_id(&self) -> usize {
+        match self {
+            Self::Main => 0,
+            Self::Settings => 1,
         }
     }
 }
 
 struct App {
     pub should_quit: bool,
-    pub active_pane: AppPane,
+    pub active_app_pane: AppPane,
+    active_tab: AppTab,
     wallet_pane: WalletPane,
     prompt: Option<String>,
     prompt_input: String,
     prompt_receiver: mpsc::UnboundedReceiver<String>,
     request_receiver: mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+    config_tab: ConfigTab,
 }
 
 impl App {
@@ -129,6 +173,7 @@ impl App {
             InteractiveRequest,
             oneshot::Sender<InteractiveResponse>,
         )>,
+        config: Config,
     ) -> Self {
         let mut list_state = ListState::default();
         list_state.select_first();
@@ -137,7 +182,8 @@ impl App {
         let (sender, receiver) = mpsc::unbounded_channel();
         Self {
             should_quit: false,
-            active_pane: AppPane::Wallet,
+            active_app_pane: AppPane::Wallet,
+            active_tab: AppTab::default(),
             wallet_pane: WalletPane {
                 is_active: true,
                 keystores: load_keystores().unwrap_or_default(),
@@ -149,6 +195,7 @@ impl App {
             prompt_input: "".to_string(),
             prompt_receiver: receiver,
             request_receiver,
+            config_tab: ConfigTab::new(config),
         }
     }
 
@@ -172,25 +219,67 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) -> eyre::Result<()> {
-        let horizontal = Layout::horizontal([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]);
-        let [left_area, right_area] = horizontal.areas(frame.area());
-
+        let full_area = frame.area();
         let active_border_style = Style::default().fg(Color::Blue);
         let inactive_border_style = Style::default();
 
-        frame.render_widget_ref(&self.wallet_pane, left_area);
+        // render the tabs
+        let tabs = Tabs::new(
+            vec!["Wallet", "Settings"]
+                .into_iter()
+                .enumerate()
+                .map(|(idx, s)| format!("{s}[{}]", idx + 1))
+                .collect::<Vec<_>>(),
+        )
+        .block(
+            Block::bordered().border_style(if matches!(self.active_app_pane, AppPane::Tabs) {
+                active_border_style
+            } else {
+                inactive_border_style
+            }),
+        )
+        .highlight_style(Style::default().bg(Color::Blue).fg(Color::Black).bold())
+        .select(self.active_tab.to_id())
+        .divider(symbols::line::VERTICAL)
+        .padding(" ", " ");
+        let tab_area = Rect {
+            x: 0,
+            y: 0,
+            width: full_area.width,
+            height: 3,
+        };
+        frame.render_widget(tabs, tab_area);
 
-        let dashboard_block = Block::default()
-            .title("Dashboard")
-            .borders(Borders::ALL)
-            .border_style(match self.active_pane {
-                AppPane::Wallet => inactive_border_style,
-                AppPane::Dashboard => active_border_style,
-            });
-        frame.render_widget(dashboard_block, right_area);
+        let tab_inner = Rect {
+            x: full_area.x,
+            y: full_area.y + 3,
+            width: full_area.width,
+            height: full_area.height - 3,
+        };
+        match self.active_tab {
+            AppTab::Main => {
+                let horizontal =
+                    Layout::horizontal([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]);
+                let [left_area, right_area] = horizontal.areas(tab_inner);
 
-        // render the popup password prompt
-        self.render_prompt(frame);
+                frame.render_widget_ref(&self.wallet_pane, left_area);
+                let dashboard_block = Block::default()
+                    .title("Dashboard")
+                    .borders(Borders::ALL)
+                    .border_style(match self.active_app_pane {
+                        AppPane::Wallet => inactive_border_style,
+                        AppPane::Dashboard => active_border_style,
+                        AppPane::Tabs => inactive_border_style,
+                    });
+                frame.render_widget(dashboard_block, right_area);
+
+                // render the popup password prompt
+                self.render_prompt(frame);
+            }
+            AppTab::Settings => {
+                frame.render_widget_ref(&self.config_tab, tab_inner);
+            }
+        }
 
         Ok(())
     }
@@ -238,15 +327,32 @@ impl App {
                     }
                     _ => {}
                 },
-                None => match (&self.active_pane, key.code) {
+                None => match (&self.active_tab, key.code) {
+                    // global keybinds
                     (_, KeyCode::Char('q') | KeyCode::Esc) => self.should_quit = true,
-                    (_, KeyCode::Tab) => {
-                        self.active_pane = self.active_pane.next();
-                        self.wallet_pane
-                            .set_is_active(matches!(self.active_pane, AppPane::Wallet));
+                    (_, KeyCode::Char('1')) => self.active_tab = AppTab::id_to_tab(1).unwrap(),
+                    (_, KeyCode::Char('2')) => self.active_tab = AppTab::id_to_tab(2).unwrap(),
+                    // main tab keybinds
+                    (AppTab::Main, _) => match (&self.active_app_pane, key.code) {
+                        (_, KeyCode::Tab) => {
+                            self.active_app_pane = self.active_app_pane.next();
+                            self.wallet_pane
+                                .set_is_active(matches!(self.active_app_pane, AppPane::Wallet));
+                        }
+                        (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
+                        (AppPane::Tabs, KeyCode::Right | KeyCode::Char('l')) => {
+                            self.active_tab = self.active_tab.next();
+                        }
+                        (AppPane::Tabs, KeyCode::Left | KeyCode::Char('h')) => {
+                            self.active_tab = self.active_tab.prev();
+                        }
+                        _ => {}
+                    },
+
+                    // settings tab keybinds
+                    (AppTab::Settings, _) => {
+                        self.config_tab.handle_key(&key);
                     }
-                    (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
-                    _ => {}
                 },
             }
         }
@@ -304,7 +410,7 @@ fn load_keystores() -> eyre::Result<Vec<KeystoreWallet>> {
         .collect::<Vec<_>>())
 }
 
-trait HandleEvent {
+pub trait HandleEvent {
     fn handle_key(&mut self, event: &KeyEvent);
 }
 
