@@ -1,0 +1,311 @@
+use std::sync::Mutex;
+
+use alloy::primitives::Address;
+use alloy_chains::NamedChain;
+use crossterm::event::{KeyCode, KeyEvent};
+use ratatui::{
+    layout::{Constraint, Layout},
+    prelude::{Buffer, Rect},
+    style::{Style, Stylize},
+    widgets::{Block, List, ListState, Padding, Row, StatefulWidget, Table, Widget},
+};
+
+use crate::{config::Config, HandleEvent};
+
+pub struct ConfigTab {
+    config: Config,
+    config_list_state: Mutex<ListState>,
+    origin_connections_collapsed: bool,
+    labels_collapsed: bool,
+}
+
+#[derive(Debug)]
+enum ConfigListItemType {
+    Rpcs,
+    OriginConnections(Address),
+    OriginConnectionsMeta,
+    Labels(NamedChain),
+    LabelsMeta,
+    Meta,
+}
+
+impl ConfigTab {
+    pub fn new(config: Config) -> Self {
+        let mut list_state = ListState::default();
+        list_state.select_first();
+
+        Self {
+            config,
+            config_list_state: Mutex::new(list_state.clone()),
+            origin_connections_collapsed: false,
+            labels_collapsed: false,
+        }
+    }
+
+    fn list_len(&self) -> usize {
+        3 + if self.origin_connections_collapsed {
+            0
+        } else {
+            self.config.origin_connections.len()
+        } + if self.labels_collapsed {
+            0
+        } else {
+            self.config.labels.len()
+        }
+    }
+
+    fn origin_connections_offset(&self) -> usize {
+        1
+    }
+
+    fn labels_offset(&self) -> usize {
+        2 + if self.origin_connections_collapsed {
+            0
+        } else {
+            self.config.origin_connections.len()
+        }
+    }
+
+    /// Sorted keys to get consistent order since order of keys in HashMap::keys is unknown.
+    fn origin_connections_keys(&self) -> Vec<&Address> {
+        let mut keys = self.config.origin_connections.keys().collect::<Vec<_>>();
+        keys.sort();
+        keys
+    }
+
+    /// Sorted keys to get consistent order since order of keys in HashMap::keys is unknown.
+    fn labels_keys(&self) -> Vec<&NamedChain> {
+        let mut keys = self.config.labels.keys().collect::<Vec<_>>();
+        keys.sort();
+        keys
+    }
+
+    fn nth_addr_origin_connections(&self, idx: usize) -> Option<Address> {
+        self.origin_connections_keys().get(idx).map(|addr| **addr)
+    }
+
+    fn nth_chain_labels(&self, idx: usize) -> Option<NamedChain> {
+        self.labels_keys().get(idx).map(|chain| **chain)
+    }
+
+    fn item_at(&self, idx: usize) -> ConfigListItemType {
+        let labels_offset = self.labels_offset();
+        let origin_connections_offset = self.origin_connections_offset();
+        let list_len = self.list_len();
+
+        if idx == 0 {
+            ConfigListItemType::Rpcs
+        } else if idx == origin_connections_offset {
+            ConfigListItemType::OriginConnectionsMeta
+        } else if idx == labels_offset {
+            ConfigListItemType::LabelsMeta
+        } else if idx < labels_offset {
+            ConfigListItemType::OriginConnections(
+                self.nth_addr_origin_connections(idx - origin_connections_offset - 1)
+                    .expect("idx is out of bounds"),
+            )
+        } else if idx < list_len {
+            ConfigListItemType::Labels(
+                self.nth_chain_labels(idx - labels_offset - 1)
+                    .expect("idx is out of bounds"),
+            )
+        } else {
+            ConfigListItemType::Meta
+        }
+    }
+
+    fn select_next_config_type(&mut self) {
+        let list_state = &mut *self
+            .config_list_state
+            .lock()
+            .expect("failed to get config list state");
+        if let Some(selected_idx) = list_state.selected() {
+            if selected_idx < self.list_len() - 1 {
+                list_state.select_next();
+            } else {
+                list_state.select_first();
+            }
+        } else {
+            list_state.select_first();
+        }
+    }
+
+    fn select_previous_config_type(&mut self) {
+        let list_state = &mut *self
+            .config_list_state
+            .lock()
+            .expect("failed to get config list state");
+        if let Some(selected_idx) = list_state.selected() {
+            if selected_idx > 0 {
+                list_state.select_previous();
+            } else {
+                list_state.select_last();
+            }
+        } else {
+            list_state.select_last();
+        }
+    }
+}
+
+impl Widget for &ConfigTab {
+    fn render(self, area: Rect, buf: &mut Buffer)
+    where
+        Self: Sized,
+    {
+        let mut list_items =
+            Vec::with_capacity(3 + self.config.origin_connections.len() + self.config.labels.len());
+        list_items.push("RPCs".to_string());
+
+        if self.origin_connections_collapsed {
+            list_items.push("▶ Origin Connections".to_string())
+        } else {
+            list_items.push("▼ Origin Connections".to_string());
+            for addr in self.origin_connections_keys() {
+                list_items.push(format!("  {addr}"));
+            }
+        }
+
+        if self.labels_collapsed {
+            list_items.push("▶ Labels".to_string())
+        } else {
+            list_items.push("▼ Labels".to_string());
+            for chain in self.labels_keys() {
+                list_items.push(format!("  {chain}"));
+            }
+        }
+        assert!(
+            list_items.len() == self.list_len(),
+            "list_items.len() is wrong"
+        );
+
+        let list = List::new(list_items)
+            .highlight_style(Style::default().reversed())
+            .highlight_symbol("> ")
+            .block(Block::bordered());
+        let [left_area, right_area] =
+            Layout::horizontal(vec![Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]).areas(area);
+
+        StatefulWidget::render(
+            list,
+            left_area,
+            buf,
+            &mut self
+                .config_list_state
+                .lock()
+                .expect("failed to get config list state"),
+        );
+
+        if let Some(idx) = self
+            .config_list_state
+            .lock()
+            .expect("failed to get config list state")
+            .selected()
+        {
+            let item = self.item_at(idx);
+            match item {
+                ConfigListItemType::Rpcs => {
+                    let table = Table::new(
+                        self.config
+                            .rpcs
+                            .iter()
+                            .map(|(k, v)| Row::new(vec![k.to_owned(), v.to_string()]))
+                            .collect::<Vec<_>>(),
+                        vec![Constraint::Percentage(20), Constraint::Percentage(80)],
+                    )
+                    .column_spacing(1)
+                    .header(
+                        Row::new(vec!["Name", "URL"])
+                            .style(Style::default().bold())
+                            .bottom_margin(1),
+                    )
+                    .block(
+                        Block::bordered()
+                            .title("RPCs")
+                            .padding(Padding::new(1, 0, 0, 0)),
+                    );
+                    Widget::render(table, right_area, buf);
+                }
+                ConfigListItemType::OriginConnections(addr) => {
+                    let table = Table::new(
+                        self.config
+                            .origin_connections
+                            .get(&addr)
+                            .unwrap()
+                            .iter()
+                            .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
+                            .collect::<Vec<_>>(),
+                        vec![Constraint::Percentage(20), Constraint::Percentage(80)],
+                    )
+                    .column_spacing(1)
+                    .header(
+                        Row::new(vec!["Origin", "Allowed"])
+                            .style(Style::default().bold())
+                            .bottom_margin(1),
+                    )
+                    .block(
+                        Block::bordered()
+                            .title("Origin Connections")
+                            .padding(Padding::new(1, 0, 0, 0)),
+                    );
+                    Widget::render(table, right_area, buf);
+                }
+                ConfigListItemType::Labels(chain) => {
+                    let table = Table::new(
+                        self.config
+                            .labels
+                            .get(&chain)
+                            .unwrap()
+                            .iter()
+                            .map(|(k, v)| Row::new(vec![k.to_string(), v.to_string()]))
+                            .collect::<Vec<_>>(),
+                        vec![Constraint::Length(42), Constraint::Percentage(100)],
+                    )
+                    .column_spacing(1)
+                    .header(
+                        Row::new(vec!["Address", "Label"])
+                            .style(Style::default().bold())
+                            .bottom_margin(1),
+                    )
+                    .block(
+                        Block::bordered()
+                            .title("Labels")
+                            .padding(Padding::new(1, 0, 0, 0)),
+                    );
+                    Widget::render(table, right_area, buf);
+                }
+                _ => {
+                    Widget::render(Block::bordered(), right_area, buf);
+                }
+            }
+        }
+    }
+}
+
+impl HandleEvent for ConfigTab {
+    fn handle_key(&mut self, event: &KeyEvent) {
+        match event.code {
+            KeyCode::Up | KeyCode::Char('k') => self.select_previous_config_type(),
+            KeyCode::Down | KeyCode::Char('j') => self.select_next_config_type(),
+            KeyCode::Enter => {
+                if let Some(idx) = self
+                    .config_list_state
+                    .lock()
+                    .expect("failed to get config list state")
+                    .selected()
+                {
+                    let item = self.item_at(idx);
+                    match item {
+                        ConfigListItemType::OriginConnectionsMeta => {
+                            self.origin_connections_collapsed = !self.origin_connections_collapsed
+                        }
+                        ConfigListItemType::LabelsMeta => {
+                            self.labels_collapsed = !self.labels_collapsed
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}

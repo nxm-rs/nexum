@@ -13,6 +13,7 @@ use alloy::{
     signers::{k256::ecdsa::SigningKey, local::LocalSigner},
 };
 use clap::Parser;
+use config_tab::ConfigTab;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use eyre::OptionExt;
 use futures::StreamExt;
@@ -32,17 +33,10 @@ use rpc::{
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
-/// Returns the base config directory for nexum. It also creates the directory
-/// if it doesn't exist yet.
-fn config_dir() -> eyre::Result<PathBuf> {
-    let dir = std::env::home_dir()
-        .ok_or_eyre("home directory not found")?
-        .join(".nxm");
-    if !dir.exists() {
-        std::fs::create_dir(&dir)?
-    }
-    Ok(dir)
-}
+use config::{config_dir, load_config, Config};
+
+mod config;
+mod config_tab;
 
 fn tui_logger() -> impl std::io::Write {
     let log_file = config_dir()
@@ -81,11 +75,14 @@ async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let (rpc_handle, request_receiver) = run_server(args.listen_addr(), &args.rpc_url).await?;
 
+    let config = load_config()?;
+    tracing::debug!(?config, formatted = ?toml::to_string_pretty(&config)?);
+
     let terminal = ratatui::init();
 
     // run the loop until the tui quits or the server quits
     let app_result = tokio::select! {
-        app_result = App::new(request_receiver).run(terminal) => { app_result }
+        app_result = App::new(request_receiver, config).run(terminal) => { app_result }
         _ = rpc_handle.stopped() => { Ok(()) }
     };
     ratatui::restore();
@@ -165,6 +162,7 @@ struct App {
     prompt_input: String,
     prompt_receiver: mpsc::UnboundedReceiver<String>,
     request_receiver: mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+    config_tab: ConfigTab,
 }
 
 impl App {
@@ -175,6 +173,7 @@ impl App {
             InteractiveRequest,
             oneshot::Sender<InteractiveResponse>,
         )>,
+        config: Config,
     ) -> Self {
         let mut list_state = ListState::default();
         list_state.select_first();
@@ -196,6 +195,7 @@ impl App {
             prompt_input: "".to_string(),
             prompt_receiver: receiver,
             request_receiver,
+            config_tab: ConfigTab::new(config),
         }
     }
 
@@ -250,14 +250,14 @@ impl App {
         };
         frame.render_widget(tabs, tab_area);
 
+        let tab_inner = Rect {
+            x: full_area.x,
+            y: full_area.y + 3,
+            width: full_area.width,
+            height: full_area.height - 3,
+        };
         match self.active_tab {
             AppTab::Main => {
-                let tab_inner = Rect {
-                    x: full_area.x,
-                    y: full_area.y + 3,
-                    width: full_area.width,
-                    height: full_area.height - 3,
-                };
                 let horizontal =
                     Layout::horizontal([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]);
                 let [left_area, right_area] = horizontal.areas(tab_inner);
@@ -276,7 +276,9 @@ impl App {
                 // render the popup password prompt
                 self.render_prompt(frame);
             }
-            AppTab::Settings => {}
+            AppTab::Settings => {
+                frame.render_widget_ref(&self.config_tab, tab_inner);
+            }
         }
 
         Ok(())
@@ -325,23 +327,32 @@ impl App {
                     }
                     _ => {}
                 },
-                None => match (&self.active_app_pane, key.code) {
+                None => match (&self.active_tab, key.code) {
+                    // global keybinds
                     (_, KeyCode::Char('q') | KeyCode::Esc) => self.should_quit = true,
                     (_, KeyCode::Char('1')) => self.active_tab = AppTab::id_to_tab(1).unwrap(),
                     (_, KeyCode::Char('2')) => self.active_tab = AppTab::id_to_tab(2).unwrap(),
-                    (_, KeyCode::Tab) => {
-                        self.active_app_pane = self.active_app_pane.next();
-                        self.wallet_pane
-                            .set_is_active(matches!(self.active_app_pane, AppPane::Wallet));
+                    // main tab keybinds
+                    (AppTab::Main, _) => match (&self.active_app_pane, key.code) {
+                        (_, KeyCode::Tab) => {
+                            self.active_app_pane = self.active_app_pane.next();
+                            self.wallet_pane
+                                .set_is_active(matches!(self.active_app_pane, AppPane::Wallet));
+                        }
+                        (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
+                        (AppPane::Tabs, KeyCode::Right | KeyCode::Char('l')) => {
+                            self.active_tab = self.active_tab.next();
+                        }
+                        (AppPane::Tabs, KeyCode::Left | KeyCode::Char('h')) => {
+                            self.active_tab = self.active_tab.prev();
+                        }
+                        _ => {}
+                    },
+
+                    // settings tab keybinds
+                    (AppTab::Settings, _) => {
+                        self.config_tab.handle_key(&key);
                     }
-                    (AppPane::Wallet, _) => self.wallet_pane.handle_key(&key),
-                    (AppPane::Tabs, KeyCode::Right | KeyCode::Char('l')) => {
-                        self.active_tab = self.active_tab.next();
-                    }
-                    (AppPane::Tabs, KeyCode::Left | KeyCode::Char('h')) => {
-                        self.active_tab = self.active_tab.prev();
-                    }
-                    _ => {}
                 },
             }
         }
@@ -399,7 +410,7 @@ fn load_keystores() -> eyre::Result<Vec<KeystoreWallet>> {
         .collect::<Vec<_>>())
 }
 
-trait HandleEvent {
+pub trait HandleEvent {
     fn handle_key(&mut self, event: &KeyEvent);
 }
 

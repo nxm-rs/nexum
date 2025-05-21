@@ -19,3 +19,8 @@ alloy = { version = "1.0.3", features = ["signer-keystore"] }
 clap.workspace = true
 rpc.workspace = true
 eyre.workspace = true
+figment = { version = "0.10.19", features = ["toml"] }
+serde.workspace = true
+url.workspace = true
+alloy-chains.workspace = true
+toml = { version = "0.8.22", features = ["display"] }
