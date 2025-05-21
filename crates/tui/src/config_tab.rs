@@ -66,51 +66,32 @@ impl ConfigTab {
         }
     }
 
-    /// Sorted keys to get consistent order since order of keys in HashMap::keys is unknown.
-    fn origin_connections_keys(&self) -> Vec<&Address> {
-        let mut keys = self.config.origin_connections.keys().collect::<Vec<_>>();
-        keys.sort();
-        keys
-    }
-
-    /// Sorted keys to get consistent order since order of keys in HashMap::keys is unknown.
-    fn labels_keys(&self) -> Vec<&NamedChain> {
-        let mut keys = self.config.labels.keys().collect::<Vec<_>>();
-        keys.sort();
-        keys
-    }
-
-    fn nth_addr_origin_connections(&self, idx: usize) -> Option<Address> {
-        self.origin_connections_keys().get(idx).map(|addr| **addr)
-    }
-
-    fn nth_chain_labels(&self, idx: usize) -> Option<NamedChain> {
-        self.labels_keys().get(idx).map(|chain| **chain)
-    }
-
     fn item_at(&self, idx: usize) -> ConfigListItemType {
         let labels_offset = self.labels_offset();
         let origin_connections_offset = self.origin_connections_offset();
         let list_len = self.list_len();
 
-        if idx == 0 {
-            ConfigListItemType::Rpcs
-        } else if idx == origin_connections_offset {
-            ConfigListItemType::OriginConnectionsMeta
-        } else if idx == labels_offset {
-            ConfigListItemType::LabelsMeta
-        } else if idx < labels_offset {
-            ConfigListItemType::OriginConnections(
-                self.nth_addr_origin_connections(idx - origin_connections_offset - 1)
+        match idx {
+            0 => ConfigListItemType::Rpcs,
+            idx if idx == origin_connections_offset => ConfigListItemType::OriginConnectionsMeta,
+            idx if idx == labels_offset => ConfigListItemType::LabelsMeta,
+            idx if idx < labels_offset => ConfigListItemType::OriginConnections(
+                *self
+                    .config
+                    .origin_connections
+                    .keys()
+                    .nth(idx - origin_connections_offset - 1)
                     .expect("idx is out of bounds"),
-            )
-        } else if idx < list_len {
-            ConfigListItemType::Labels(
-                self.nth_chain_labels(idx - labels_offset - 1)
+            ),
+            idx if idx < list_len => ConfigListItemType::Labels(
+                *self
+                    .config
+                    .labels
+                    .keys()
+                    .nth(idx - labels_offset - 1)
                     .expect("idx is out of bounds"),
-            )
-        } else {
-            ConfigListItemType::Meta
+            ),
+            _ => ConfigListItemType::Meta,
         }
     }
 
@@ -160,7 +141,7 @@ impl Widget for &ConfigTab {
             list_items.push("▶ Origin Connections".to_string())
         } else {
             list_items.push("▼ Origin Connections".to_string());
-            for addr in self.origin_connections_keys() {
+            for addr in self.config.origin_connections.keys() {
                 list_items.push(format!("  {addr}"));
             }
         }
@@ -169,7 +150,7 @@ impl Widget for &ConfigTab {
             list_items.push("▶ Labels".to_string())
         } else {
             list_items.push("▼ Labels".to_string());
-            for chain in self.labels_keys() {
+            for chain in self.config.labels.keys() {
                 list_items.push(format!("  {chain}"));
             }
         }

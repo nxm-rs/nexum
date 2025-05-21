@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
 use alloy::primitives::Address;
 use alloy_chains::NamedChain;
@@ -13,8 +16,8 @@ use url::Url;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub rpcs: HashMap<String, Url>,
-    pub origin_connections: HashMap<Address, HashMap<Url, bool>>,
-    pub labels: HashMap<NamedChain, HashMap<Address, String>>,
+    pub origin_connections: BTreeMap<Address, HashMap<Url, bool>>,
+    pub labels: BTreeMap<NamedChain, HashMap<Address, String>>,
 }
 
 /// Returns the base config directory for nexum. It also creates the directory
