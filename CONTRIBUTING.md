@@ -31,12 +31,12 @@ $ cargo run -p tui
 [`just`](https://just.systems/) recipes are provided for building, packaging
 and running the browser extension.
 
-To buil the extension, run:
+To build the extension, run:
 ```sh
-$ just be
+$ just build-ext
 ```
 
 To run the extension using `web-ext`, run:
 ```sh
-$ just re
+$ just run-ext
 ```
