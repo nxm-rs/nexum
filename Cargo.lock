@@ -4531,6 +4531,7 @@ dependencies = [
  "hyper",
  "jsonrpsee",
  "paste",
+ "paste",
  "serde",
  "serde_json",
  "tokio",
