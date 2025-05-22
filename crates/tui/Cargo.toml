@@ -15,7 +15,7 @@ ratatui = { version = "0.30.0-alpha.3", features = ["unstable-widget-ref"] }
 tokio.workspace = true
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures.workspace = true
-alloy = { version = "1.0.3", features = ["signer-keystore"] }
+alloy.workspace = true
 clap.workspace = true
 rpc.workspace = true
 eyre.workspace = true

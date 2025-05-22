@@ -2,7 +2,7 @@
 
 use std::{
     fs::OpenOptions,
-    net::{IpAddr, SocketAddr},
+    net::Ipv4Addr,
     path::PathBuf,
     sync::{RwLock, RwLockWriteGuard},
     time::Duration,
@@ -12,6 +12,7 @@ use alloy::{
     primitives::Address,
     signers::{k256::ecdsa::SigningKey, local::LocalSigner},
 };
+use alloy_chains::NamedChain;
 use clap::Parser;
 use config_tab::ConfigTab;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
@@ -26,14 +27,14 @@ use ratatui::{
     widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Tabs, Widget},
     DefaultTerminal, Frame,
 };
-use rpc::{
-    rpc::{InteractiveRequest, InteractiveResponse},
-    run_server,
+use rpc::rpc::{
+    chain_id_or_name_to_named_chain, InteractiveRequest, InteractiveResponse, RpcServerBuilder,
 };
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
 use config::{config_dir, load_config, Config};
+use url::Url;
 
 mod config;
 mod config_tab;
@@ -52,17 +53,11 @@ fn tui_logger() -> impl std::io::Write {
 #[derive(Parser)]
 struct Args {
     #[arg(short = 'H', long, default_value = "127.0.0.1")]
-    host: IpAddr,
+    host: Ipv4Addr,
     #[arg(short, long, default_value = "1248")]
     port: u16,
-    #[arg(short, long, default_value = "wss://eth.drpc.org")]
-    rpc_url: String,
-}
-
-impl Args {
-    fn listen_addr(&self) -> SocketAddr {
-        SocketAddr::new(self.host, self.port)
-    }
+    #[arg(short, long)]
+    rpc_urls: Vec<String>,
 }
 
 #[tokio::main]
@@ -73,7 +68,24 @@ async fn main() -> eyre::Result<()> {
         .init();
 
     let args = Args::parse();
-    let (rpc_handle, request_receiver) = run_server(args.listen_addr(), &args.rpc_url).await?;
+
+    let mut builder = RpcServerBuilder::new().host(args.host).port(args.port);
+    for (chain, url) in args
+        .rpc_urls
+        .iter()
+        .map(|s: &String| -> eyre::Result<(NamedChain, Url)> {
+            let (chain, rpc) = s
+                .split_once("=")
+                .ok_or_else(|| eyre::eyre!("invalid format for rpc url"))?;
+            let chain = chain_id_or_name_to_named_chain(chain)?;
+            Ok((chain, rpc.parse()?))
+        })
+        .collect::<eyre::Result<Vec<_>>>()?
+    {
+        builder = builder.chain(chain, url);
+    }
+    let mut rpc = builder.build().await;
+    let (srv_handle, req_receiver) = rpc.run().await?;
 
     let config = load_config()?;
     tracing::debug!(?config, formatted = ?toml::to_string_pretty(&config)?);
@@ -82,8 +94,8 @@ async fn main() -> eyre::Result<()> {
 
     // run the loop until the tui quits or the server quits
     let app_result = tokio::select! {
-        app_result = App::new(request_receiver, config).run(terminal) => { app_result }
-        _ = rpc_handle.stopped() => { Ok(()) }
+        app_result = App::new(req_receiver, config).run(terminal) => { app_result }
+        _ = srv_handle.stopped() => { Ok(()) }
     };
     ratatui::restore();
     app_result

@@ -1,20 +1,24 @@
+use alloy::providers::Provider;
 use jsonrpsee::{
     core::RpcResult,
     types::{ErrorCode, ErrorObject},
-    ws_client::WsClient,
     RpcModule,
 };
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
-use crate::rpc::{
-    json_rpc_internal_error, upstream_request, GlobalRpcContext, InteractiveRequest,
-    InteractiveResponse,
+use crate::{
+    rpc::{json_rpc_internal_error, GlobalRpcContext, InteractiveRequest, InteractiveResponse},
+    upstream_requests,
 };
 
-pub fn init(context: GlobalRpcContext, client: Arc<WsClient>) -> RpcModule<GlobalRpcContext> {
+pub fn init<P>(context: GlobalRpcContext<P>) -> eyre::Result<RpcModule<GlobalRpcContext<P>>>
+where
+    P: Provider + 'static,
+{
     let mut eth_module = RpcModule::new(context);
-    let eth_methods = vec![
+    upstream_requests! {
+        eth_module,
         "eth_syncing",
         "eth_chainId",
         "eth_gasPrice",
@@ -44,11 +48,8 @@ pub fn init(context: GlobalRpcContext, client: Arc<WsClient>) -> RpcModule<Globa
         "eth_uninstallFilter",
         "eth_getFilterChanges",
         "eth_getFilterLogs",
-        "eth_getLogs",
-    ];
-    eth_methods.iter().for_each(|method| {
-        let _ = eth_module.register_async_method(method, upstream_request(method, client.clone()));
-    });
+        "eth_getLogs"
+    }
 
     let _ = eth_module.register_async_method(
         "eth_requestAccounts",
@@ -64,9 +65,9 @@ pub fn init(context: GlobalRpcContext, client: Arc<WsClient>) -> RpcModule<Globa
                 _ => Err(ErrorObject::from(ErrorCode::InternalError)),
             }
         },
-    );
+    )?;
 
-    let _ = eth_module.register_async_method(
+    eth_module.register_async_method(
         "eth_accounts",
         async |_, ctx, _| -> RpcResult<Vec<String>> {
             let (sender, receiver) = oneshot::channel::<InteractiveResponse>();
@@ -80,7 +81,7 @@ pub fn init(context: GlobalRpcContext, client: Arc<WsClient>) -> RpcModule<Globa
                 _ => Err(ErrorObject::from(ErrorCode::InternalError)),
             }
         },
-    );
+    )?;
 
-    eth_module
+    Ok(eth_module)
 }
