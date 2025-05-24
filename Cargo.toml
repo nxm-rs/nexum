@@ -3,8 +3,8 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.83"
 license = "AGPL-3.0"
-homepage = "https://nullis.xyz/nexum"
-repository = "https://github.com/nullisxyz/nexum"
+homepage = "https://nxm.rs"
+repository = "https://github.com/nxm-rs/nexum"
 exclude = [".github/"]
 
 [workspace]
