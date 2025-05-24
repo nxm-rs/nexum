@@ -68,27 +68,31 @@ async fn main() -> eyre::Result<()> {
         .init();
 
     let args = Args::parse();
-
-    let mut builder = RpcServerBuilder::new().host(args.host).port(args.port);
-    for (chain, url) in args
-        .rpc_urls
-        .iter()
-        .map(|s: &String| -> eyre::Result<(NamedChain, Url)> {
-            let (chain, rpc) = s
-                .split_once("=")
-                .ok_or_else(|| eyre::eyre!("invalid format for rpc url"))?;
-            let chain = chain_id_or_name_to_named_chain(chain)?;
-            Ok((chain, rpc.parse()?))
-        })
-        .collect::<eyre::Result<Vec<_>>>()?
-    {
-        builder = builder.chain(chain, url);
-    }
-    let mut rpc = builder.build().await;
-    let (srv_handle, req_receiver) = rpc.run().await?;
-
     let config = load_config()?;
     tracing::debug!(?config, formatted = ?toml::to_string_pretty(&config)?);
+
+    let mut builder = RpcServerBuilder::new().host(args.host).port(args.port);
+    let mut rpcs = config.chain_rpcs().await?;
+    rpcs.extend(
+        args.rpc_urls
+            .iter()
+            .map(|s: &String| -> eyre::Result<(NamedChain, Url)> {
+                let (chain, rpc) = s
+                    .split_once("=")
+                    .ok_or_else(|| eyre::eyre!("invalid format for rpc url"))?;
+                let chain = chain_id_or_name_to_named_chain(chain)?;
+                Ok((chain, rpc.parse()?))
+            })
+            .collect::<eyre::Result<Vec<_>>>()?,
+    );
+    // since the cli rpcs are added after the config rpcs, the cli rpcs will override
+    // the config rpcs if the same chain is specified
+    for (chain, url) in rpcs {
+        builder = builder.chain(chain, url);
+    }
+
+    let mut rpc = builder.build().await;
+    let (srv_handle, req_receiver) = rpc.run().await?;
 
     let terminal = ratatui::init();
 

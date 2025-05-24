@@ -3,7 +3,11 @@ use std::{
     path::PathBuf,
 };
 
-use alloy::primitives::Address;
+use alloy::{
+    network::Ethereum,
+    primitives::Address,
+    providers::{Provider, RootProvider},
+};
 use alloy_chains::NamedChain;
 use eyre::OptionExt;
 use figment::{
@@ -15,9 +19,34 @@ use url::Url;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
-    pub rpcs: HashMap<String, Url>,
+    pub rpcs: BTreeMap<String, Url>,
     pub origin_connections: BTreeMap<Address, HashMap<Url, bool>>,
     pub labels: BTreeMap<NamedChain, HashMap<Address, String>>,
+}
+
+impl Config {
+    pub async fn chain_rpcs(&self) -> eyre::Result<Vec<(NamedChain, Url)>> {
+        let providers = futures::future::join_all(self.rpcs.values().map(|rpc_url| {
+            let rpc_url = rpc_url.to_string();
+            async move { RootProvider::<Ethereum>::connect(&rpc_url).await }
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
+        let chain_ids = futures::future::join_all(providers.iter().map(|p| p.get_chain_id()))
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+        let chains = chain_ids
+            .into_iter()
+            .map(NamedChain::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| eyre::eyre!("failed to parse chainid to NamedChain: {e:?}"))?;
+        Ok(chains
+            .into_iter()
+            .zip(self.rpcs.values().cloned())
+            .collect())
+    }
 }
 
 /// Returns the base config directory for nexum. It also creates the directory
