@@ -45,7 +45,7 @@ Nexum is in **active development**. Documentation, user guides, and installation
 Nexum welcomes community contributions! To get involved:
 
 - Join the [Signal](https://signal.group/#CjQKIHNV-kWphhtnpwS3zywC7LRr5BEW9Q1XyDl2qZtL2WYqEhAyO0c8tGmrQDmEsY15rALt) group to discuss development.
-- Open an [issue](https://github.com/nullisxyz/nexum/issues) with ideas or questions.
+- Open an [issue](https://github.com/nxm-rs/nexum/issues) with ideas or questions.
 
 ### Building and Testing 🛠️
 
@@ -54,7 +54,7 @@ Minimum Supported Rust Version (MSRV): [1.82.0](https://blog.rust-lang.org/2024/
 Clone and build Nexum:
 
 ```sh
-git clone https://github.com/nullisxyz/nexum
+git clone https://github.com/nxm-rs/nexum
 cd nexum
 cargo install wasm-pack wasm-opt
 wasm-pack build -t web --release -d ../../dist/pkg crates/worker
