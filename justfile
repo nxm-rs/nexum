@@ -13,3 +13,6 @@ build-ext:
 alias re := run-ext
 run-ext:
 	web-ext run -s crates/extension/dist
+
+check:
+	cargo check --all-targets --all-features

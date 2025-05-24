@@ -1,26 +1,27 @@
-use std::net::SocketAddr;
+use std::collections::HashMap;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use alloy::providers::{Provider, RootProvider};
+use alloy_chains::NamedChain;
+use eyre::OptionExt;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use jsonrpsee::core::client::ClientT;
 use jsonrpsee::core::traits::ToRpcParams;
-use jsonrpsee::core::{ClientError, RpcResult};
 use jsonrpsee::server::middleware::rpc::{RpcServiceBuilder, RpcServiceT};
 use jsonrpsee::server::{
     serve_with_graceful_shutdown, stop_channel, ServerHandle, StopHandle, TowerServiceBuilder,
 };
-use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params, Request};
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
-use jsonrpsee::{MethodResponse, Methods, RpcModule};
+use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Request};
+use jsonrpsee::{MethodResponse, RpcModule};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::{self, channel, Receiver};
+use tokio::sync::mpsc::{self, Receiver};
 use tokio::sync::oneshot;
 use tower::Service;
 use tracing::trace;
+use url::Url;
 
 use crate::namespaces::{eth, net, wallet, web3};
 
@@ -86,63 +87,6 @@ where
     }
 }
 
-pub async fn run(
-    addr: String,
-    rpc_url: String,
-) -> eyre::Result<(
-    ServerHandle,
-    mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
-)> {
-    let addr = addr.parse::<SocketAddr>()?;
-    run_server(addr, rpc_url.as_str()).await
-}
-
-// Define a function that returns the future
-pub fn upstream_request<C>(
-    method_name: &'static str,
-    shared_client: Arc<WsClient>,
-) -> impl Fn(Params<'static>, Arc<C>, jsonrpsee::Extensions) -> BoxFuture<'static, RpcResult<Value>>
-       + Send
-       + Sync
-       + Clone
-       + 'static {
-    let method_name: Arc<String> = Arc::new(method_name.to_string());
-    let shared_client = Arc::clone(&shared_client);
-
-    move |params: Params<'static>,
-          _: Arc<C>,
-          _: jsonrpsee::Extensions|
-          -> BoxFuture<'static, RpcResult<Value>> {
-        let client = Arc::clone(&shared_client);
-        let method_name = Arc::clone(&method_name);
-
-        let params: Result<RequestParams, _> = params.parse();
-        trace!("Received request extension");
-        trace!(
-            "Received request: {} with params: {:?}",
-            *method_name,
-            params
-        );
-
-        async move {
-            let params: RequestParams = match params {
-                Ok(params) => params,
-                Err(_) => return Err(ErrorObject::from(ErrorCode::ParseError)),
-            };
-
-            // Perform the request
-            let response: Result<Value, ClientError> = client.request(&method_name, params).await;
-
-            // Match the result and convert errors
-            match response {
-                Ok(res) => Ok(res),
-                Err(_) => Err(ErrorObject::from(ErrorCode::InternalError)),
-            }
-        }
-        .boxed() // Box the future to return it as BoxFuture
-    }
-}
-
 /// Requests that need some interactive or external input to compute the response
 pub enum InteractiveRequest {
     EthRequestAccounts,
@@ -155,9 +99,10 @@ pub enum InteractiveResponse {
     EthAccounts(Vec<String>),
 }
 
-#[derive(Clone)]
-pub struct GlobalRpcContext {
+#[derive(Clone, Debug)]
+pub struct GlobalRpcContext<P: Provider> {
     pub sender: mpsc::Sender<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+    pub provider: Arc<P>,
 }
 
 pub fn json_rpc_internal_error<E>(err: E) -> ErrorObjectOwned
@@ -166,112 +111,230 @@ where
 {
     ErrorObject::owned(
         ErrorCode::InternalError.code(),
-        format!("{:?}", err),
+        format!("{err:?}"),
         None::<()>,
     )
 }
 
-pub async fn run_server(
-    listen_addr: SocketAddr,
-    rpc_url: &str,
-) -> eyre::Result<(
-    ServerHandle,
-    Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
-)> {
-    let listener = TcpListener::bind(listen_addr).await?;
-    let rpc: Arc<WsClient> = Arc::new(WsClientBuilder::default().build(rpc_url).await?);
+pub struct RpcServerBuilder {
+    rpcs: HashMap<NamedChain, Url>,
+    port: u16,
+    host: Ipv4Addr,
+}
 
-    // This state is cloned for every connection all these types based on Arcs and it should
-    // be relatively cheap to clone them.
-    //
-    // Make sure that nothing expensive is cloned here when doing this or use an `Arc`.
-    #[derive(Clone)]
-    struct PerConnection<RpcMiddleware, HttpMiddleware> {
-        methods: Methods,
-        stop_handle: StopHandle,
-        metrics: Metrics,
-        svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+impl Default for RpcServerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RpcServerBuilder {
+    pub fn new() -> Self {
+        Self {
+            rpcs: HashMap::new(),
+            port: 1248,
+            host: Ipv4Addr::LOCALHOST,
+        }
     }
 
-    // Each RPC call/connection get its own `stop_handle` to able to determine whether the server
-    // has been stopped or not. To keep the server running the `server_handle` must be kept and it
-    // can also be used to stop the server.
-    let (stop_handle, server_handle) = stop_channel();
+    pub fn port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
 
-    let (sender, receiver) = channel(100);
-    let global_ctx = GlobalRpcContext { sender };
-    let mut methods = RpcModule::new(global_ctx.clone());
-    methods
-        .merge(eth::init(global_ctx.clone(), rpc.clone()))
-        .unwrap();
-    methods.merge(net::init((), rpc.clone())).unwrap();
-    methods.merge(web3::init((), rpc.clone())).unwrap();
-    methods.merge(wallet::init((), rpc.clone())).unwrap();
+    pub fn host(mut self, host: Ipv4Addr) -> Self {
+        self.host = host;
+        self
+    }
 
-    let per_conn_template = PerConnection {
-        methods: methods.into(),
-        stop_handle: stop_handle.clone(),
-        svc_builder: jsonrpsee::server::Server::builder()
-            .max_connections(33)
-            .to_service_builder(),
-        metrics: Metrics::default(),
-    };
+    pub fn chain(mut self, chain: NamedChain, rpc: Url) -> Self {
+        self.rpcs.insert(chain, rpc);
+        self
+    }
 
-    tokio::spawn(async move {
-        loop {
-            // The `tokio::select!` macro is used to wait for either of the
-            // listeners to accept a new connection or for the server to be
-            // stopped.
-            let sock = tokio::select! {
-                res = listener.accept() => {
-                    match res {
-                        Ok((stream, _remote_addr)) => stream,
-                        Err(e) => {
-                            tracing::error!("failed to accept v4 connection: {:?}", e);
-                            continue;
+    pub async fn build(self) -> RpcServer {
+        RpcServer::new(self.rpcs, self.port, self.host).await
+    }
+}
+
+pub fn chain_id_or_name_to_named_chain(chain: &str) -> eyre::Result<NamedChain> {
+    let chain = chain.parse::<NamedChain>().map(Some).unwrap_or_else(|_| {
+        chain
+            .parse::<u64>()
+            .map(|chainid| NamedChain::try_from(chainid).ok())
+            .ok()
+            .flatten()
+    });
+    chain.ok_or_eyre("failed to parse chain")
+}
+
+pub struct RpcServer {
+    rpc_urls: HashMap<NamedChain, Url>,
+    providers: HashMap<NamedChain, RootProvider>,
+    port: u16,
+    host: Ipv4Addr,
+    req_receiver:
+        Option<mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>>,
+    req_sender: mpsc::Sender<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+    chain_methods_map: Arc<HashMap<NamedChain, RpcModule<GlobalRpcContext<RootProvider>>>>,
+}
+
+impl RpcServer {
+    pub async fn new(rpcs: HashMap<NamedChain, Url>, port: u16, host: Ipv4Addr) -> Self {
+        let (req_sender, req_receiver) = mpsc::channel(100);
+
+        let mut this = Self {
+            rpc_urls: rpcs,
+            providers: Default::default(),
+            port,
+            host,
+            req_receiver: Some(req_receiver),
+            req_sender: req_sender.clone(),
+            chain_methods_map: Default::default(),
+        };
+        this.reinit().await;
+        this
+    }
+
+    pub async fn reinit(&mut self) {
+        let providers = futures::future::join_all(self.rpc_urls.iter().map(|(k, v)| async {
+            RootProvider::connect(v.to_string().as_str())
+                .await
+                .map(|p| (*k, p))
+        }))
+        .await
+        .into_iter()
+        .filter_map(|v| {
+            v.inspect_err(|err| tracing::warn!(?err, "error establishing connection with the rpc"))
+                .ok()
+        })
+        .collect::<HashMap<_, _>>();
+
+        let chain_methods_map = providers
+            .iter()
+            .map(|(chain, provider)| -> eyre::Result<(NamedChain, RpcModule<GlobalRpcContext<RootProvider>>)> {
+                let global_ctx = GlobalRpcContext {
+                    sender: self.req_sender.clone(),
+                    provider: Arc::new(provider.clone()),
+                };
+                let mut methods = RpcModule::new(global_ctx.clone());
+                methods.merge(eth::init(global_ctx.clone())?)?;
+                methods.merge(net::init(global_ctx.clone())?)?;
+                methods.merge(web3::init(global_ctx.clone())?)?;
+                methods.merge(wallet::init(global_ctx.clone())?)?;
+                Ok((*chain, methods))
+            })
+            .filter_map(|v| {
+                v.inspect_err(|err| tracing::warn!(?err, "error initializing chain rpc module")).ok()
+            })
+            .collect::<HashMap<_, _>>();
+        self.providers = providers;
+        self.chain_methods_map = Arc::new(chain_methods_map);
+    }
+
+    pub async fn run(
+        &mut self,
+    ) -> eyre::Result<(
+        ServerHandle,
+        Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+    )> {
+        let listen_addr = SocketAddr::new(self.host.into(), self.port);
+
+        let listener = TcpListener::bind(listen_addr).await?;
+
+        // Each RPC call/connection get its own `stop_handle` to able to determine whether the server
+        // has been stopped or not. To keep the server running the `server_handle` must be kept and it
+        // can also be used to stop the server.
+        let (stop_handle, server_handle) = stop_channel();
+
+        #[derive(Clone)]
+        struct PerConnection<RpcMiddleware, HttpMiddleware> {
+            methods: Arc<HashMap<NamedChain, RpcModule<GlobalRpcContext<RootProvider>>>>,
+            stop_handle: StopHandle,
+            metrics: Metrics,
+            svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+        }
+
+        let per_conn_template = PerConnection {
+            methods: self.chain_methods_map.clone(),
+            stop_handle: stop_handle.clone(),
+            svc_builder: jsonrpsee::server::Server::builder()
+                .max_connections(33)
+                .to_service_builder(),
+            metrics: Metrics::default(),
+        };
+
+        tokio::spawn(async move {
+            loop {
+                // The `tokio::select!` macro is used to wait for either of the
+                // listeners to accept a new connection or for the server to be
+                // stopped.
+                let sock = tokio::select! {
+                    res = listener.accept() => {
+                        match res {
+                            Ok((stream, _remote_addr)) => stream,
+                            Err(e) => {
+                                tracing::error!("failed to accept v4 connection: {:?}", e);
+                                continue;
+                            }
                         }
                     }
-                }
-                _ = per_conn_template.stop_handle.clone().shutdown() => break,
-            };
-            let per_conn = per_conn_template.clone();
+                    _ = per_conn_template.stop_handle.clone().shutdown() => break,
+                };
 
-            let svc = tower::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
-                let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
-                let transport_label = if is_websocket { "ws" } else { "http" };
-                let PerConnection {
-                    methods,
-                    stop_handle,
-                    metrics,
-                    svc_builder,
-                    ..
-                } = per_conn.clone();
+                let per_conn = per_conn_template.clone();
 
-                let rpc_middleware = RpcServiceBuilder::new()
-                    .rpc_logger(1024)
-                    .layer_fn(move |service| CallerContext { service });
+                let svc = tower::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                    // determine the chain of RPC
+                    let chain = chain_id_or_name_to_named_chain(
+                        req.uri()
+                            .path()
+                            .strip_prefix("/")
+                            .unwrap_or_else(|| req.uri().path()),
+                    );
+                    if chain.is_err() {
+                        return async { Err(eyre::eyre!("{:?}", chain.unwrap_err())) }.boxed();
+                    }
+                    let chain = chain.unwrap();
 
-                let mut svc = svc_builder
-                    // .set_http_middleware(http_middleware)
-                    .set_rpc_middleware(rpc_middleware)
-                    .build(methods, stop_handle);
+                    let PerConnection {
+                        methods: chain_methods,
+                        stop_handle,
+                        metrics,
+                        svc_builder,
+                    } = per_conn.clone();
+                    let methods = chain_methods.get(&chain);
+                    if methods.is_none() {
+                        return async { Err(eyre::eyre!("chain not configured")) }.boxed();
+                    }
 
-                if is_websocket {
-                    // Utilize the session close future to know when the actual WebSocket
-                    // session was closed.
-                    let session_close = svc.on_session_closed();
+                    let methods = methods.unwrap().clone();
 
-                    // A little bit weird API but the response to HTTP request must be returned below
-                    // and we spawn a task to register when the session is closed.
-                    tokio::spawn(async move {
-                        session_close.await;
-                        tracing::info!("Closed WebSocket connection");
-                        metrics
-                            .closed_ws_connections
-                            .fetch_add(1, Ordering::Relaxed);
-                    });
+                    let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
 
-                    async move {
+                    let rpc_middleware = RpcServiceBuilder::new()
+                        .rpc_logger(1024)
+                        .layer_fn(move |service| CallerContext { service });
+
+                    let mut svc = svc_builder
+                        .set_rpc_middleware(rpc_middleware)
+                        .build(methods, stop_handle.clone());
+
+                    if is_websocket {
+                        // Utilize the session close future to know when the actual WebSocket
+                        // session was closed.
+                        let session_close = svc.on_session_closed();
+
+                        // A little bit weird API but the response to HTTP request must be returned below
+                        // and we spawn a task to register when the session is closed.
+                        tokio::spawn(async move {
+                            session_close.await;
+                            tracing::info!("Closed WebSocket connection");
+                            metrics
+                                .closed_ws_connections
+                                .fetch_add(1, Ordering::Relaxed);
+                        });
+
                         tracing::info!("Opened WebSocket connection");
                         metrics
                             .opened_ws_connections
@@ -279,37 +342,42 @@ pub async fn run_server(
                         // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
                         // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
                         // as workaround.
-                        svc.call(req).await.map_err(|e| eyre::eyre!("{:?}", e))
-                    }
-                    .boxed()
-                } else {
-                    // HTTP.
-                    async move {
+                        async move { svc.call(req).await.map_err(|e| eyre::eyre!("{:?}", e)) }
+                            .boxed()
+                    } else {
+                        // HTTP.
                         tracing::info!("Opened HTTP connection");
                         metrics.http_calls.fetch_add(1, Ordering::Relaxed);
-                        let rp = svc.call(req).await;
+                        async move {
+                            let rp = svc.call(req).await;
 
-                        if rp.is_ok() {
-                            metrics.success_http_calls.fetch_add(1, Ordering::Relaxed);
+                            if rp.is_ok() {
+                                metrics.success_http_calls.fetch_add(1, Ordering::Relaxed);
+                            }
+
+                            tracing::info!("Closed HTTP connection");
+                            // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+                            // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
+                            // as workaround.
+                            rp.map_err(|e| eyre::eyre!("{:?}", e))
                         }
-
-                        tracing::info!("Closed HTTP connection");
-                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
-                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
-                        // as workaround.
-                        rp.map_err(|e| eyre::eyre!("{:?}", e))
+                        .boxed()
                     }
-                    .boxed()
-                }
-            });
+                });
 
-            tokio::spawn(serve_with_graceful_shutdown(
-                sock,
-                svc,
-                stop_handle.clone().shutdown(),
-            ));
-        }
-    });
+                tokio::spawn(serve_with_graceful_shutdown(
+                    sock,
+                    svc,
+                    stop_handle.clone().shutdown(),
+                ));
+            }
+        });
 
-    Ok((server_handle, receiver))
+        Ok((
+            server_handle,
+            self.req_receiver
+                .take()
+                .ok_or_eyre("server already running")?,
+        ))
+    }
 }
