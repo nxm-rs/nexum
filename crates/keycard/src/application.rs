@@ -554,9 +554,7 @@ where
         let cmd = match credential_type {
             CredentialType::Pin => ChangePinCommand::with_pin(new_value),
             CredentialType::Puk => ChangePinCommand::with_puk(new_value),
-            CredentialType::PairingSecret => {
-                ChangePinCommand::with_pairing_secret(new_value.as_bytes())
-            }
+            CredentialType::PairingSecret => ChangePinCommand::with_pairing_secret(new_value),
         };
 
         // Execute the command

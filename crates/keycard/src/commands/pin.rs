@@ -1,3 +1,4 @@
+use crate::crypto::generate_pairing_token;
 use bytes::{Bytes, BytesMut};
 use nexum_apdu_core::StatusWord;
 use nexum_apdu_globalplatform::constants::status::*;
@@ -73,8 +74,8 @@ apdu_pair! {
                 }
 
                 /// Create a CHANGE PAIRING SECRET command
-                pub fn with_pairing_secret(secret: &[u8]) -> Self {
-                    Self::new(0x02, 0x00).with_data(Bytes::copy_from_slice(secret))
+                pub fn with_pairing_secret(secret: &str) -> Self {
+                    Self::new(0x02, 0x00).with_data(generate_pairing_token(secret).to_vec())
                 }
             }
         }

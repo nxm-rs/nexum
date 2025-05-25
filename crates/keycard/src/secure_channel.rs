@@ -23,7 +23,7 @@ pub trait KeycardSecureChannelExt: CardTransport {
 
 impl<T: CardTransport> KeycardSecureChannelExt for KeycardSecureChannel<T> {
     fn pair(&mut self, password: &str) -> crate::Result<PairingInfo> {
-        self.pair(password).map_err(crate::Error::from)
+        self.pair(password)
     }
 }
 
