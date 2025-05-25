@@ -8,13 +8,14 @@ macro_rules! upstream_request {
     ($method_name:literal) => {
         paste::paste! {
         #[allow(non_snake_case)]
-        async fn [<upstream_ $method_name>]<P> (
+        async fn [<upstream_ $method_name>]<F, P> (
             params: jsonrpsee::types::Params<'static>,
-            context: Arc<$crate::rpc::GlobalRpcContext<P>>,
+            context: Arc<$crate::rpc::GlobalRpcContext<F, P>>,
             _: jsonrpsee::Extensions,
         ) -> jsonrpsee::core::RpcResult<serde_json::Value>
         where
             P: alloy::providers::Provider,
+            F: alloy::providers::fillers::TxFiller,
         {
             let params: Result<$crate::rpc::RequestParams, _> = params.parse();
             tracing::trace!("Received request extension");

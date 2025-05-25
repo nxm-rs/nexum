@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::{cell::Cell, sync::Mutex};
 
 use alloy::primitives::Address;
 use alloy_chains::NamedChain;
@@ -15,8 +15,8 @@ use crate::{config::Config, HandleEvent};
 pub struct ConfigTab {
     config: Config,
     config_list_state: Mutex<ListState>,
-    origin_connections_collapsed: bool,
-    labels_collapsed: bool,
+    origin_connections_collapsed: Cell<bool>,
+    labels_collapsed: Cell<bool>,
 }
 
 #[derive(Debug)]
@@ -37,17 +37,17 @@ impl ConfigTab {
         Self {
             config,
             config_list_state: Mutex::new(list_state.clone()),
-            origin_connections_collapsed: false,
-            labels_collapsed: false,
+            origin_connections_collapsed: false.into(),
+            labels_collapsed: false.into(),
         }
     }
 
     fn list_len(&self) -> usize {
-        3 + if self.origin_connections_collapsed {
+        3 + if self.origin_connections_collapsed.get() {
             0
         } else {
             self.config.origin_connections.len()
-        } + if self.labels_collapsed {
+        } + if self.labels_collapsed.get() {
             0
         } else {
             self.config.labels.len()
@@ -59,7 +59,7 @@ impl ConfigTab {
     }
 
     fn labels_offset(&self) -> usize {
-        2 + if self.origin_connections_collapsed {
+        2 + if self.origin_connections_collapsed.get() {
             0
         } else {
             self.config.origin_connections.len()
@@ -95,7 +95,7 @@ impl ConfigTab {
         }
     }
 
-    fn select_next_config_type(&mut self) {
+    fn select_next_config_type(&self) {
         let list_state = &mut *self
             .config_list_state
             .lock()
@@ -111,7 +111,7 @@ impl ConfigTab {
         }
     }
 
-    fn select_previous_config_type(&mut self) {
+    fn select_previous_config_type(&self) {
         let list_state = &mut *self
             .config_list_state
             .lock()
@@ -137,7 +137,7 @@ impl Widget for &ConfigTab {
             Vec::with_capacity(3 + self.config.origin_connections.len() + self.config.labels.len());
         list_items.push("RPCs".to_string());
 
-        if self.origin_connections_collapsed {
+        if self.origin_connections_collapsed.get() {
             list_items.push("▶ Origin Connections".to_string())
         } else {
             list_items.push("▼ Origin Connections".to_string());
@@ -146,7 +146,7 @@ impl Widget for &ConfigTab {
             }
         }
 
-        if self.labels_collapsed {
+        if self.labels_collapsed.get() {
             list_items.push("▶ Labels".to_string())
         } else {
             list_items.push("▼ Labels".to_string());
@@ -263,7 +263,7 @@ impl Widget for &ConfigTab {
 }
 
 impl HandleEvent for ConfigTab {
-    fn handle_key(&mut self, event: &KeyEvent) {
+    fn handle_key(&self, event: &KeyEvent) {
         match event.code {
             KeyCode::Up | KeyCode::Char('k') => self.select_previous_config_type(),
             KeyCode::Down | KeyCode::Char('j') => self.select_next_config_type(),
@@ -277,11 +277,9 @@ impl HandleEvent for ConfigTab {
                     let item = self.item_at(idx);
                     match item {
                         ConfigListItemType::OriginConnectionsMeta => {
-                            self.origin_connections_collapsed = !self.origin_connections_collapsed
+                            self.origin_connections_collapsed.update(|x| !x)
                         }
-                        ConfigListItemType::LabelsMeta => {
-                            self.labels_collapsed = !self.labels_collapsed
-                        }
+                        ConfigListItemType::LabelsMeta => self.labels_collapsed.update(|x| !x),
                         _ => {}
                     }
                 }

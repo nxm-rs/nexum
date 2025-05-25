@@ -21,7 +21,7 @@ use wasm_bindgen_futures::spawn_local;
 
 use crate::{events::send_event, ConnectionState, Extension};
 
-const UPSTREAM_URL: &str = "ws://127.0.0.1:1248";
+const UPSTREAM_URL: &str = "ws://127.0.0.1:1250/sepolia";
 
 pub struct Provider {
     client: RwLock<Option<Client>>,

@@ -1,7 +1,7 @@
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.83"
+rust-version = "1.88"
 license = "AGPL-3.0"
 homepage = "https://nxm.rs"
 repository = "https://github.com/nxm-rs/nexum"

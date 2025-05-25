@@ -1,16 +1,18 @@
 #![feature(let_chains)]
+#![feature(result_flattening)]
 
 use std::{
     fs::OpenOptions,
     net::Ipv4Addr,
     path::PathBuf,
-    sync::{RwLock, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
 
 use alloy::{
-    primitives::Address,
-    signers::{k256::ecdsa::SigningKey, local::LocalSigner},
+    consensus::{EthereumTypedTransaction, SignableTransaction, TxEip4844Variant},
+    primitives::{Address, B256},
+    signers::{k256::ecdsa::SigningKey, local::LocalSigner, Signature, SignerSync as _},
 };
 use alloy_chains::NamedChain;
 use clap::Parser;
@@ -19,12 +21,14 @@ use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use eyre::OptionExt;
 use futures::StreamExt;
 use ratatui::{
-    layout::{Constraint, Layout},
+    layout::{Constraint, HorizontalAlignment, Layout},
     prelude::{Buffer, Rect},
     style::{Color, Style, Stylize},
     symbols,
     text::Text,
-    widgets::{Block, Borders, FrameExt, List, ListState, Paragraph, StatefulWidget, Tabs, Widget},
+    widgets::{
+        Block, Borders, FrameExt, List, ListState, Padding, Paragraph, StatefulWidget, Tabs, Widget,
+    },
     DefaultTerminal, Frame,
 };
 use rpc::rpc::{
@@ -173,10 +177,11 @@ struct App {
     pub should_quit: bool,
     pub active_app_pane: AppPane,
     active_tab: AppTab,
-    wallet_pane: WalletPane,
-    prompt: Option<String>,
+    wallet_pane: Arc<WalletPane>,
+    prompt: Option<Prompt>,
     prompt_input: String,
-    prompt_receiver: mpsc::UnboundedReceiver<String>,
+    prompt_receiver: mpsc::UnboundedReceiver<Prompt>,
+    prompt_sender: mpsc::UnboundedSender<Prompt>,
     request_receiver: mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
     config_tab: ConfigTab,
 }
@@ -200,15 +205,16 @@ impl App {
             should_quit: false,
             active_app_pane: AppPane::Wallet,
             active_tab: AppTab::default(),
-            wallet_pane: WalletPane {
-                is_active: true,
-                keystores: load_keystores().unwrap_or_default(),
+            wallet_pane: Arc::new(WalletPane {
+                is_active: RwLock::new(true),
+                keystores: RwLock::new(load_keystores().unwrap_or_default()),
                 list_state: RwLock::new(list_state),
-                active_wallet_idx: None,
+                active_wallet_idx: RwLock::new(None),
                 prompt_sender: sender.clone(),
-            },
+            }),
             prompt: None,
             prompt_input: "".to_string(),
+            prompt_sender: sender.clone(),
             prompt_receiver: receiver,
             request_receiver,
             config_tab: ConfigTab::new(config),
@@ -224,7 +230,7 @@ impl App {
             tokio::select! {
                 _ = interval.tick() => { terminal.draw(|f| self.render(f).expect("failed to render"))?; },
                 Some(Ok(event)) = events.next() => self.handle_event(&event),
-                Some(prompt) = self.prompt_receiver.recv() => self.prompt = Some(prompt),
+                Some(prompt) = async { if self.prompt.is_none() { self.prompt_receiver.recv().await } else { None } }  => self.prompt = Some(prompt),
                 Some((req, res_sender)) = self.request_receiver.recv() => {
                     // TODO: this probably shouldn't be awaited, will probably block the UI
                     self.handle_request(req, res_sender).await;
@@ -278,7 +284,7 @@ impl App {
                     Layout::horizontal([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)]);
                 let [left_area, right_area] = horizontal.areas(tab_inner);
 
-                frame.render_widget_ref(&self.wallet_pane, left_area);
+                frame.render_widget_ref(&*self.wallet_pane, left_area);
                 let dashboard_block = Block::default()
                     .title("Dashboard")
                     .borders(Borders::ALL)
@@ -302,46 +308,117 @@ impl App {
 
     fn render_prompt(&mut self, frame: &mut Frame) {
         if let Some(prompt) = &self.prompt {
-            let masked_pwd = "*".repeat(self.prompt_input.len());
-            let paragraph = Paragraph::new(masked_pwd).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(format!(" {prompt} "))
-                    .border_style(Style::default().fg(Color::Blue)),
-            );
-            let prompt_area = frame.area().centered(
-                Constraint::Length(
-                    prompt
-                        .len()
-                        .max(52)
-                        .try_into()
-                        .expect("cannot convert to u16"),
-                ),
-                Constraint::Length(3),
-            );
-            frame.render_widget(paragraph, prompt_area);
+            match prompt {
+                Prompt::KeystoreUnlock(name) => {
+                    let masked_pwd = "*".repeat(self.prompt_input.len());
+                    let prompt_str = format!(" Enter password for {name} ");
+                    let prompt_area = frame.area().centered(
+                        Constraint::Length(
+                            prompt_str
+                                .len()
+                                .max(52)
+                                .try_into()
+                                .expect("cannot convert to u16"),
+                        ),
+                        Constraint::Length(3),
+                    );
+                    let paragraph = Paragraph::new(masked_pwd).block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title(prompt_str)
+                            .border_style(Style::default().fg(Color::Blue)),
+                    );
+                    frame.render_widget(paragraph, prompt_area);
+                }
+                Prompt::KeystoreUnlockInvalidPasswordRetry(name) => {
+                    let masked_pwd = "*".repeat(self.prompt_input.len());
+                    let prompt_str = format!(" Incorrect password for {name}! Try again. ");
+                    let prompt_area = frame.area().centered(
+                        Constraint::Length(
+                            prompt_str
+                                .len()
+                                .max(52)
+                                .try_into()
+                                .expect("cannot convert to u16"),
+                        ),
+                        Constraint::Length(3),
+                    );
+                    let paragraph = Paragraph::new(masked_pwd).block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .title(prompt_str)
+                            .border_style(Style::default().fg(Color::Blue)),
+                    );
+                    frame.render_widget(paragraph, prompt_area);
+                }
+                Prompt::SendTransaction(req, _) => {
+                    let block = Block::bordered()
+                        .padding(Padding::uniform(1))
+                        .title(" Send Transaction ")
+                        .title_alignment(HorizontalAlignment::Center)
+                        .title_bottom("[A]ccept ───── [R]eject");
+                    let text = match req.as_ref() {
+                        EthereumTypedTransaction::Legacy(tx_legacy) => {
+                            format!("{tx_legacy:#?}")
+                        }
+                        EthereumTypedTransaction::Eip2930(tx_eip2930) => format!("{tx_eip2930:#?}"),
+                        EthereumTypedTransaction::Eip1559(tx_eip1559) => format!("{tx_eip1559:#?}"),
+                        EthereumTypedTransaction::Eip4844(tx_eip4844) => format!("{tx_eip4844:#?}"),
+                        EthereumTypedTransaction::Eip7702(tx_eip7702) => format!("{tx_eip7702:#?}"),
+                    };
+
+                    let n_lines = text.lines().count();
+                    let para = Paragraph::new(text).block(block);
+                    let prompt_area = frame.area().centered(
+                        Constraint::Length(80),
+                        Constraint::Length(n_lines as u16 + 4),
+                    );
+                    frame.render_widget(para, prompt_area);
+                }
+            }
         }
     }
 
     fn handle_event(&mut self, event: &Event) {
         if let Some(key) = event.as_key_press_event() {
-            match self.prompt {
-                Some(_) => match key.code {
-                    KeyCode::Char(ch) => self.prompt_input.push(ch),
-                    KeyCode::Backspace => {
-                        self.prompt_input.pop();
+            match &self.prompt {
+                Some(prompt) => match prompt {
+                    Prompt::KeystoreUnlock(_) | Prompt::KeystoreUnlockInvalidPasswordRetry(_) => {
+                        match key.code {
+                            KeyCode::Char(ch) => self.prompt_input.push(ch),
+                            KeyCode::Backspace => {
+                                self.prompt_input.pop();
+                            }
+                            KeyCode::Esc => {
+                                self.prompt = None;
+                                self.prompt_input.clear();
+                            }
+                            KeyCode::Enter => {
+                                self.prompt = None;
+                                let input = self.prompt_input.clone();
+                                self.prompt_input.clear();
+                                self.wallet_pane.on_prompt_input(input);
+                            }
+                            _ => {}
+                        }
                     }
-                    KeyCode::Esc => {
-                        self.prompt = None;
-                        self.prompt_input.clear();
-                    }
-                    KeyCode::Enter => {
-                        self.prompt = None;
-                        let input = self.prompt_input.clone();
-                        self.prompt_input.clear();
-                        self.wallet_pane.on_prompt_input(input);
-                    }
-                    _ => {}
+                    Prompt::SendTransaction(_, _) => match key.code {
+                        KeyCode::Esc | KeyCode::Char('r') | KeyCode::Char('R') => {
+                            if let Some(Prompt::SendTransaction(tx, sender)) = self.prompt.take() {
+                                sender
+                                    .send((tx, false))
+                                    .expect("failed to send send transaction prompt response");
+                            }
+                        }
+                        KeyCode::Char('a') | KeyCode::Char('A') => {
+                            if let Some(Prompt::SendTransaction(tx, sender)) = self.prompt.take() {
+                                sender
+                                    .send((tx, true))
+                                    .expect("failed to send send transaction prompt response");
+                            }
+                        }
+                        _ => {}
+                    },
                 },
                 None => match (&self.active_tab, key.code) {
                     // global keybinds
@@ -384,7 +461,7 @@ impl App {
                 response_sender
                     .send(InteractiveResponse::EthRequestAccounts(
                         if let Some(addr) = self.wallet_pane.active_account() {
-                            vec![addr.to_string()]
+                            vec![addr]
                         } else {
                             vec![]
                         },
@@ -396,13 +473,47 @@ impl App {
                 response_sender
                     .send(InteractiveResponse::EthAccounts(
                         if let Some(addr) = self.wallet_pane.active_account() {
-                            vec![addr.to_string()]
+                            vec![addr]
                         } else {
                             vec![]
                         },
                     ))
                     .inspect_err(|_| tracing::error!("failed to send eth_accounts response"))
                     .ok();
+            }
+            InteractiveRequest::SendTransaction(tx_req) => {
+                let (sender, receiver) =
+                    oneshot::channel::<(Box<EthereumTypedTransaction<TxEip4844Variant>>, bool)>();
+                self.prompt_sender
+                    .send(Prompt::SendTransaction(tx_req, sender))
+                    .expect("failed to send send transaction prompt");
+                let wallet = self.wallet_pane.clone();
+                tokio::spawn(async move {
+                    let (tx, should_sign) = receiver
+                        .await
+                        .expect("failed to receive send transaction response");
+                    if should_sign {
+                        tracing::debug!("signing and sending transaction now");
+                        response_sender
+                            .send(InteractiveResponse::SendTransaction(
+                                wallet.sign_hash(&tx.signature_hash()).map_err(|e| {
+                                    let boxed_error: Box<dyn std::error::Error + Send + Sync> =
+                                        Box::new(e);
+                                    boxed_error
+                                }),
+                            ))
+                            .expect("failed to send send transaction response");
+                    } else {
+                        tracing::debug!("sending transaction rejected");
+                        response_sender
+                            .send(InteractiveResponse::SendTransaction(Err(Box::new(
+                                SimpleError {
+                                    msg: "signing rejected".to_owned(),
+                                },
+                            ))))
+                            .expect("failed to send send transaction response");
+                    }
+                });
             }
         }
     }
@@ -427,9 +538,10 @@ fn load_keystores() -> eyre::Result<Vec<KeystoreWallet>> {
 }
 
 pub trait HandleEvent {
-    fn handle_key(&mut self, event: &KeyEvent);
+    fn handle_key(&self, event: &KeyEvent);
 }
 
+#[derive(Debug)]
 struct KeystoreWallet {
     name: String,
     path: PathBuf,
@@ -450,12 +562,22 @@ impl KeystoreWallet {
     }
 }
 
+enum Prompt {
+    KeystoreUnlock(String),
+    KeystoreUnlockInvalidPasswordRetry(String),
+    SendTransaction(
+        Box<EthereumTypedTransaction<TxEip4844Variant>>,
+        oneshot::Sender<(Box<EthereumTypedTransaction<TxEip4844Variant>>, bool)>,
+    ),
+}
+
+#[derive(Debug)]
 struct WalletPane {
-    is_active: bool,
-    keystores: Vec<KeystoreWallet>,
+    is_active: RwLock<bool>,
+    keystores: RwLock<Vec<KeystoreWallet>>,
     list_state: RwLock<ListState>,
-    active_wallet_idx: Option<usize>,
-    prompt_sender: mpsc::UnboundedSender<String>,
+    active_wallet_idx: RwLock<Option<usize>>,
+    prompt_sender: mpsc::UnboundedSender<Prompt>,
 }
 
 impl Widget for &WalletPane {
@@ -465,7 +587,7 @@ impl Widget for &WalletPane {
             .write()
             .expect("failed to get write lock on list state");
         let list = List::new(
-            self.keystores
+            self.r_keystores()
                 .iter()
                 .enumerate()
                 .map(|(idx, k)| {
@@ -474,7 +596,7 @@ impl Widget for &WalletPane {
                         if k.is_locked() { "🔒" } else { "🔓" },
                         k.name.clone()
                     ));
-                    if let Some(active_wallet_idx) = self.active_wallet_idx
+                    if let Some(active_wallet_idx) = *self.r_active_wallet_idx()
                         && idx == active_wallet_idx
                     {
                         name.style(Style::default().bold().fg(Color::Blue))
@@ -490,7 +612,7 @@ impl Widget for &WalletPane {
             Block::default()
                 .title("Wallets")
                 .borders(Borders::ALL)
-                .border_style(if self.is_active {
+                .border_style(if *self.r_is_active() {
                     Style::default().fg(Color::Blue)
                 } else {
                     Style::default()
@@ -504,7 +626,7 @@ impl WalletPane {
     fn select_next(&self) {
         let list_state = &mut *self.get_list_state_w();
         if let Some(selected_idx) = list_state.selected() {
-            if selected_idx < self.keystores.len() - 1 {
+            if selected_idx < self.r_keystores().len() - 1 {
                 list_state.select_next();
             } else {
                 list_state.select_first();
@@ -533,30 +655,29 @@ impl WalletPane {
             .expect("failed to get write lock on list state")
     }
 
-    fn set_is_active(&mut self, is_active: bool) {
-        self.is_active = is_active;
+    fn set_is_active(&self, is_active: bool) {
+        *self.w_is_active() = is_active;
     }
 
-    fn set_active_wallet_to_selected_index(&mut self) -> Option<usize> {
+    fn set_active_wallet_to_selected_index(&self) -> Option<usize> {
         let list_state = self
             .list_state
             .read()
             .expect("failed to get read lock on list state");
         let idx = list_state.selected();
-        self.active_wallet_idx = idx;
+        *self.w_active_wallet_idx() = idx;
         idx
     }
 
-    fn on_prompt_input(&mut self, input: String) {
-        if let Some(idx) = self.active_wallet_idx
-            && self.keystores[idx].is_locked()
+    fn on_prompt_input(&self, input: String) {
+        if let Some(idx) = *self.r_active_wallet_idx()
+            && { self.r_keystores()[idx].is_locked() }
         {
-            let keystore = &mut self.keystores[idx];
+            let keystore = &mut self.w_keystores()[idx];
             if keystore.try_unlock(input).is_err() {
                 self.prompt_sender
-                    .send(format!(
-                        "[{}] Incorrect password! Try again.",
-                        keystore.name
+                    .send(Prompt::KeystoreUnlockInvalidPasswordRetry(
+                        keystore.name.clone(),
                     ))
                     .expect("sending password retry prompt failed");
             }
@@ -564,8 +685,8 @@ impl WalletPane {
     }
 
     fn active_account(&self) -> Option<Address> {
-        if let Some(idx) = self.active_wallet_idx {
-            self.keystores[idx]
+        if let Some(idx) = *self.r_active_wallet_idx() {
+            self.r_keystores()[idx]
                 .signer
                 .as_ref()
                 .map(|signer| signer.address())
@@ -573,20 +694,86 @@ impl WalletPane {
             None
         }
     }
+
+    fn r_keystores(&self) -> RwLockReadGuard<Vec<KeystoreWallet>> {
+        self.keystores
+            .read()
+            .expect("failed to get read lock on keystores")
+    }
+
+    fn w_keystores(&self) -> RwLockWriteGuard<Vec<KeystoreWallet>> {
+        self.keystores
+            .write()
+            .expect("failed to get write lock on keystores")
+    }
+
+    fn r_active_wallet_idx(&self) -> RwLockReadGuard<Option<usize>> {
+        self.active_wallet_idx
+            .read()
+            .expect("failed to get read lock on active wallet idx")
+    }
+
+    fn w_active_wallet_idx(&self) -> RwLockWriteGuard<Option<usize>> {
+        self.active_wallet_idx
+            .write()
+            .expect("failed to get write lock on active wallet idx")
+    }
+
+    fn r_is_active(&self) -> RwLockReadGuard<bool> {
+        self.is_active
+            .read()
+            .expect("failed to get read lock on is active")
+    }
+
+    fn w_is_active(&self) -> RwLockWriteGuard<bool> {
+        self.is_active
+            .write()
+            .expect("failed to get write lock on is active")
+    }
+
+    fn sign_hash(&self, hash: &B256) -> alloy::signers::Result<Signature> {
+        if let Some(idx) = *self.r_active_wallet_idx() {
+            self.r_keystores()[idx]
+                .signer
+                .as_ref()
+                .map(|signer| signer.sign_hash_sync(hash))
+                .ok_or_else(|| {
+                    alloy::signers::Error::Other(Box::new(SimpleError {
+                        msg: "signer not available".to_owned(),
+                    }))
+                })
+                .flatten()
+        } else {
+            Err(alloy::signers::Error::Other(Box::new(SimpleError {
+                msg: "no active wallet".to_owned(),
+            })))
+        }
+    }
+}
+
+#[derive(Debug)]
+struct SimpleError {
+    msg: String,
+}
+impl std::error::Error for SimpleError {}
+impl std::fmt::Display for SimpleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SimpleError {{ {} }}", self.msg)
+    }
 }
 
 impl HandleEvent for WalletPane {
-    fn handle_key(&mut self, key: &KeyEvent) {
+    fn handle_key(&self, key: &KeyEvent) {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => self.select_previous(),
             KeyCode::Down | KeyCode::Char('j') => self.select_next(),
             KeyCode::Enter => {
                 if let Some(idx) = self.set_active_wallet_to_selected_index()
-                    && self.keystores[idx].is_locked()
+                    && self.r_keystores()[idx].is_locked()
                 {
-                    let keystore = &self.keystores[idx];
+                    let keystore = &self.r_keystores()[idx];
                     self.prompt_sender
-                        .send(format!("Enter password for {}", keystore.name))
+                        .send(Prompt::KeystoreUnlock(keystore.name.clone()))
                         .expect("sending password prompt request failed");
                 }
             }
