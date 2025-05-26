@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use alloy::consensus::{EthereumTypedTransaction, TxEip4844Variant};
+use alloy::dyn_abi::TypedData;
 use alloy::primitives::{Address, Bytes};
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, TxFiller,
@@ -99,6 +100,7 @@ pub enum InteractiveRequest {
     EthAccounts,
     SignTransaction(Box<EthereumTypedTransaction<TxEip4844Variant>>),
     EthSign(Address, Bytes),
+    EthSignTypedData(Address, Box<TypedData>),
 }
 
 /// Responses for the interactive requests
@@ -108,6 +110,7 @@ pub enum InteractiveResponse {
     EthAccounts(Vec<Address>),
     SignTransaction(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
     EthSign(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+    EthSignTypedData(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
 }
 
 pub async fn make_interactive_request(

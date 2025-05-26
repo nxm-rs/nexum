@@ -1,5 +1,6 @@
 use alloy::{
     consensus::EthereumTxEnvelope,
+    dyn_abi::TypedData,
     network::{Ethereum, Network, NetworkWallet},
     primitives::{Address, Bytes, TxHash},
     providers::{
@@ -7,7 +8,6 @@ use alloy::{
         Provider,
     },
     rpc::types::TransactionRequest,
-    signers::Signature,
 };
 use jsonrpsee::{
     core::RpcResult,
@@ -176,6 +176,28 @@ where
             _ => Err(ErrorObject::from(ErrorCode::InternalError)),
         }
     })?;
+
+    eth_module.register_async_method(
+        "eth_signTypedData_v4",
+        async |params, ctx, _| -> RpcResult<Bytes> {
+            let (signer_addr, typed_data) = params.parse::<(Address, TypedData)>()?;
+            let (sender, receiver) = oneshot::channel::<InteractiveResponse>();
+            ctx.sender
+                .send((
+                    InteractiveRequest::EthSignTypedData(signer_addr, typed_data.into()),
+                    sender,
+                ))
+                .await
+                .map_err(json_rpc_internal_error)?;
+            let res = receiver.await.map_err(json_rpc_internal_error)?;
+            match res {
+                InteractiveResponse::EthSignTypedData(signature) => Ok(signature
+                    .map(|s| s.as_bytes().into())
+                    .map_err(json_rpc_internal_error)?),
+                _ => Err(ErrorObject::from(ErrorCode::InternalError)),
+            }
+        },
+    )?;
     Ok(eth_module)
 }
 

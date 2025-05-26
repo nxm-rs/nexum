@@ -11,6 +11,7 @@ use std::{
 
 use alloy::{
     consensus::{EthereumTypedTransaction, SignableTransaction, TxEip4844Variant},
+    dyn_abi::TypedData,
     primitives::{eip191_hash_message, Address, Bytes, B256},
     signers::{k256::ecdsa::SigningKey, local::LocalSigner, Signature, SignerSync as _},
 };
@@ -388,6 +389,22 @@ impl App {
                             .centered(Constraint::Length(80), Constraint::Length(10 + 4)),
                     );
                 }
+                Prompt::EthSignTypedData(_, data, _) => {
+                    let block = Block::bordered()
+                        .padding(Padding::uniform(1))
+                        .title(" Sign Typed Data ")
+                        .title_alignment(HorizontalAlignment::Center)
+                        .title_bottom("[A]ccept ───── [R]eject");
+                    let text = format!("{data:#?}");
+                    let n_lines = text.lines().count();
+                    frame.render_widget(
+                        Paragraph::new(text).block(block),
+                        frame.area().centered(
+                            Constraint::Length(80),
+                            Constraint::Length((n_lines as u16) + 4),
+                        ),
+                    );
+                }
             }
         }
     }
@@ -449,6 +466,27 @@ impl App {
                                 sender
                                     .send((signer_addr, message, true))
                                     .expect("failed to send eth_sign prompt response");
+                            }
+                        }
+                        _ => {}
+                    },
+                    Prompt::EthSignTypedData(_, _, _) => match key.code {
+                        KeyCode::Esc | KeyCode::Char('r') | KeyCode::Char('R') => {
+                            if let Some(Prompt::EthSignTypedData(signer_addr, data, sender)) =
+                                self.prompt.take()
+                            {
+                                sender
+                                    .send((signer_addr, data, false))
+                                    .expect("failed to send eth_sign_typed_data prompt response");
+                            }
+                        }
+                        KeyCode::Char('a') | KeyCode::Char('A') => {
+                            if let Some(Prompt::EthSignTypedData(signer_addr, data, sender)) =
+                                self.prompt.take()
+                            {
+                                sender
+                                    .send((signer_addr, data, true))
+                                    .expect("failed to send eth_sign_typed_data prompt response");
                             }
                         }
                         _ => {}
@@ -580,6 +618,45 @@ impl App {
                     }
                 });
             }
+            InteractiveRequest::EthSignTypedData(signer, message) => {
+                let (sender, receiver) = oneshot::channel::<(Address, Box<TypedData>, bool)>();
+                self.prompt_sender
+                    .send(Prompt::EthSignTypedData(signer, message, sender))
+                    .expect("failed to send eth_sign_typed_data prompt");
+                let wallet = self.wallet_pane.clone();
+                tokio::spawn(async move {
+                    let (signer, message, should_sign) = receiver
+                        .await
+                        .expect("failed to receive eth_sign_typed_data response");
+                    if should_sign {
+                        tracing::debug!("signing and sending transaction now");
+                        let message = message.eip712_signing_hash().map_err(|e| {
+                            let boxed_error: Box<dyn std::error::Error + Send + Sync> = Box::new(e);
+                            boxed_error
+                        });
+                        response_sender
+                            .send(InteractiveResponse::EthSignTypedData(message.and_then(
+                                |message| {
+                                    wallet.sign_hash(Some(signer), &message).map_err(|e| {
+                                        let boxed_error: Box<dyn std::error::Error + Send + Sync> =
+                                            Box::new(e);
+                                        boxed_error
+                                    })
+                                },
+                            )))
+                            .expect("failed to send eth_sign_typed_data response");
+                    } else {
+                        tracing::debug!("sending transaction rejected");
+                        response_sender
+                            .send(InteractiveResponse::EthSignTypedData(Err(Box::new(
+                                SimpleError {
+                                    msg: "signing rejected".to_owned(),
+                                },
+                            ))))
+                            .expect("failed to send eth_sign_typed_data response");
+                    }
+                });
+            }
         }
     }
 }
@@ -635,6 +712,11 @@ enum Prompt {
         oneshot::Sender<(Box<EthereumTypedTransaction<TxEip4844Variant>>, bool)>,
     ),
     EthSign(Address, Bytes, oneshot::Sender<(Address, Bytes, bool)>),
+    EthSignTypedData(
+        Address,
+        Box<TypedData>,
+        oneshot::Sender<(Address, Box<TypedData>, bool)>,
+    ),
 }
 
 #[derive(Debug)]
