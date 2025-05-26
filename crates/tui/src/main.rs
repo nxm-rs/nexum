@@ -481,7 +481,7 @@ impl App {
                     .inspect_err(|_| tracing::error!("failed to send eth_accounts response"))
                     .ok();
             }
-            InteractiveRequest::SendTransaction(tx_req) => {
+            InteractiveRequest::SignTransaction(tx_req) => {
                 let (sender, receiver) =
                     oneshot::channel::<(Box<EthereumTypedTransaction<TxEip4844Variant>>, bool)>();
                 self.prompt_sender
@@ -495,7 +495,7 @@ impl App {
                     if should_sign {
                         tracing::debug!("signing and sending transaction now");
                         response_sender
-                            .send(InteractiveResponse::SendTransaction(
+                            .send(InteractiveResponse::SignTransaction(
                                 wallet.sign_hash(&tx.signature_hash()).map_err(|e| {
                                     let boxed_error: Box<dyn std::error::Error + Send + Sync> =
                                         Box::new(e);
@@ -506,7 +506,7 @@ impl App {
                     } else {
                         tracing::debug!("sending transaction rejected");
                         response_sender
-                            .send(InteractiveResponse::SendTransaction(Err(Box::new(
+                            .send(InteractiveResponse::SignTransaction(Err(Box::new(
                                 SimpleError {
                                     msg: "signing rejected".to_owned(),
                                 },

@@ -1,7 +1,7 @@
 use alloy::{
     consensus::EthereumTxEnvelope,
     network::{Ethereum, Network, NetworkWallet},
-    primitives::{Address, TxHash},
+    primitives::{Address, Bytes, TxHash},
     providers::{
         fillers::{TxFiller, WalletFiller},
         Provider,
@@ -127,6 +127,38 @@ where
             }
         },
     )?;
+
+    eth_module.register_async_method(
+        "eth_signTransaction",
+        async |params, ctx, _| -> RpcResult<Bytes> {
+            let tx_req: TransactionRequest = params.one()?;
+            match make_interactive_request(
+                ctx.sender.clone(),
+                InteractiveRequest::EthRequestAccounts,
+            )
+            .await
+            .map_err(json_rpc_internal_error)?
+            {
+                InteractiveResponse::EthRequestAccounts(items) => {
+                    if let Some(signer_addr) = items.first() {
+                        let provider = (*ctx.provider).clone();
+                        let provider = provider.join_with(WalletFiller::new(RpcSigner::new(
+                            *signer_addr,
+                            ctx.sender.clone(),
+                        )));
+                        let signed_encoded_tx = provider
+                            .sign_transaction(tx_req)
+                            .await
+                            .map_err(json_rpc_internal_error)?;
+                        Ok(signed_encoded_tx)
+                    } else {
+                        Err(ErrorObject::from(ErrorCode::InternalError))
+                    }
+                }
+                _ => Err(ErrorObject::from(ErrorCode::InternalError)),
+            }
+        },
+    )?;
     Ok(eth_module)
 }
 
@@ -205,7 +237,7 @@ impl NetworkWallet<Ethereum> for RpcSigner {
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send((
-                InteractiveRequest::SendTransaction(Box::new(tx.clone())),
+                InteractiveRequest::SignTransaction(Box::new(tx.clone())),
                 sender,
             ))
             .await
@@ -213,10 +245,10 @@ impl NetworkWallet<Ethereum> for RpcSigner {
 
         let response = receiver.await.map_err(map_err!("signing failed"))?;
         match response {
-            InteractiveResponse::SendTransaction(Ok(sig)) => {
+            InteractiveResponse::SignTransaction(Ok(sig)) => {
                 Ok(EthereumTxEnvelope::new_unhashed(tx, sig))
             }
-            InteractiveResponse::SendTransaction(Err(e)) => Err(alloy_err!(e)),
+            InteractiveResponse::SignTransaction(Err(e)) => Err(alloy_err!(e)),
             _ => Err(alloy_err!("unexpected response")),
         }
     }

@@ -97,7 +97,7 @@ where
 pub enum InteractiveRequest {
     EthRequestAccounts,
     EthAccounts,
-    SendTransaction(Box<EthereumTypedTransaction<TxEip4844Variant>>),
+    SignTransaction(Box<EthereumTypedTransaction<TxEip4844Variant>>),
 }
 
 /// Responses for the interactive requests
@@ -105,7 +105,7 @@ pub enum InteractiveRequest {
 pub enum InteractiveResponse {
     EthRequestAccounts(Vec<Address>),
     EthAccounts(Vec<Address>),
-    SendTransaction(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+    SignTransaction(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
 }
 
 pub async fn make_interactive_request(
