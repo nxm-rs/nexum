@@ -7,6 +7,7 @@ use alloy::{
         Provider,
     },
     rpc::types::TransactionRequest,
+    signers::Signature,
 };
 use jsonrpsee::{
     core::RpcResult,
@@ -159,6 +160,22 @@ where
             }
         },
     )?;
+
+    eth_module.register_async_method("eth_sign", async |params, ctx, _| -> RpcResult<Bytes> {
+        let (signer_addr, message) = params.parse::<(Address, Bytes)>()?;
+        let (sender, receiver) = oneshot::channel::<InteractiveResponse>();
+        ctx.sender
+            .send((InteractiveRequest::EthSign(signer_addr, message), sender))
+            .await
+            .map_err(json_rpc_internal_error)?;
+        let res = receiver.await.map_err(json_rpc_internal_error)?;
+        match res {
+            InteractiveResponse::EthSign(signature) => Ok(signature
+                .map(|s| s.as_bytes().into())
+                .map_err(json_rpc_internal_error)?),
+            _ => Err(ErrorObject::from(ErrorCode::InternalError)),
+        }
+    })?;
     Ok(eth_module)
 }
 

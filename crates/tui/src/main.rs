@@ -11,7 +11,7 @@ use std::{
 
 use alloy::{
     consensus::{EthereumTypedTransaction, SignableTransaction, TxEip4844Variant},
-    primitives::{Address, B256},
+    primitives::{eip191_hash_message, Address, Bytes, B256},
     signers::{k256::ecdsa::SigningKey, local::LocalSigner, Signature, SignerSync as _},
 };
 use alloy_chains::NamedChain;
@@ -375,6 +375,19 @@ impl App {
                     );
                     frame.render_widget(para, prompt_area);
                 }
+                Prompt::EthSign(_, message, _) => {
+                    let block = Block::bordered()
+                        .padding(Padding::uniform(1))
+                        .title(" Sign EIP-191 Message ")
+                        .title_alignment(HorizontalAlignment::Center)
+                        .title_bottom("[A]ccept ───── [R]eject");
+                    frame.render_widget(
+                        Paragraph::new(message.to_string()).block(block),
+                        frame
+                            .area()
+                            .centered(Constraint::Length(80), Constraint::Length(10 + 4)),
+                    );
+                }
             }
         }
     }
@@ -415,6 +428,27 @@ impl App {
                                 sender
                                     .send((tx, true))
                                     .expect("failed to send send transaction prompt response");
+                            }
+                        }
+                        _ => {}
+                    },
+                    Prompt::EthSign(_, _, _) => match key.code {
+                        KeyCode::Esc | KeyCode::Char('r') | KeyCode::Char('R') => {
+                            if let Some(Prompt::EthSign(signer_addr, message, sender)) =
+                                self.prompt.take()
+                            {
+                                sender
+                                    .send((signer_addr, message, false))
+                                    .expect("failed to send eth_sign prompt response");
+                            }
+                        }
+                        KeyCode::Char('a') | KeyCode::Char('A') => {
+                            if let Some(Prompt::EthSign(signer_addr, message, sender)) =
+                                self.prompt.take()
+                            {
+                                sender
+                                    .send((signer_addr, message, true))
+                                    .expect("failed to send eth_sign prompt response");
                             }
                         }
                         _ => {}
@@ -496,7 +530,7 @@ impl App {
                         tracing::debug!("signing and sending transaction now");
                         response_sender
                             .send(InteractiveResponse::SignTransaction(
-                                wallet.sign_hash(&tx.signature_hash()).map_err(|e| {
+                                wallet.sign_hash(None, &tx.signature_hash()).map_err(|e| {
                                     let boxed_error: Box<dyn std::error::Error + Send + Sync> =
                                         Box::new(e);
                                     boxed_error
@@ -512,6 +546,37 @@ impl App {
                                 },
                             ))))
                             .expect("failed to send send transaction response");
+                    }
+                });
+            }
+            InteractiveRequest::EthSign(signer, message) => {
+                let (sender, receiver) = oneshot::channel::<(Address, Bytes, bool)>();
+                self.prompt_sender
+                    .send(Prompt::EthSign(signer, message, sender))
+                    .expect("failed to send eth_sign prompt");
+                let wallet = self.wallet_pane.clone();
+                tokio::spawn(async move {
+                    let (signer, message, should_sign) =
+                        receiver.await.expect("failed to receive eth_sign response");
+                    if should_sign {
+                        tracing::debug!("signing and sending transaction now");
+                        let message = eip191_hash_message(message);
+                        response_sender
+                            .send(InteractiveResponse::EthSign(
+                                wallet.sign_hash(Some(signer), &message).map_err(|e| {
+                                    let boxed_error: Box<dyn std::error::Error + Send + Sync> =
+                                        Box::new(e);
+                                    boxed_error
+                                }),
+                            ))
+                            .expect("failed to send eth_sign response");
+                    } else {
+                        tracing::debug!("sending transaction rejected");
+                        response_sender
+                            .send(InteractiveResponse::EthSign(Err(Box::new(SimpleError {
+                                msg: "signing rejected".to_owned(),
+                            }))))
+                            .expect("failed to send eth_sign response");
                     }
                 });
             }
@@ -569,6 +634,7 @@ enum Prompt {
         Box<EthereumTypedTransaction<TxEip4844Variant>>,
         oneshot::Sender<(Box<EthereumTypedTransaction<TxEip4844Variant>>, bool)>,
     ),
+    EthSign(Address, Bytes, oneshot::Sender<(Address, Bytes, bool)>),
 }
 
 #[derive(Debug)]
@@ -731,8 +797,16 @@ impl WalletPane {
             .expect("failed to get write lock on is active")
     }
 
-    fn sign_hash(&self, hash: &B256) -> alloy::signers::Result<Signature> {
+    fn sign_hash(&self, from: Option<Address>, hash: &B256) -> alloy::signers::Result<Signature> {
         if let Some(idx) = *self.r_active_wallet_idx() {
+            if from.is_some()
+                && from != self.r_keystores()[idx].signer.as_ref().map(|s| s.address())
+            {
+                return Err(alloy::signers::Error::Other(Box::new(SimpleError {
+                    msg: "active wallet and signer requested dont match".to_owned(),
+                })));
+            }
+
             self.r_keystores()[idx]
                 .signer
                 .as_ref()
