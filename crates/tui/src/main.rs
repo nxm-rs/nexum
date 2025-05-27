@@ -579,9 +579,7 @@ impl App {
                         tracing::debug!("sending transaction rejected");
                         response_sender
                             .send(InteractiveResponse::SignTransaction(Err(Box::new(
-                                SimpleError {
-                                    msg: "signing rejected".to_owned(),
-                                },
+                                NexumTuiError::UserRejectedSigning,
                             ))))
                             .expect("failed to send send transaction response");
                     }
@@ -611,9 +609,9 @@ impl App {
                     } else {
                         tracing::debug!("sending transaction rejected");
                         response_sender
-                            .send(InteractiveResponse::EthSign(Err(Box::new(SimpleError {
-                                msg: "signing rejected".to_owned(),
-                            }))))
+                            .send(InteractiveResponse::EthSign(Err(Box::new(
+                                NexumTuiError::UserRejectedSigning,
+                            ))))
                             .expect("failed to send eth_sign response");
                     }
                 });
@@ -649,9 +647,7 @@ impl App {
                         tracing::debug!("sending transaction rejected");
                         response_sender
                             .send(InteractiveResponse::EthSignTypedData(Err(Box::new(
-                                SimpleError {
-                                    msg: "signing rejected".to_owned(),
-                                },
+                                NexumTuiError::UserRejectedSigning,
                             ))))
                             .expect("failed to send eth_sign_typed_data response");
                     }
@@ -884,9 +880,9 @@ impl WalletPane {
             if from.is_some()
                 && from != self.r_keystores()[idx].signer.as_ref().map(|s| s.address())
             {
-                return Err(alloy::signers::Error::Other(Box::new(SimpleError {
-                    msg: "active wallet and signer requested dont match".to_owned(),
-                })));
+                return Err(alloy::signers::Error::Other(Box::new(
+                    NexumTuiError::SignerDoesntMatch,
+                )));
             }
 
             self.r_keystores()[idx]
@@ -894,27 +890,14 @@ impl WalletPane {
                 .as_ref()
                 .map(|signer| signer.sign_hash_sync(hash))
                 .ok_or_else(|| {
-                    alloy::signers::Error::Other(Box::new(SimpleError {
-                        msg: "signer not available".to_owned(),
-                    }))
+                    alloy::signers::Error::Other(Box::new(NexumTuiError::SignerNotAvailable))
                 })
                 .flatten()
         } else {
-            Err(alloy::signers::Error::Other(Box::new(SimpleError {
-                msg: "no active wallet".to_owned(),
-            })))
+            Err(alloy::signers::Error::Other(Box::new(
+                NexumTuiError::NoActiveWallet,
+            )))
         }
-    }
-}
-
-#[derive(Debug)]
-struct SimpleError {
-    msg: String,
-}
-impl std::error::Error for SimpleError {}
-impl std::fmt::Display for SimpleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SimpleError {{ {} }}", self.msg)
     }
 }
 
@@ -936,4 +919,20 @@ impl HandleEvent for WalletPane {
             _ => {}
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+enum NexumTuiError {
+    /// User rejected signing the transaction, message or typed data
+    #[error("user rejected signing")]
+    UserRejectedSigning,
+    /// Generally means that the signing address and the active wallet address don't match
+    #[error("signer doesnt match")]
+    SignerDoesntMatch,
+    /// Generally means the signer hasn't been unlocked or loaded yet
+    #[error("signer not available")]
+    SignerNotAvailable,
+    /// No active wallet
+    #[error("no active wallet")]
+    NoActiveWallet,
 }

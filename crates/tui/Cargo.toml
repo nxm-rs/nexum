@@ -24,3 +24,4 @@ serde.workspace = true
 url.workspace = true
 alloy-chains.workspace = true
 toml = { version = "0.8.22", features = ["display"] }
+thiserror.workspace = true

@@ -24,3 +24,4 @@ url.workspace = true
 alloy-chains.workspace = true
 alloy.workspace = true
 paste = "1.0.15"
+thiserror.workspace = true

@@ -14,7 +14,7 @@ use jsonrpsee::{
     types::{ErrorCode, ErrorObject},
     RpcModule,
 };
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
@@ -219,16 +219,19 @@ impl RpcSigner {
     }
 }
 
-#[derive(Debug)]
-struct SimpleError {
-    msg: String,
+#[derive(Debug, thiserror::Error)]
+enum RpcSignerError {
+    #[error("signer address mismatch")]
+    SignerAddressMismatch,
+    #[error("signing response channel dropped")]
+    SignatureResponseChannelDropped,
+    #[error("unexpected response")]
+    UnexpectedResponse,
+    #[error("sending signature request failed")]
+    SendingSignatureRequestFailed,
+    #[error("signing error: {0:?}")]
+    SigningError(Box<dyn std::error::Error + Send + Sync>),
 }
-impl std::fmt::Display for SimpleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SimpleError {{ {} }}", self.msg)
-    }
-}
-impl Error for SimpleError {}
 
 impl NetworkWallet<Ethereum> for RpcSigner {
     #[doc = " Get the default signer address. This address should be used"]
@@ -258,9 +261,7 @@ impl NetworkWallet<Ethereum> for RpcSigner {
     ) -> alloy::signers::Result<<Ethereum as Network>::TxEnvelope> {
         macro_rules! alloy_err {
             ($e:expr) => {
-                alloy::signers::Error::Other(Box::new(SimpleError {
-                    msg: $e.to_string(),
-                }))
+                alloy::signers::Error::Other(Box::new($e))
             };
         }
         macro_rules! map_err {
@@ -270,7 +271,7 @@ impl NetworkWallet<Ethereum> for RpcSigner {
         }
 
         if sender != self.signer_addr {
-            return Err(alloy_err!("signer address mismatch"));
+            return Err(alloy_err!(RpcSignerError::SignerAddressMismatch));
         }
 
         let (sender, receiver) = oneshot::channel();
@@ -280,15 +281,19 @@ impl NetworkWallet<Ethereum> for RpcSigner {
                 sender,
             ))
             .await
-            .map_err(map_err!("sending signature request failed"))?;
+            .map_err(map_err!(RpcSignerError::SendingSignatureRequestFailed))?;
 
-        let response = receiver.await.map_err(map_err!("signing failed"))?;
+        let response = receiver
+            .await
+            .map_err(map_err!(RpcSignerError::SignatureResponseChannelDropped))?;
         match response {
             InteractiveResponse::SignTransaction(Ok(sig)) => {
                 Ok(EthereumTxEnvelope::new_unhashed(tx, sig))
             }
-            InteractiveResponse::SignTransaction(Err(e)) => Err(alloy_err!(e)),
-            _ => Err(alloy_err!("unexpected response")),
+            InteractiveResponse::SignTransaction(Err(e)) => {
+                Err(alloy_err!(RpcSignerError::SigningError(e)))
+            }
+            _ => Err(alloy_err!(RpcSignerError::UnexpectedResponse)),
         }
     }
 }
