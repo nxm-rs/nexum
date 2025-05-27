@@ -9,16 +9,16 @@ exclude = [".github/"]
 
 [workspace]
 members = [
-    "crates/primitives/",
-    "crates/extension/chrome-sys/",
-    "crates/extension/worker/",
-    "crates/extension/injected/",
-    "crates/extension/injector/",
-    "crates/extension/browser-ui/",
-    "crates/tui/",
-    "crates/rpc/",
+    "crates/nexum/primitives/",
+    "crates/nexum/extension/chrome-sys/",
+    "crates/nexum/extension/worker/",
+    "crates/nexum/extension/injected/",
+    "crates/nexum/extension/injector/",
+    "crates/nexum/extension/browser-ui/",
+    "crates/nexum/tui/",
+    "crates/nexum/rpc/",
 ]
-default-members = ["crates/rpc", "crates/tui/"]
+default-members = ["crates/nexum/rpc", "crates/nexum/tui/"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -55,9 +55,9 @@ console_error_panic_hook = "0.1.7"
 alloy-chains = { version = "0.1.47", features = ["serde"] }
 alloy = { version = "1.0.3", features = ["signer-keystore", "provider-ws", "eip712", "signer-ledger"] }
 
-chrome-sys = { path = "crates/extension/chrome-sys" }
-worker = { path = "crates/extension/worker" }
-injected = { path = "crates/extension/injected" }
-injector = { path = "crates/extension/injector"}
-nexum-primitives = { path = "crates/primitives" }
-rpc = { path = "crates/rpc" }
+chrome-sys = { path = "crates/nexum/extension/chrome-sys" }
+worker = { path = "crates/nexum/extension/worker" }
+injected = { path = "crates/nexum/extension/injected" }
+injector = { path = "crates/nexum/extension/injector"}
+nexum-primitives = { path = "crates/nexum/primitives" }
+rpc = { path = "crates/nexum/rpc" }
