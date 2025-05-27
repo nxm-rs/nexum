@@ -3,7 +3,14 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use alloy::providers::{Provider, RootProvider};
+use alloy::consensus::{EthereumTypedTransaction, TxEip4844Variant};
+use alloy::dyn_abi::TypedData;
+use alloy::primitives::{Address, Bytes};
+use alloy::providers::fillers::{
+    BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, TxFiller,
+};
+use alloy::providers::{Provider, ProviderBuilder, RootProvider};
+use alloy::signers::Signature;
 use alloy_chains::NamedChain;
 use eyre::OptionExt;
 use futures::future::BoxFuture;
@@ -91,23 +98,39 @@ where
 pub enum InteractiveRequest {
     EthRequestAccounts,
     EthAccounts,
+    SignTransaction(Box<EthereumTypedTransaction<TxEip4844Variant>>),
+    EthSign(Address, Bytes),
+    EthSignTypedData(Address, Box<TypedData>),
 }
 
 /// Responses for the interactive requests
+#[derive(Debug)]
 pub enum InteractiveResponse {
-    EthRequestAccounts(Vec<String>),
-    EthAccounts(Vec<String>),
+    EthRequestAccounts(Vec<Address>),
+    EthAccounts(Vec<Address>),
+    SignTransaction(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+    EthSign(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+    EthSignTypedData(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+}
+
+pub async fn make_interactive_request(
+    sender: mpsc::Sender<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
+    request: InteractiveRequest,
+) -> eyre::Result<InteractiveResponse> {
+    let (res_sender, receiver) = oneshot::channel::<InteractiveResponse>();
+    sender.send((request, res_sender)).await?;
+    Ok(receiver.await?)
 }
 
 #[derive(Clone, Debug)]
-pub struct GlobalRpcContext<P: Provider> {
+pub struct GlobalRpcContext<F: TxFiller, P: Provider> {
     pub sender: mpsc::Sender<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
-    pub provider: Arc<P>,
+    pub provider: Arc<FillProvider<F, P>>,
 }
 
 pub fn json_rpc_internal_error<E>(err: E) -> ErrorObjectOwned
 where
-    E: std::error::Error + Send + Sync + 'static,
+    E: std::fmt::Debug,
 {
     ErrorObject::owned(
         ErrorCode::InternalError.code(),
@@ -168,15 +191,22 @@ pub fn chain_id_or_name_to_named_chain(chain: &str) -> eyre::Result<NamedChain> 
     chain.ok_or_eyre("failed to parse chain")
 }
 
+pub type ProviderFillers = JoinFill<
+    alloy::providers::Identity,
+    JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
+>;
+pub type ProviderWithFillers = FillProvider<ProviderFillers, RootProvider>;
+pub type GlobalRpcContextT = GlobalRpcContext<ProviderFillers, RootProvider>;
+
 pub struct RpcServer {
     rpc_urls: HashMap<NamedChain, Url>,
-    providers: HashMap<NamedChain, RootProvider>,
+    providers: HashMap<NamedChain, ProviderWithFillers>,
     port: u16,
     host: Ipv4Addr,
     req_receiver:
         Option<mpsc::Receiver<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>>,
     req_sender: mpsc::Sender<(InteractiveRequest, oneshot::Sender<InteractiveResponse>)>,
-    chain_methods_map: Arc<HashMap<NamedChain, RpcModule<GlobalRpcContext<RootProvider>>>>,
+    chain_methods_map: Arc<HashMap<NamedChain, RpcModule<GlobalRpcContextT>>>,
 }
 
 impl RpcServer {
@@ -200,7 +230,10 @@ impl RpcServer {
         let providers = futures::future::join_all(self.rpc_urls.iter().map(|(k, v)| async {
             RootProvider::connect(v.to_string().as_str())
                 .await
-                .map(|p| (*k, p))
+                .map(|p| {
+                    let provider = ProviderBuilder::new().connect_provider(p);
+                    (*k, provider)
+                })
         }))
         .await
         .into_iter()
@@ -212,20 +245,23 @@ impl RpcServer {
 
         let chain_methods_map = providers
             .iter()
-            .map(|(chain, provider)| -> eyre::Result<(NamedChain, RpcModule<GlobalRpcContext<RootProvider>>)> {
-                let global_ctx = GlobalRpcContext {
-                    sender: self.req_sender.clone(),
-                    provider: Arc::new(provider.clone()),
-                };
-                let mut methods = RpcModule::new(global_ctx.clone());
-                methods.merge(eth::init(global_ctx.clone())?)?;
-                methods.merge(net::init(global_ctx.clone())?)?;
-                methods.merge(web3::init(global_ctx.clone())?)?;
-                methods.merge(wallet::init(global_ctx.clone())?)?;
-                Ok((*chain, methods))
-            })
+            .map(
+                |(chain, provider)| -> eyre::Result<(NamedChain, RpcModule<GlobalRpcContextT>)> {
+                    let global_ctx = GlobalRpcContext {
+                        sender: self.req_sender.clone(),
+                        provider: Arc::new(provider.clone()),
+                    };
+                    let mut methods = RpcModule::new(global_ctx.clone());
+                    methods.merge(eth::init(global_ctx.clone())?)?;
+                    methods.merge(net::init(global_ctx.clone())?)?;
+                    methods.merge(web3::init(global_ctx.clone())?)?;
+                    methods.merge(wallet::init(global_ctx.clone())?)?;
+                    Ok((*chain, methods))
+                },
+            )
             .filter_map(|v| {
-                v.inspect_err(|err| tracing::warn!(?err, "error initializing chain rpc module")).ok()
+                v.inspect_err(|err| tracing::warn!(?err, "error initializing chain rpc module"))
+                    .ok()
             })
             .collect::<HashMap<_, _>>();
         self.providers = providers;
@@ -249,7 +285,7 @@ impl RpcServer {
 
         #[derive(Clone)]
         struct PerConnection<RpcMiddleware, HttpMiddleware> {
-            methods: Arc<HashMap<NamedChain, RpcModule<GlobalRpcContext<RootProvider>>>>,
+            methods: Arc<HashMap<NamedChain, RpcModule<GlobalRpcContextT>>>,
             stop_handle: StopHandle,
             metrics: Metrics,
             svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
