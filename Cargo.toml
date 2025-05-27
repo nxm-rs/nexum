@@ -15,11 +15,16 @@ members = [
     "crates/apdu/macros",
     "crates/apdu/pcsc",
 
+    "crates/keycard/cli",
+    "crates/keycard/keycard",
+    "crates/keycard/signer",
+
     "crates/nexum/extension/chrome-sys/",
     "crates/nexum/extension/worker/",
     "crates/nexum/extension/injected/",
     "crates/nexum/extension/injector/",
-    "crates/nexum/extension/browser-ui/",
+    # apparently leptos packages fail to compile with just cargo build
+    # "crates/nexum/extension/browser-ui/",
     "crates/nexum/primitives/",
     "crates/nexum/rpc/",
     "crates/nexum/tui/",
@@ -43,6 +48,10 @@ missing-const-for-fn = "warn"
 use-self = "warn"
 option-if-let-else = "warn"
 redundant-clone = "warn"
+
+[workspace.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace.dependencies]
 async-lock = "2.5"
@@ -83,7 +92,13 @@ derive_more = { version = "2", default-features = false, features = ["display"] 
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "serde"] }
 clap = { version = "4.5", features = ["derive"] }
-
+cbc = { version = "0.1", default-features = false }
+cbc-mac = { version = "0.1", default-features = false }
+cipher = { version = "0.4", default-features = false }
+zeroize = { version = "1.8", features = ["derive"] }
+bytes = { version = "1.10", default-features = false }
+iso7816-tlv = { version = "0.4.4" }
+rand = "0.9"
 
 # APDU
 ## APDU crates
@@ -93,18 +108,12 @@ nexum-apdu-globalplatform = { version = "0.1.0", path = "crates/apdu/globalplatf
 nexum-apdu-transport-pcsc = { version = "0.1.0", path = "crates/apdu/pcsc" }
 
 ## Crypto
-cipher = { version = "0.4", default-features = false }
-cbc = { version = "0.1", default-features = false }
-cbc-mac = { version = "0.1", default-features = false }
 des = { version = "0.8", default-features = false }
-zeroize = { version = "1.8", features = ["derive"] }
 
 ## PC/SC
 pcsc = { version = "2.9.0", default-features = false }
 
 ## Serialization & parsing
-bytes = { version = "1.10", default-features = false }
-iso7816-tlv = { version = "0.4.4" }
 hex = "0.4.3"
 
 ## Concurrency
@@ -117,5 +126,37 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 heck = "0.5"
 
 ## Miscellaneous
-rand = "0.9"
 zip = { version = "4.0.0", default-features = false }
+
+# Keycard
+## keycard crates
+nexum-keycard = { path = "crates/keycard/keycard", version = "0.1.0" }
+nexum-keycard-signer = { path = "crates/keycard/signer", version = "0.1.0" }
+
+## crypto
+aes = { version = "0.8.4", default-features = false }
+alloy-primitives = { version = "1.0", default-features = false }
+alloy-network = { version = "1.0", default-features = false }
+alloy-signer = { version = "1.0", default-features = false }
+alloy-consensus = { version = "1.0", default-features = false }
+coins-bip32 = { version = "0.12.0", default-features = false }
+coins-bip39 = { version = "0.12.0", default-features = false }
+k256 = { version = "0.13", features = ["ecdsa", "ecdh"] }
+pbkdf2 = "0.12"
+sha2 = "0.10"
+block-buffer = { version = "0.11.0-rc.4", default-features = false }
+block-padding = { version = "0.4.0-rc.3", default-features = false }
+
+## bytes and encoding
+base64 = "0.22"
+generic-array = "0.14"
+unicode-normalization = "0.1"
+
+## async
+async-trait = "0.1.88"
+
+## misc
+colored = "3.0"
+anyhow = "1"
+rand_v8 = { version = "0.8", package = "rand" }
+parking_lot = "0.12"

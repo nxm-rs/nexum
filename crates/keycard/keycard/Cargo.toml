@@ -6,7 +6,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords.workspace = true
+keywords = ["smart-card", "cryptography", "iso7816", "apdu", "keycard"]
 description = "Rust implementation for interacting with Keycards for secure key management"
 
 [dependencies]
