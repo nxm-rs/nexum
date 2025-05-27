@@ -81,4 +81,4 @@ clap = { version = "4.5" }
 
 # Miscellaneous
 rand = "0.9"
-zip = { version = "2.6", default-features = false }
+zip = { version = "4.0.0", default-features = false }
