@@ -1,0 +1,38 @@
+[package]
+name = "nexum-keycard-signer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "Ethereum transaction signer implementation for Keycards"
+
+[dependencies]
+## blockchain
+alloy-primitives.workspace = true
+alloy-network.workspace = true
+alloy-signer.workspace = true
+alloy-consensus.workspace = true
+
+## crypto
+k256.workspace = true
+rand.workspace = true
+
+## misc
+eyre = "0.6"
+async-trait.workspace = true
+parking_lot.workspace = true
+coins-bip32.workspace = true
+
+## keycard
+nexum-keycard.workspace = true
+nexum-apdu-core.workspace = true
+
+## async
+tokio = { workspace = true, features = ["sync"] }
+
+[dev-dependencies]
+alloy = "1.0"
+tokio = { workspace = true, features = ["rt-multi-thread"] }

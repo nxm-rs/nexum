@@ -1,0 +1,33 @@
+{
+  "name": "Foundry + Rust Development Container",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": false
+    },
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "nightly-2024-11-29",
+      "profile": "default",
+      "targets": "wasm32-unknown-unknown"
+    },
+    "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
+      "packages": "pkg-config,libssl-dev,clang"
+    },
+    "ghcr.io/lee-orr/rusty-dev-containers/cargo-binstall:0": {
+      "packages": "just,trunk,leptosfmt,wasm-pack,wasm-opt,cargo-release,git-cliff"
+    },
+    "ghcr.io/duduribeiro/devcontainer-features/neovim:1": {},
+    "ghcr.io/duduribeiro/devcontainer-features/tmux:1": {},
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/nlordell/features/foundry": {},
+    "ghcr.io/devcontainers-community/features/llvm": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "JuanBlanco.solidity"]
+    }
+  },
+  "postCreateCommand": "/usr/local/cargo/bin/rustup component add rust-analyzer && sudo chmod -R g+rwx /usr/local/cargo /usr/local/rustup",
+  "runArgs": ["--network=host"]
+}

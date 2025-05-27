@@ -1,0 +1,42 @@
+[package]
+name = "nexum-keycard-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "Command-line interface for managing Keycards"
+
+[dependencies]
+## nexum-apdu
+nexum-apdu-core.workspace = true
+nexum-apdu-macros.workspace = true
+nexum-apdu-globalplatform.workspace = true
+nexum-apdu-transport-pcsc.workspace = true
+
+## keycard crates
+nexum-keycard = { workspace = true, features = ["cli"] }
+nexum-keycard-signer.workspace = true
+
+## ui
+clap = { workspace = true, features = ["derive"] }
+colored.workspace = true
+
+## blockchain
+alloy-primitives = { workspace = true, features = ["hex-compat"] }
+alloy-network.workspace = true
+alloy-signer.workspace = true
+alloy-consensus.workspace = true
+
+cipher.workspace = true
+
+## misc
+tracing.workspace = true
+iso7816-tlv.workspace = true
+tracing-subscriber.workspace = true
+coins-bip32.workspace = true
+coins-bip39 = { workspace = true, features = ["all-langs"] }
+tokio = { workspace = true, features = ["full"] }
+rand = { workspace = true }
