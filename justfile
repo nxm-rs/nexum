@@ -1,18 +1,18 @@
 alias be := build-ext
 build-ext:
-	wasm-pack build -t web --release -d ../dist/worker/ crates/extension/worker
-	wasm-pack build -t web --release -d ../dist/injected/ crates/extension/injected
-	wasm-pack build -t web --release -d ../dist/injector/ crates/extension/injector
-	mkdir -p crates/extension/browser-ui/public/style
-	trunk build --release --config crates/extension/browser-ui/Trunk.toml index.html
-	cp -r crates/extension/public/** crates/extension/dist/
-	mkdir -p crates/extension/dist/browser-ui
-	cp -r crates/extension/browser-ui/public/** crates/extension/dist/
-	cp -r crates/extension/browser-ui/dist/* crates/extension/dist/browser-ui/
+	wasm-pack build -t web --release -d ../dist/worker/ crates/nexum/extension/worker
+	wasm-pack build -t web --release -d ../dist/injected/ crates/nexum/extension/injected
+	wasm-pack build -t web --release -d ../dist/injector/ crates/nexum/extension/injector
+	mkdir -p crates/nexum/extension/browser-ui/public/style
+	trunk build --release --config crates/nexum/extension/browser-ui/Trunk.toml index.html
+	cp -r crates/nexum/extension/public/** crates/nexum/extension/dist/
+	mkdir -p crates/nexum/extension/dist/browser-ui
+	cp -r crates/nexum/extension/browser-ui/public/** crates/nexum/extension/dist/
+	cp -r crates/nexum/extension/browser-ui/dist/* crates/nexum/extension/dist/browser-ui/
 
 alias re := run-ext
 run-ext:
-	web-ext run -s crates/extension/dist
+	web-ext run -s crates/nexum/extension/dist
 
 check:
 	cargo check --all-targets --all-features

@@ -24,7 +24,7 @@ members = [
     "crates/nexum/extension/injected/",
     "crates/nexum/extension/injector/",
     # apparently leptos packages fail to compile with just cargo build
-    # "crates/nexum/extension/browser-ui/",
+    "crates/nexum/extension/browser-ui/",
     "crates/nexum/primitives/",
     "crates/nexum/rpc/",
     "crates/nexum/tui/",
