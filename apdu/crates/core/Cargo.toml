@@ -1,0 +1,27 @@
+[package]
+name = "nexum-apdu-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "Core traits and types for APDU (Application Protocol Data Unit) operations"
+
+[lints]
+workspace = true
+
+[dependencies]
+bytes.workspace = true
+hex.workspace = true
+thiserror = { workspace = true, optional = true }
+tracing = { workspace = true, features = ["attributes"] }
+
+[features]
+default = ["std"]
+std = ["thiserror"]
+longer_payloads = []
+
+[dev-dependencies]
+hex.workspace = true

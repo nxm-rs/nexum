@@ -1,0 +1,27 @@
+[package]
+name = "nexum-apdu-transport-pcsc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "PC/SC transport implementation for APDU operations"
+
+[lints]
+workspace = true
+
+[dependencies]
+nexum-apdu-core = { workspace = true }
+pcsc.workspace = true
+thiserror.workspace = true
+crossbeam-channel = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = ["crossbeam-channel/std", "nexum-apdu-core/std"]
+
+[dev-dependencies]
+nexum-apdu-macros.workspace = true
+hex.workspace = true
