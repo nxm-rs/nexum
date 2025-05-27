@@ -4,7 +4,6 @@
 use std::{
     fs::OpenOptions,
     net::Ipv4Addr,
-    path::PathBuf,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
@@ -12,14 +11,13 @@ use std::{
 use alloy::{
     consensus::{EthereumTypedTransaction, SignableTransaction, TxEip4844Variant},
     dyn_abi::TypedData,
-    primitives::{eip191_hash_message, Address, Bytes, B256},
-    signers::{k256::ecdsa::SigningKey, local::LocalSigner, Signature, SignerSync as _},
+    primitives::{Address, Bytes, B256},
+    signers::Signature,
 };
 use alloy_chains::NamedChain;
 use clap::Parser;
 use config_tab::ConfigTab;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
-use eyre::OptionExt;
 use futures::StreamExt;
 use ratatui::{
     layout::{Constraint, HorizontalAlignment, Layout},
@@ -35,6 +33,7 @@ use ratatui::{
 use rpc::rpc::{
     chain_id_or_name_to_named_chain, InteractiveRequest, InteractiveResponse, RpcServerBuilder,
 };
+use signers::{load_foundry_keystores, load_ledger_accounts, NexumAccount};
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
@@ -43,6 +42,7 @@ use url::Url;
 
 mod config;
 mod config_tab;
+mod signers;
 
 fn tui_logger() -> impl std::io::Write {
     let log_file = config_dir()
@@ -101,9 +101,10 @@ async fn main() -> eyre::Result<()> {
 
     let terminal = ratatui::init();
 
+    let app = App::new(req_receiver, config).await;
     // run the loop until the tui quits or the server quits
     let app_result = tokio::select! {
-        app_result = App::new(req_receiver, config).run(terminal) => { app_result }
+        app_result = app.run(terminal) => { app_result }
         _ = srv_handle.stopped() => { Ok(()) }
     };
     ratatui::restore();
@@ -190,7 +191,7 @@ struct App {
 impl App {
     const FRAMES_PER_SECOND: u64 = 60;
 
-    fn new(
+    async fn new(
         request_receiver: mpsc::Receiver<(
             InteractiveRequest,
             oneshot::Sender<InteractiveResponse>,
@@ -202,13 +203,14 @@ impl App {
 
         // this is unbounded because unbounded's sender.send is sync
         let (sender, receiver) = mpsc::unbounded_channel();
+
         Self {
             should_quit: false,
             active_app_pane: AppPane::Wallet,
             active_tab: AppTab::default(),
             wallet_pane: Arc::new(WalletPane {
                 is_active: RwLock::new(true),
-                keystores: RwLock::new(load_keystores().unwrap_or_default()),
+                accounts: RwLock::new(load_foundry_keystores().unwrap_or_default()),
                 list_state: RwLock::new(list_state),
                 active_wallet_idx: RwLock::new(None),
                 prompt_sender: sender.clone(),
@@ -227,15 +229,24 @@ impl App {
         let mut interval = tokio::time::interval(period);
         let mut events = EventStream::new();
 
+        // load ledger accounts in background because its too slow
+        let wallet_pane_clone = self.wallet_pane.clone();
+        tokio::spawn(async move {
+            load_ledger_accounts(10)
+                .await
+                .map(|accounts| wallet_pane_clone.add_accounts(accounts))
+                .ok();
+        });
+
         while !self.should_quit {
             tokio::select! {
                 _ = interval.tick() => { terminal.draw(|f| self.render(f).expect("failed to render"))?; },
                 Some(Ok(event)) = events.next() => self.handle_event(&event),
-                Some(prompt) = async { if self.prompt.is_none() { self.prompt_receiver.recv().await } else { None } }  => self.prompt = Some(prompt),
+                Some(prompt) = self.prompt_receiver.recv(), if self.prompt.is_none() => self.prompt = Some(prompt),
                 Some((req, res_sender)) = self.request_receiver.recv() => {
                     // TODO: this probably shouldn't be awaited, will probably block the UI
                     self.handle_request(req, res_sender).await;
-                }
+                },
             }
         }
         Ok(())
@@ -287,7 +298,18 @@ impl App {
 
                 frame.render_widget_ref(&*self.wallet_pane, left_area);
                 let dashboard_block = Block::default()
-                    .title("Dashboard")
+                    .title({
+                        let active_account = self.wallet_pane.active_account();
+                        let hovered_account = self.wallet_pane.hovered_account();
+                        match (active_account, hovered_account) {
+                            (Some(active), Some(hovered)) => {
+                                format!(" Active: {active} ───── Hovered: {hovered} ",)
+                            }
+                            (Some(active), None) => format!(" Active: {active} "),
+                            (None, Some(hovered)) => format!(" Hovered: {hovered} "),
+                            _ => " Dashboard ".to_string(),
+                        }
+                    })
                     .borders(Borders::ALL)
                     .border_style(match self.active_app_pane {
                         AppPane::Wallet => inactive_border_style,
@@ -310,7 +332,7 @@ impl App {
     fn render_prompt(&mut self, frame: &mut Frame) {
         if let Some(prompt) = &self.prompt {
             match prompt {
-                Prompt::KeystoreUnlock(name) => {
+                Prompt::AccountUnlock(name) => {
                     let masked_pwd = "*".repeat(self.prompt_input.len());
                     let prompt_str = format!(" Enter password for {name} ");
                     let prompt_area = frame.area().centered(
@@ -331,7 +353,7 @@ impl App {
                     );
                     frame.render_widget(paragraph, prompt_area);
                 }
-                Prompt::KeystoreUnlockInvalidPasswordRetry(name) => {
+                Prompt::AccountUnlockInvalidPasswordRetry(name) => {
                     let masked_pwd = "*".repeat(self.prompt_input.len());
                     let prompt_str = format!(" Incorrect password for {name}! Try again. ");
                     let prompt_area = frame.area().centered(
@@ -413,7 +435,7 @@ impl App {
         if let Some(key) = event.as_key_press_event() {
             match &self.prompt {
                 Some(prompt) => match prompt {
-                    Prompt::KeystoreUnlock(_) | Prompt::KeystoreUnlockInvalidPasswordRetry(_) => {
+                    Prompt::AccountUnlock(_) | Prompt::AccountUnlockInvalidPasswordRetry(_) => {
                         match key.code {
                             KeyCode::Char(ch) => self.prompt_input.push(ch),
                             KeyCode::Backspace => {
@@ -568,11 +590,15 @@ impl App {
                         tracing::debug!("signing and sending transaction now");
                         response_sender
                             .send(InteractiveResponse::SignTransaction(
-                                wallet.sign_hash(None, &tx.signature_hash()).map_err(|e| {
-                                    let boxed_error: Box<dyn std::error::Error + Send + Sync> =
-                                        Box::new(e);
-                                    boxed_error
-                                }),
+                                wallet
+                                    .sign_hash(None, &tx.signature_hash())
+                                    .await
+                                    .map_err(|e| {
+                                        tracing::error!(?e, "failed to sign tx");
+                                        let boxed_error: Box<dyn std::error::Error + Send + Sync> =
+                                            Box::new(e);
+                                        boxed_error
+                                    }),
                             ))
                             .expect("failed to send send transaction response");
                     } else {
@@ -596,14 +622,17 @@ impl App {
                         receiver.await.expect("failed to receive eth_sign response");
                     if should_sign {
                         tracing::debug!("signing and sending transaction now");
-                        let message = eip191_hash_message(message);
                         response_sender
                             .send(InteractiveResponse::EthSign(
-                                wallet.sign_hash(Some(signer), &message).map_err(|e| {
-                                    let boxed_error: Box<dyn std::error::Error + Send + Sync> =
-                                        Box::new(e);
-                                    boxed_error
-                                }),
+                                wallet
+                                    .sign_message(Some(signer), &message)
+                                    .await
+                                    .map_err(|e| {
+                                        tracing::error!(?e, "failed to sign message");
+                                        let boxed_error: Box<dyn std::error::Error + Send + Sync> =
+                                            Box::new(e);
+                                        boxed_error
+                                    }),
                             ))
                             .expect("failed to send eth_sign response");
                     } else {
@@ -628,20 +657,18 @@ impl App {
                         .expect("failed to receive eth_sign_typed_data response");
                     if should_sign {
                         tracing::debug!("signing and sending transaction now");
-                        let message = message.eip712_signing_hash().map_err(|e| {
-                            let boxed_error: Box<dyn std::error::Error + Send + Sync> = Box::new(e);
-                            boxed_error
-                        });
                         response_sender
-                            .send(InteractiveResponse::EthSignTypedData(message.and_then(
-                                |message| {
-                                    wallet.sign_hash(Some(signer), &message).map_err(|e| {
+                            .send(InteractiveResponse::EthSignTypedData(
+                                wallet
+                                    .sign_dynamic_typed_data(Some(signer), &message)
+                                    .await
+                                    .map_err(|e| {
+                                        tracing::error!(?e, "failed to sign typed data");
                                         let boxed_error: Box<dyn std::error::Error + Send + Sync> =
                                             Box::new(e);
                                         boxed_error
-                                    })
-                                },
-                            )))
+                                    }),
+                            ))
                             .expect("failed to send eth_sign_typed_data response");
                     } else {
                         tracing::debug!("sending transaction rejected");
@@ -657,52 +684,13 @@ impl App {
     }
 }
 
-/// Returns all the keystore file paths in the foundry keystore directory.
-fn load_keystores() -> eyre::Result<Vec<KeystoreWallet>> {
-    let home_dir = std::env::home_dir().ok_or_eyre("home directory not found")?;
-    let foundry_keystore_dir = home_dir.join(".foundry/keystores");
-    let foundry_keystore_files = std::fs::read_dir(foundry_keystore_dir)?;
-
-    Ok(foundry_keystore_files
-        .into_iter()
-        .filter_map(|f| {
-            f.ok().map(|f| KeystoreWallet {
-                path: f.path(),
-                name: f.file_name().to_string_lossy().to_string(),
-                signer: None,
-            })
-        })
-        .collect::<Vec<_>>())
-}
-
 pub trait HandleEvent {
     fn handle_key(&self, event: &KeyEvent);
 }
 
-#[derive(Debug)]
-struct KeystoreWallet {
-    name: String,
-    path: PathBuf,
-    signer: Option<LocalSigner<SigningKey>>,
-}
-
-impl KeystoreWallet {
-    /// Returns if the keystore is locked.
-    fn is_locked(&self) -> bool {
-        self.signer.is_none()
-    }
-
-    /// Try to decrypt the keystore with given password.
-    fn try_unlock(&mut self, password: String) -> eyre::Result<()> {
-        let signer = LocalSigner::<SigningKey>::decrypt_keystore(&self.path, password)?;
-        self.signer = Some(signer);
-        Ok(())
-    }
-}
-
 enum Prompt {
-    KeystoreUnlock(String),
-    KeystoreUnlockInvalidPasswordRetry(String),
+    AccountUnlock(String),
+    AccountUnlockInvalidPasswordRetry(String),
     SendTransaction(
         Box<EthereumTypedTransaction<TxEip4844Variant>>,
         oneshot::Sender<(Box<EthereumTypedTransaction<TxEip4844Variant>>, bool)>,
@@ -718,7 +706,7 @@ enum Prompt {
 #[derive(Debug)]
 struct WalletPane {
     is_active: RwLock<bool>,
-    keystores: RwLock<Vec<KeystoreWallet>>,
+    accounts: RwLock<Vec<NexumAccount>>,
     list_state: RwLock<ListState>,
     active_wallet_idx: RwLock<Option<usize>>,
     prompt_sender: mpsc::UnboundedSender<Prompt>,
@@ -731,14 +719,14 @@ impl Widget for &WalletPane {
             .write()
             .expect("failed to get write lock on list state");
         let list = List::new(
-            self.r_keystores()
+            self.r_accounts()
                 .iter()
                 .enumerate()
                 .map(|(idx, k)| {
                     let name = Text::from(format!(
                         "{} {}",
                         if k.is_locked() { "🔒" } else { "🔓" },
-                        k.name.clone()
+                        k.name()
                     ));
                     if let Some(active_wallet_idx) = *self.r_active_wallet_idx()
                         && idx == active_wallet_idx
@@ -766,11 +754,47 @@ impl Widget for &WalletPane {
     }
 }
 
+macro_rules! delegate_sign_to_account {
+    ($method_name:ident, $param_name:ident, $param_type:ty) => {
+        async fn $method_name(
+            &self,
+            from: Option<Address>,
+            $param_name: &$param_type,
+        ) -> alloy::signers::Result<Signature> {
+            if let Some(idx) = {
+                // wrapped into a block expresion so the guard can drop after read and before
+                // awaiting on sign_hash
+                let val = *self.r_active_wallet_idx();
+                val
+            } {
+                // TODO: maybe figure out how to do this without cloning the account
+                // right now the accounts shouldn't be that expensive to clone, would just
+                // be the signer object
+                let account = self.r_accounts()[idx].clone();
+
+                if from.is_some() && from != account.address() {
+                    return Err(alloy::signers::Error::Other(Box::new(
+                        NexumTuiError::SignerDoesntMatch,
+                    )));
+                }
+
+                account.$method_name($param_name).await.map_err(|e| {
+                    alloy::signers::Error::Other(Box::new(Into::<NexumTuiError>::into(e)))
+                })
+            } else {
+                Err(alloy::signers::Error::Other(Box::new(
+                    NexumTuiError::NoActiveWallet,
+                )))
+            }
+        }
+    };
+}
+
 impl WalletPane {
     fn select_next(&self) {
-        let list_state = &mut *self.get_list_state_w();
+        let list_state = &mut *self.w_list_state();
         if let Some(selected_idx) = list_state.selected() {
-            if selected_idx < self.r_keystores().len() - 1 {
+            if selected_idx < self.r_accounts().len() - 1 {
                 list_state.select_next();
             } else {
                 list_state.select_first();
@@ -781,7 +805,7 @@ impl WalletPane {
     }
 
     fn select_previous(&self) {
-        let list_state = &mut *self.get_list_state_w();
+        let list_state = &mut *self.w_list_state();
         if let Some(selected_idx) = list_state.selected() {
             if selected_idx > 0 {
                 list_state.select_previous();
@@ -793,10 +817,16 @@ impl WalletPane {
         }
     }
 
-    fn get_list_state_w(&self) -> RwLockWriteGuard<'_, ListState> {
+    fn w_list_state(&self) -> RwLockWriteGuard<'_, ListState> {
         self.list_state
             .write()
             .expect("failed to get write lock on list state")
+    }
+
+    fn r_list_state(&self) -> RwLockReadGuard<'_, ListState> {
+        self.list_state
+            .read()
+            .expect("failed to get read lock on list state")
     }
 
     fn set_is_active(&self, is_active: bool) {
@@ -815,13 +845,13 @@ impl WalletPane {
 
     fn on_prompt_input(&self, input: String) {
         if let Some(idx) = *self.r_active_wallet_idx()
-            && { self.r_keystores()[idx].is_locked() }
+            && { self.r_accounts()[idx].is_locked() }
         {
-            let keystore = &mut self.w_keystores()[idx];
-            if keystore.try_unlock(input).is_err() {
+            let account = &mut self.w_accounts()[idx];
+            if account.try_unlock(input).is_err() {
                 self.prompt_sender
-                    .send(Prompt::KeystoreUnlockInvalidPasswordRetry(
-                        keystore.name.clone(),
+                    .send(Prompt::AccountUnlockInvalidPasswordRetry(
+                        account.name().to_string(),
                     ))
                     .expect("sending password retry prompt failed");
             }
@@ -829,26 +859,27 @@ impl WalletPane {
     }
 
     fn active_account(&self) -> Option<Address> {
-        if let Some(idx) = *self.r_active_wallet_idx() {
-            self.r_keystores()[idx]
-                .signer
-                .as_ref()
-                .map(|signer| signer.address())
-        } else {
-            None
-        }
+        self.r_active_wallet_idx()
+            .map(|idx| self.r_accounts()[idx].address())
+            .flatten()
     }
 
-    fn r_keystores(&self) -> RwLockReadGuard<Vec<KeystoreWallet>> {
-        self.keystores
+    fn hovered_account(&self) -> Option<Address> {
+        self.r_list_state()
+            .selected()
+            .and_then(|idx| self.r_accounts()[idx].address())
+    }
+
+    fn r_accounts(&self) -> RwLockReadGuard<Vec<NexumAccount>> {
+        self.accounts
             .read()
-            .expect("failed to get read lock on keystores")
+            .expect("failed to get read lock on accounts")
     }
 
-    fn w_keystores(&self) -> RwLockWriteGuard<Vec<KeystoreWallet>> {
-        self.keystores
+    fn w_accounts(&self) -> RwLockWriteGuard<Vec<NexumAccount>> {
+        self.accounts
             .write()
-            .expect("failed to get write lock on keystores")
+            .expect("failed to get write lock on accounts")
     }
 
     fn r_active_wallet_idx(&self) -> RwLockReadGuard<Option<usize>> {
@@ -875,29 +906,13 @@ impl WalletPane {
             .expect("failed to get write lock on is active")
     }
 
-    fn sign_hash(&self, from: Option<Address>, hash: &B256) -> alloy::signers::Result<Signature> {
-        if let Some(idx) = *self.r_active_wallet_idx() {
-            if from.is_some()
-                && from != self.r_keystores()[idx].signer.as_ref().map(|s| s.address())
-            {
-                return Err(alloy::signers::Error::Other(Box::new(
-                    NexumTuiError::SignerDoesntMatch,
-                )));
-            }
+    delegate_sign_to_account!(sign_hash, hash, B256);
+    delegate_sign_to_account!(sign_message, message, [u8]);
+    delegate_sign_to_account!(sign_dynamic_typed_data, payload, TypedData);
 
-            self.r_keystores()[idx]
-                .signer
-                .as_ref()
-                .map(|signer| signer.sign_hash_sync(hash))
-                .ok_or_else(|| {
-                    alloy::signers::Error::Other(Box::new(NexumTuiError::SignerNotAvailable))
-                })
-                .flatten()
-        } else {
-            Err(alloy::signers::Error::Other(Box::new(
-                NexumTuiError::NoActiveWallet,
-            )))
-        }
+    fn add_accounts(&self, to_add: Vec<NexumAccount>) {
+        let mut accounts = self.w_accounts();
+        accounts.extend(to_add);
     }
 }
 
@@ -908,11 +923,11 @@ impl HandleEvent for WalletPane {
             KeyCode::Down | KeyCode::Char('j') => self.select_next(),
             KeyCode::Enter => {
                 if let Some(idx) = self.set_active_wallet_to_selected_index()
-                    && self.r_keystores()[idx].is_locked()
+                    && self.r_accounts()[idx].is_locked()
                 {
-                    let keystore = &self.r_keystores()[idx];
+                    let account = &self.r_accounts()[idx];
                     self.prompt_sender
-                        .send(Prompt::KeystoreUnlock(keystore.name.clone()))
+                        .send(Prompt::AccountUnlock(account.name().to_string()))
                         .expect("sending password prompt request failed");
                 }
             }
@@ -929,10 +944,10 @@ enum NexumTuiError {
     /// Generally means that the signing address and the active wallet address don't match
     #[error("signer doesnt match")]
     SignerDoesntMatch,
-    /// Generally means the signer hasn't been unlocked or loaded yet
-    #[error("signer not available")]
-    SignerNotAvailable,
     /// No active wallet
     #[error("no active wallet")]
     NoActiveWallet,
+    /// Signing error
+    #[error("signing error")]
+    SigningError(#[from] eyre::Report),
 }

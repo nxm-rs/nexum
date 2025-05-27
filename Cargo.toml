@@ -53,7 +53,7 @@ thiserror = "2.0.12"
 console_error_panic_hook = "0.1.7"
 
 alloy-chains = { version = "0.1.47", features = ["serde"] }
-alloy = { version = "1.0.3", features = ["signer-keystore", "provider-ws", "eip712"] }
+alloy = { version = "1.0.3", features = ["signer-keystore", "provider-ws", "eip712", "signer-ledger"] }
 
 chrome-sys = { path = "crates/extension/chrome-sys" }
 worker = { path = "crates/extension/worker" }
