@@ -19,6 +19,9 @@ use clap::Parser;
 use config_tab::ConfigTab;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use futures::StreamExt;
+use nexum_rpc::rpc::{
+    chain_id_or_name_to_named_chain, InteractiveRequest, InteractiveResponse, RpcServerBuilder,
+};
 use ratatui::{
     layout::{Constraint, HorizontalAlignment, Layout},
     prelude::{Buffer, Rect},
@@ -29,9 +32,6 @@ use ratatui::{
         Block, Borders, FrameExt, List, ListState, Padding, Paragraph, StatefulWidget, Tabs, Widget,
     },
     DefaultTerminal, Frame,
-};
-use rpc::rpc::{
-    chain_id_or_name_to_named_chain, InteractiveRequest, InteractiveResponse, RpcServerBuilder,
 };
 use signers::{load_foundry_keystores, load_ledger_accounts, NexumAccount};
 use tokio::sync::{mpsc, oneshot};

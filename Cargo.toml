@@ -60,4 +60,4 @@ worker = { path = "crates/extension/worker" }
 injected = { path = "crates/extension/injected" }
 injector = { path = "crates/extension/injector"}
 nexum-primitives = { path = "crates/primitives" }
-rpc = { path = "crates/rpc" }
+nexum-rpc = { path = "crates/rpc" }
