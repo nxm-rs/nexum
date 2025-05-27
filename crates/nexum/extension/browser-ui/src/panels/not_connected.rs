@@ -1,6 +1,6 @@
 use crate::components::cluster::{Cluster, Row, Value};
 use crate::components::general::{self, CannotConnectSub, Download};
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn NotConnected() -> impl IntoView {

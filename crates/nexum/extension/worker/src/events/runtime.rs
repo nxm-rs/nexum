@@ -210,11 +210,14 @@ fn create_request_task(
 
         let result = match provider.request::<Value>(&req.request.method, params).await {
             Ok(res) => Ok(res),
-            Err(_) => Err(Error {
-                code: -1,
-                message: "Client not available".to_string(),
-                data: None,
-            }),
+            Err(err) => {
+                tracing::error!(?err, ?params, "rpc error");
+                Err(Error {
+                    code: -1,
+                    message: "Client not available".to_string(),
+                    data: None,
+                })
+            }
         };
 
         send_response(

@@ -1,5 +1,5 @@
 use chrome_sys::tabs;
-use leptos::*;
+use leptos::prelude::*;
 use stylers::style;
 
 #[component]

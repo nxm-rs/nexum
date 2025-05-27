@@ -1,5 +1,5 @@
 use browser_ui::App;
-use leptos::*;
+use leptos::{mount::mount_to_body, *};
 use tracing::trace;
 
 fn main() {

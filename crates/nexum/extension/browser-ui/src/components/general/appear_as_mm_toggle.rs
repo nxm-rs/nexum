@@ -2,7 +2,7 @@ use crate::components::cluster::*;
 use crate::components::general::*;
 use crate::constants::APPEAR_AS_MM;
 // use crate::helper::toggle_local_setting;
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn AppearAsMMToggle(mm_appear: ReadSignal<bool>) -> impl IntoView {

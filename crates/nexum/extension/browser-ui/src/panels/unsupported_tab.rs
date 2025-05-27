@@ -1,7 +1,7 @@
 use crate::components::cluster::{Cluster, Row, Value};
 use crate::components::general::{self, CannotConnectSub, UnsupportedOrigin};
 use chrome_sys::tabs;
-use leptos::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn UnsupportedTab(tab: ReadSignal<Option<tabs::Info>>) -> impl IntoView {

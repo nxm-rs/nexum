@@ -1,5 +1,5 @@
-use crate::web_sys::KeyboardEvent;
-use leptos::*;
+use leptos::prelude::*;
+use leptos::web_sys::KeyboardEvent;
 use std::rc::Rc;
 use stylers::style;
 
