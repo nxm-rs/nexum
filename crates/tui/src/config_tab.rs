@@ -1,4 +1,4 @@
-use std::{cell::Cell, sync::Mutex};
+use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use alloy::primitives::Address;
 use alloy_chains::NamedChain;
@@ -15,8 +15,8 @@ use crate::{config::Config, HandleEvent};
 pub struct ConfigTab {
     config: Config,
     config_list_state: Mutex<ListState>,
-    origin_connections_collapsed: Cell<bool>,
-    labels_collapsed: Cell<bool>,
+    origin_connections_collapsed: RwLock<bool>,
+    labels_collapsed: RwLock<bool>,
 }
 
 #[derive(Debug)]
@@ -43,11 +43,11 @@ impl ConfigTab {
     }
 
     fn list_len(&self) -> usize {
-        3 + if self.origin_connections_collapsed.get() {
+        3 + if *self.r_origin_connections_collapsed() {
             0
         } else {
             self.config.origin_connections.len()
-        } + if self.labels_collapsed.get() {
+        } + if *self.r_labels_collapsed() {
             0
         } else {
             self.config.labels.len()
@@ -59,7 +59,7 @@ impl ConfigTab {
     }
 
     fn labels_offset(&self) -> usize {
-        2 + if self.origin_connections_collapsed.get() {
+        2 + if *self.r_origin_connections_collapsed() {
             0
         } else {
             self.config.origin_connections.len()
@@ -126,6 +126,30 @@ impl ConfigTab {
             list_state.select_last();
         }
     }
+
+    fn r_origin_connections_collapsed(&self) -> RwLockReadGuard<bool> {
+        self.origin_connections_collapsed
+            .read()
+            .expect("failed to get read lock on origin_connections_collapsed")
+    }
+
+    fn w_origin_connections_collapsed(&self) -> RwLockWriteGuard<bool> {
+        self.origin_connections_collapsed
+            .write()
+            .expect("failed to get write lock on origin_connections_collapsed")
+    }
+
+    fn r_labels_collapsed(&self) -> RwLockReadGuard<bool> {
+        self.labels_collapsed
+            .read()
+            .expect("failed to get read lock on labels_collapsed")
+    }
+
+    fn w_labels_collapsed(&self) -> RwLockWriteGuard<bool> {
+        self.labels_collapsed
+            .write()
+            .expect("failed to get write lock on labels_collapsed")
+    }
 }
 
 impl Widget for &ConfigTab {
@@ -137,7 +161,7 @@ impl Widget for &ConfigTab {
             Vec::with_capacity(3 + self.config.origin_connections.len() + self.config.labels.len());
         list_items.push("RPCs".to_string());
 
-        if self.origin_connections_collapsed.get() {
+        if *self.r_origin_connections_collapsed() {
             list_items.push("▶ Origin Connections".to_string())
         } else {
             list_items.push("▼ Origin Connections".to_string());
@@ -146,7 +170,7 @@ impl Widget for &ConfigTab {
             }
         }
 
-        if self.labels_collapsed.get() {
+        if *self.r_labels_collapsed() {
             list_items.push("▶ Labels".to_string())
         } else {
             list_items.push("▼ Labels".to_string());
@@ -277,9 +301,19 @@ impl HandleEvent for ConfigTab {
                     let item = self.item_at(idx);
                     match item {
                         ConfigListItemType::OriginConnectionsMeta => {
-                            self.origin_connections_collapsed.update(|x| !x)
+                            let new_value = {
+                                let prev = *self.r_origin_connections_collapsed();
+                                !prev
+                            };
+                            *self.w_origin_connections_collapsed() = new_value;
                         }
-                        ConfigListItemType::LabelsMeta => self.labels_collapsed.update(|x| !x),
+                        ConfigListItemType::LabelsMeta => {
+                            let new_value = {
+                                let prev = *self.r_labels_collapsed();
+                                !prev
+                            };
+                            *self.w_labels_collapsed() = new_value;
+                        }
                         _ => {}
                     }
                 }
