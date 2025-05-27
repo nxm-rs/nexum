@@ -68,9 +68,9 @@ This repository contains the following crates:
 - [`nexum-keycard-signer`]: Alloy signer implementation for blockchain operations
 - [`nexum-keycard-cli`]: Command-line interface for Keycard management
 
-[`nexum-keycard`]: https://github.com/nullisxyz/keycard/tree/main/crates/keycard
-[`nexum-keycard-signer`]: https://github.com/nullisxyz/keycard/tree/main/crates/signer
-[`nexum-keycard-cli`]: https://github.com/nullisxyz/keycard/tree/main/crates/cli
+[`nexum-keycard`]: https://github.com/nxm-rs/keycard/tree/main/crates/keycard
+[`nexum-keycard-signer`]: https://github.com/nxm-rs/keycard/tree/main/crates/signer
+[`nexum-keycard-cli`]: https://github.com/nxm-rs/keycard/tree/main/crates/cli
 
 ## Features
 

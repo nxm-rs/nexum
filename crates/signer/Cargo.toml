@@ -34,5 +34,5 @@ nexum-apdu-core.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-alloy = "0.14"
+alloy = "1.0"
 tokio = { workspace = true, features = ["rt-multi-thread"] }

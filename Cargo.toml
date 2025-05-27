@@ -6,9 +6,9 @@ resolver = "2"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Nullis Contributors"]
+authors = ["Nexum Contributors"]
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/nullisxyz/keycard"
+repository = "https://github.com/nxm-rs/keycard"
 keywords = ["smart-card", "cryptography", "iso7816", "apdu", "keycard"]
 categories = ["cryptography", "embedded", "hardware-support"]
 
@@ -37,10 +37,10 @@ cargo.features = ["all"]
 
 [workspace.dependencies]
 ## nexum-apdu crates
-nexum-apdu-core = { git = "https://github.com/nullisxyz/apdu" }
-nexum-apdu-macros = { git = "https://github.com/nullisxyz/apdu" }
-nexum-apdu-transport-pcsc = { git = "https://github.com/nullisxyz/apdu" }
-nexum-apdu-globalplatform = { git = "https://github.com/nullisxyz/apdu" }
+nexum-apdu-core = { git = "https://github.com/nxm-rs/apdu" }
+nexum-apdu-macros = { git = "https://github.com/nxm-rs/apdu" }
+nexum-apdu-transport-pcsc = { git = "https://github.com/nxm-rs/apdu" }
+nexum-apdu-globalplatform = { git = "https://github.com/nxm-rs/apdu" }
 
 ## keycard crates
 nexum-keycard = { path = "crates/keycard", version = "0.1.0" }
@@ -49,9 +49,9 @@ nexum-keycard-signer = { path = "crates/signer", version = "0.1.0" }
 ## crypto
 aes = { version = "0.8.4", default-features = false }
 alloy-primitives = { version = "1.0", default-features = false }
-alloy-network = { version = "0.14", default-features = false }
-alloy-signer = { version = "0.14", default-features = false }
-alloy-consensus = { version = "0.14.0", default-features = false }
+alloy-network = { version = "1.0", default-features = false }
+alloy-signer = { version = "1.0", default-features = false }
+alloy-consensus = { version = "1.0", default-features = false }
 coins-bip32 = { version = "0.12.0", default-features = false }
 coins-bip39 = { version = "0.12.0", default-features = false }
 k256 = { version = "0.13", features = ["ecdsa", "ecdh"] }

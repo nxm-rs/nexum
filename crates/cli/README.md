@@ -17,7 +17,7 @@ cargo install nexum-keycard-cli
 ### From source
 
 ```sh
-git clone https://github.com/nullisxyz/keycard
+git clone https://github.com/nxm-rs/keycard
 cd keycard
 cargo install --path crates/cli
 ```
