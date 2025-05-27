@@ -18,7 +18,7 @@ serde_json.workspace = true
 jsonrpsee = { version = "0.24.7", default-features = false, features = ["server", "http-client", "ws-client", "macros", "client-ws-transport-tls"] }
 tokio = { version = "1.41.1", features = ["full"] }
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt"] }
 eyre.workspace = true
 url.workspace = true
 alloy-chains.workspace = true
