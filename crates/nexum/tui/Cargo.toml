@@ -1,5 +1,5 @@
 [package]
-name = "tui"
+name = "nexum-tui"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,7 +17,7 @@ crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures.workspace = true
 alloy.workspace = true
 clap.workspace = true
-rpc.workspace = true
+nexum-rpc.workspace = true
 eyre.workspace = true
 figment = { version = "0.10.19", features = ["toml"] }
 serde.workspace = true
