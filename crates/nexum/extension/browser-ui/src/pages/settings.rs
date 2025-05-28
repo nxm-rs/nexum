@@ -1,5 +1,5 @@
 use chrome_sys::tabs;
-use leptos::*;
+use leptos::prelude::*;
 use nexum_primitives::FrameState;
 use web_sys::window;
 

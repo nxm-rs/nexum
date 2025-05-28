@@ -2,7 +2,7 @@ use crate::components::cluster::{BoxMain, Cluster};
 use crate::components::general::{AppearAsMMToggle, ChainSelect, CurrentOriginTitle};
 use crate::panels::{NotConnected, UnsupportedTab};
 use chrome_sys::tabs;
-use leptos::*;
+use leptos::prelude::*;
 use nexum_primitives::FrameState;
 
 // Define the component props
@@ -27,9 +27,9 @@ pub fn Main(
                     <BoxMain style="margin-top: 12px;".into()>
                         <UnsupportedTab tab=tab />
                         {if !is_connected() {
-                            view! { <NotConnected /> }
+                            Some(view! { <NotConnected /> })
                         } else {
-                            View::default()
+                            None
                         }}
                     </BoxMain>
                 }
@@ -65,8 +65,7 @@ pub fn Main(
                                         },
                                     )
                                 }
-                            }}
-                            <AppearAsMMToggle mm_appear=mm_appear />
+                            }} <AppearAsMMToggle mm_appear=mm_appear />
                         </Cluster>
                     </BoxMain>
                 }

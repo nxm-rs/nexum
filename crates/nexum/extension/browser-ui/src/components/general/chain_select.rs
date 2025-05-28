@@ -1,7 +1,7 @@
 use crate::components::cluster::Row;
 use crate::components::general::ChainButton;
 use chrome_sys::tabs;
-use leptos::*;
+use leptos::prelude::*;
 use nexum_primitives::FrameState;
 
 // Define props for the component

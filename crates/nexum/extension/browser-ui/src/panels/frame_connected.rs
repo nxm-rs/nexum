@@ -2,7 +2,7 @@ use crate::components::cluster::{Cluster, Row, Value};
 use crate::components::general::{self, LogoWrap, SummonFrameButton};
 use crate::constants::FRAME_SUMMON;
 use gloo_utils::format::JsValueSerdeExt;
-use leptos::*;
+use leptos::prelude::*;
 use nexum_primitives::{ConnectionState, FrameState};
 use serde_json::json;
 use wasm_bindgen::JsValue;

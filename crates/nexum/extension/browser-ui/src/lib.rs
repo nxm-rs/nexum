@@ -1,11 +1,13 @@
+use std::time::Duration;
+
 use chrome_sys::{port, tabs};
 use constants::EXTENSION_PORT_NAME;
 use gloo_utils::format::JsValueSerdeExt;
-use leptos::*;
-use leptos_dom::*;
+use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::*;
 use nexum_primitives::FrameState;
 use pages::settings::SettingsPage;
+use send_wrapper::SendWrapper;
 use serde_json::json;
 use tracing::debug;
 use wasm_bindgen::prelude::*;
@@ -54,9 +56,9 @@ async fn init(
     // Get and set the active tab
     let active_tab = tabs::get_active_tab().await;
     if let Some(tab) = &active_tab {
-        set_active_tab.set(Some(tab.clone()));
+        set_active_tab(Some(tab.clone()));
         if let Some(url) = &tab.url {
-            set_is_injected_tab.set(
+            set_is_injected_tab(
                 url.starts_with("https://")
                     || url.starts_with("http://")
                     || url.starts_with("file://"),
@@ -67,7 +69,7 @@ async fn init(
     // Get the initial settings from the page - hard set to not appear as MM for the moment
     // let settings = helper::get_initial_settings(&active_tab).await;
     // set_mm_appear.set(settings[0]);
-    set_mm_appear.set(false);
+    set_mm_appear(false);
 }
 
 #[component]
@@ -76,34 +78,35 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     // Define reactive signals
-    let (active_tab, set_active_tab) = create_signal(None::<tabs::Info>);
-    let (mm_appear, set_mm_appear) = create_signal(false);
-    let (is_injected_tab, set_is_injected_tab) = create_signal(false);
+    let (active_tab, set_active_tab) = signal(None::<tabs::Info>);
+    let (mm_appear, set_mm_appear) = signal(false);
+    let (is_injected_tab, set_is_injected_tab) = signal(false);
 
-    let (frame_state, set_frame_state) = create_signal(FrameState::default());
+    let (frame_state, set_frame_state) = signal(FrameState::default());
 
     // Set up frame connection
     frame_connect(set_frame_state);
 
     // Set up the 1-second interval for updating the current chain
-    let interval = gloo_timers::callback::Interval::new(
-        1000,
+    let interval = set_interval_with_handle(
         update_current_chain_callback(active_tab.clone()),
-    );
+        Duration::from_secs(1),
+    )
+    .expect("failed to set interval");
 
     // Automatically clear the interval when the component is cle/workspaces/ferris/crates/browser-uianed up
     on_cleanup(move || {
-        interval.cancel();
+        interval.clear();
     });
 
     view! {
         <Await
             // `future` provides the `Future` to be resolved
-            future=move || init(set_active_tab, set_mm_appear, set_is_injected_tab)
+            future=SendWrapper::new(init(set_active_tab, set_mm_appear, set_is_injected_tab))
             // the data is bound to whatever variable name you provide
             let:data
         >
-            <Html lang="en" dir="ltr" attr:data-theme="light" />
+            <Html attr:lang="en" attr:dir="ltr" attr:data-theme="light" />
 
             // sets the document title
             <Title text="Welcome to Leptos CSR" />
@@ -114,7 +117,12 @@ pub fn App() -> impl IntoView {
 
             // if active tab is set, render the settings page, otherwise render an error message
             // do not use suspense here
-            <SettingsPage tab=active_tab is_supported_tab=is_injected_tab mm_appear=mm_appear frame_state=frame_state />
+            <SettingsPage
+                tab=active_tab
+                is_supported_tab=is_injected_tab
+                mm_appear=mm_appear
+                frame_state=frame_state
+            />
         </Await>
     }
 }
