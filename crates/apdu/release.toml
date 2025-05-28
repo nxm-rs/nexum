@@ -15,5 +15,5 @@ pre-release-hook = [
     "-c",
     "$WORKSPACE_ROOT/scripts/changelog.sh --tag v{{version}}",
 ]
-owners = ["github:nullisxyz:core"]
+owners = ["github:nxm-rs:core"]
 rate-limit.existing-packages = 50

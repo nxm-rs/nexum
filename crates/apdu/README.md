@@ -79,10 +79,10 @@ This repository contains the following crates:
 - [`nexum-apdu-transport-pcsc`]: PC/SC transport implementation for card readers
 - [`nexum-apdu-globalplatform`]: GlobalPlatform card management functionality
 
-[`nexum-apdu-core`]: https://github.com/nullisxyz/apdu/tree/main/crates/core
-[`nexum-apdu-macros`]: https://github.com/nullisxyz/apdu/tree/main/crates/macros
-[`nexum-apdu-transport-pcsc`]: https://github.com/nullisxyz/apdu/tree/main/crates/pcsc
-[`nexum-apdu-globalplatform`]: https://github.com/nullisxyz/apdu/tree/main/crates/globalplatform
+[`nexum-apdu-core`]: https://github.com/nxm-rs/nexum/tree/main/crates/apdu/core
+[`nexum-apdu-macros`]: https://github.com/nxm-rs/nexum/tree/main/crates/apdu/macros
+[`nexum-apdu-transport-pcsc`]: https://github.com/nxm-rs/nexum/tree/main/crates/apdu/pcsc
+[`nexum-apdu-globalplatform`]: https://github.com/nxm-rs/nexum/tree/main/crates/apdu/globalplatform
 
 ## Features
 
