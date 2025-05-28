@@ -84,7 +84,7 @@ worker = { path = "crates/nexum/extension/worker" }
 injected = { path = "crates/nexum/extension/injected" }
 injector = { path = "crates/nexum/extension/injector"}
 nexum-primitives = { path = "crates/nexum/primitives" }
-rpc = { path = "crates/nexum/rpc" }
+nexum-rpc = { path = "crates/nexum/rpc" }
 
 # Common
 thiserror = { version = "2.0", default-features = false }

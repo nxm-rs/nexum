@@ -4536,6 +4536,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "nexum-rpc"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-chains 0.1.47",
+ "clap",
+ "eyre",
+ "futures",
+ "hyper",
+ "jsonrpsee",
+ "paste",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tower 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
+name = "nexum-tui"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-chains 0.1.47",
+ "clap",
+ "crossterm",
+ "eyre",
+ "figment",
+ "futures",
+ "nexum-rpc",
+ "ratatui",
+ "serde",
+ "thiserror 2.0.12",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
 name = "nix"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5698,28 +5742,6 @@ name = "route-recognizer"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
-
-[[package]]
-name = "rpc"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-chains 0.1.47",
- "clap",
- "eyre",
- "futures",
- "hyper",
- "jsonrpsee",
- "paste",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tokio",
- "tower 0.5.2",
- "tracing",
- "tracing-subscriber",
- "url",
-]
 
 [[package]]
 name = "rstml"
@@ -7236,28 +7258,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "tui"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-chains 0.1.47",
- "clap",
- "crossterm",
- "eyre",
- "figment",
- "futures",
- "ratatui",
- "rpc",
- "serde",
- "thiserror 2.0.12",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
- "url",
-]
 
 [[package]]
 name = "tungstenite"
