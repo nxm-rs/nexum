@@ -1,4 +1,4 @@
-name: Build and Package Extension
+name: Lint, build, test
 
 # run this action on main branch and every pull request
 on:
@@ -39,6 +39,9 @@ jobs:
 
       - name: Install trunk and just
         run: cargo binstall trunk just
+
+      - name: Install needed packages
+        run: sudo apt install -y libpcsclite-dev
 
       - name: Cargo fmt
         run: cargo fmt --all -- --check
