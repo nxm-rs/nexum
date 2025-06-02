@@ -40,19 +40,16 @@ impl Info {
     /// tab that can be used by the extension.
     pub fn valid(&self) -> bool {
         let id_and_url_exist = self.id.is_some() && self.url.is_some();
-        let url_is_http_or_file = self
-            .url
-            .as_ref()
-            .is_some_and(|url| match Url::parse(url) {
-                Ok(parsed_url) => {
-                    trace!("Parsed URL: {:?}", parsed_url);
-                    ["http", "https", "file"].contains(&parsed_url.scheme())
-                }
-                Err(e) => {
-                    trace!("Failed to parse URL: {:?}, Error: {:?}", url, e);
-                    false
-                }
-            });
+        let url_is_http_or_file = self.url.as_ref().is_some_and(|url| match Url::parse(url) {
+            Ok(parsed_url) => {
+                trace!("Parsed URL: {:?}", parsed_url);
+                ["http", "https", "file"].contains(&parsed_url.scheme())
+            }
+            Err(e) => {
+                trace!("Failed to parse URL: {:?}, Error: {:?}", url, e);
+                false
+            }
+        });
 
         // Both conditions must be true for `valid` to return true
         id_and_url_exist && url_is_http_or_file

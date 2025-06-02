@@ -310,12 +310,8 @@ mod tests {
         let iv = bytes!("F959B1220333046D3C47D61B1E1B891B");
 
         let mut enc_data = bytes::BytesMut::from(enc_data.as_ref());
-        let data = decrypt_data(
-            &mut enc_data,
-            enc_key.as_ref().into(),
-            iv.as_ref().into(),
-        )
-        .unwrap();
+        let data =
+            decrypt_data(&mut enc_data, enc_key.as_ref().into(), iv.as_ref().into()).unwrap();
 
         let expected =
             bytes!("2E21F9F2B2C2CC9038D518A5C6B490613E7955BD19D19108B77786986B7ABFE69000");

@@ -244,15 +244,11 @@ impl<E: Executor> Keycard<E> {
         // Create no-op callbacks that will panic if called
         // These should never be called since we have all credentials up front
         let input_callback: InputRequestFn = Box::new(|prompt| {
-            panic!(
-                "Input callback called when using known credentials: {prompt}"
-            );
+            panic!("Input callback called when using known credentials: {prompt}");
         });
 
         let confirm_callback: ConfirmationFn = Box::new(|prompt| {
-            panic!(
-                "Confirmation callback called when using known credentials: {prompt}"
-            );
+            panic!("Confirmation callback called when using known credentials: {prompt}");
             #[allow(unreachable_code)]
             false
         });

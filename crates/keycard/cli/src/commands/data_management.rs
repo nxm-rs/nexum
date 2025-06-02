@@ -21,9 +21,7 @@ pub fn store_data_command(
     let record_label = format!("{record:?}");
     keycard.store_data(record, data)?;
 
-    println!(
-        "Data stored successfully using {record_label} record type"
-    );
+    println!("Data stored successfully using {record_label} record type");
 
     Ok(())
 }
