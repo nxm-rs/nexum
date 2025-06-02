@@ -14,5 +14,8 @@ alias re := run-ext
 run-ext:
 	web-ext run -s crates/nexum/extension/dist
 
-check:
-	cargo check --all-targets --all-features
+clippy:
+	cargo clippy --all-targets --all-features --workspace -- -Dwarnings
+
+build:
+	cargo build --all-targets --all-features --workspace
