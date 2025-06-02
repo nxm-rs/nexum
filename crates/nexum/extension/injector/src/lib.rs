@@ -49,7 +49,9 @@ fn setup_page_message_listener() {
 
         let data = event.data();
         if ProtocolMessage::is_valid(&data) {
-            chrome_sys::runtime::send_message(&data);
+            chrome_sys::runtime::send_message(&data)
+                .inspect_err(|e| tracing::error!(?e, "failed to send message to background script"))
+                .ok();
         } else {
             trace!("Message event data is not a ProtocolMessage.");
         }

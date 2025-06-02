@@ -5,7 +5,6 @@ use std::sync::Arc;
 use builder::ExtensionBuilder;
 use events::setup_listeners;
 use futures::lock::Mutex;
-use js_sys::Reflect;
 use nexum_primitives::ConnectionState;
 use provider::Provider;
 use state::ExtensionState;

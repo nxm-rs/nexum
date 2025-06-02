@@ -7,7 +7,7 @@ use chrome_sys::{
 };
 use nexum_primitives::{ConnectionState, FrameState};
 use serde_wasm_bindgen::to_value;
-use tracing::{debug, error, trace};
+use tracing::{debug, trace};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
@@ -47,7 +47,7 @@ impl ExtensionState {
             debug!("Updating settings panel with new frame state");
 
             let frame_state_js: JsValue = to_value(&self.frame_state).unwrap();
-            port::post_message(&panel, frame_state_js).unwrap();
+            port::post_message(panel, frame_state_js).unwrap();
         } else {
             debug!("No settings panel available to update");
         }

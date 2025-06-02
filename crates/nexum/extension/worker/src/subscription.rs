@@ -29,7 +29,7 @@ pub(crate) async fn unsubscribe(sub_id: String) -> Result<(), JsValue> {
 pub(crate) fn sub_type(params: &JsValue) -> SubscriptionType {
     match serde_wasm_bindgen::from_value::<Value>(params.clone()) {
         Ok(Value::Array(params_vec)) => {
-            if let Some(Value::String(sub_type_str)) = params_vec.get(0) {
+            if let Some(Value::String(sub_type_str)) = params_vec.first() {
                 match sub_type_str.as_str() {
                     "ChainChanged" => SubscriptionType::ChainChanged,
                     "ChainsChanged" => SubscriptionType::ChainsChanged,
