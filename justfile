@@ -19,3 +19,6 @@ clippy:
 
 build:
 	cargo build --all-targets --all-features --workspace
+
+test:
+	cargo test --all-targets --all-features --workspace
