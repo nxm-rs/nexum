@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for i in 0..zip.len() {
             let file_name = zip.by_index(i)?.name().to_string();
             if file_name == *file_to_dump || file_name.ends_with(file_to_dump) {
-                println!("Contents of {}:", file_name);
+                println!("Contents of {file_name}:");
                 let mut contents = Vec::new();
                 zip.by_name(&file_name)?.read_to_end(&mut contents)?;
 
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for (i, chunk) in contents.chunks(16).enumerate() {
                     print!("{:08x}  ", i * 16);
                     for b in chunk {
-                        print!("{:02x} ", b);
+                        print!("{b:02x} ");
                     }
 
                     // Padding for last line if needed
@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         if !found {
-            println!("File not found: {}", file_to_dump);
+            println!("File not found: {file_to_dump}");
             println!("\nAvailable files:");
             for i in 0..zip.len() {
                 println!("  {}", zip.by_index(i)?.name());
@@ -121,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Display version if available
     if let Some((major, minor)) = info.version {
-        println!("Version: {}.{}", major, minor);
+        println!("Version: {major}.{minor}");
     } else {
         println!("Version: Unknown");
     }
@@ -182,7 +182,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     "Unknown"
                 };
-                println!("  Installing: {}", name);
+                println!("  Installing: {name}");
                 // Call installation code for this specific applet
             }
         } else if selection <= info.applet_aids.len() {
@@ -192,7 +192,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 "Unknown"
             };
-            println!("Installing applet: {}", name);
+            println!("Installing applet: {name}");
             // Call installation code for this specific applet
         } else {
             println!("Invalid selection!");

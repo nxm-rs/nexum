@@ -43,7 +43,7 @@ impl Info {
         let url_is_http_or_file = self
             .url
             .as_ref()
-            .map_or(false, |url| match Url::parse(url) {
+            .is_some_and(|url| match Url::parse(url) {
                 Ok(parsed_url) => {
                     trace!("Parsed URL: {:?}", parsed_url);
                     ["http", "https", "file"].contains(&parsed_url.scheme())
@@ -129,7 +129,7 @@ pub async fn get_active_tab() -> Option<Info> {
     let response = query(query_info).await.ok()?;
     let tabs: Vec<Info> = response.into_serde().ok()?;
 
-    tabs.get(0).cloned()
+    tabs.first().cloned()
 }
 
 pub async fn get(tab_id: u32) -> Result<Info, JsValue> {

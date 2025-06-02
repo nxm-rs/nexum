@@ -41,7 +41,10 @@ fn update_current_chain_callback(active_tab: ReadSignal<Option<tabs::Info>>) -> 
                     "type": "embedded:action",
                     "action": { "type": "getChainId" }
                 })) {
-                    chrome_sys::tabs::send_message_to_tab(&tab, message).await;
+                    chrome_sys::tabs::send_message_to_tab(&tab, message)
+                        .await
+                        .inspect_err(|e| tracing::error!(?e, "failed to send message to tab"))
+                        .ok();
                 }
             }
         });
@@ -89,7 +92,7 @@ pub fn App() -> impl IntoView {
 
     // Set up the 1-second interval for updating the current chain
     let interval = set_interval_with_handle(
-        update_current_chain_callback(active_tab.clone()),
+        update_current_chain_callback(active_tab),
         Duration::from_secs(1),
     )
     .expect("failed to set interval");
@@ -104,7 +107,7 @@ pub fn App() -> impl IntoView {
             // `future` provides the `Future` to be resolved
             future=SendWrapper::new(init(set_active_tab, set_mm_appear, set_is_injected_tab))
             // the data is bound to whatever variable name you provide
-            let:data
+            let:_data
         >
             <Html attr:lang="en" attr:dir="ltr" attr:data-theme="light" />
 

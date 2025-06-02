@@ -13,7 +13,7 @@ apdu_pair! {
 
             builders {
                 /// Read a specific record by number from the current file
-                pub fn record(record_number: u8, sfi: Option<u8>) -> Self {
+                pub const fn record(record_number: u8, sfi: Option<u8>) -> Self {
                     let p2 = match sfi {
                         Some(sfi) => 0x04 | ((sfi & 0x1F) << 3), // Record in given SFI
                         None => 0x04,                            // Record in current file
@@ -22,12 +22,12 @@ apdu_pair! {
                 }
 
                 /// Read the first record from the current file
-                pub fn first_record() -> Self {
+                pub const fn first_record() -> Self {
                     Self::new(0x01, 0x04)
                 }
 
                 /// Read the next record from the current file
-                pub fn next_record() -> Self {
+                pub const fn next_record() -> Self {
                     Self::new(0x00, 0x02)
                 }
             }
@@ -77,12 +77,12 @@ impl ReadRecordOk {
 
 impl ReadRecordError {
     /// Check if there are no more records
-    pub fn is_end_of_records(&self) -> bool {
+    pub const fn is_end_of_records(&self) -> bool {
         matches!(self, Self::EndOfRecords | Self::RecordNotFound)
     }
 
     /// Check if this is a parameter error
-    pub fn is_parameter_error(&self) -> bool {
+    pub const fn is_parameter_error(&self) -> bool {
         matches!(self, Self::ParameterError { .. })
     }
 }
@@ -114,7 +114,7 @@ fn main() {
             println!("Record data: {:02X?}", ok.record_data());
         }
         Err(err) => {
-            println!("Error reading record: {}", err);
+            println!("Error reading record: {err}");
 
             if err.is_end_of_records() {
                 println!("No more records available");
@@ -197,7 +197,7 @@ fn main() {
             }
         }
         Err(err) => {
-            println!("Error reading records: {}", err);
+            println!("Error reading records: {err}");
         }
     }
 }

@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.open_secure_channel() {
         Ok(_) => println!("Secure channel established."),
         Err(e) => {
-            println!("Failed to open secure channel: {:?}", e);
+            println!("Failed to open secure channel: {e:?}");
             return Ok(());
         }
     }
@@ -149,7 +149,7 @@ fn print_load_files(tlv_data: &[u8]) {
 }
 
 /// Find a TLV value by tag
-fn find_tlv_value<'a>(data: &'a [u8], tag: u8) -> Option<&'a [u8]> {
+fn find_tlv_value(data: &[u8], tag: u8) -> Option<&[u8]> {
     let mut index = 0;
     while index + 1 < data.len() {
         let current_tag = data[index];

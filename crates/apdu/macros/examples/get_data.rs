@@ -13,12 +13,12 @@ apdu_pair! {
 
             builders {
                 /// Get data for a specific tag (P1-P2 are the tag)
-                pub fn for_tag(tag: u16) -> Self {
+                pub const fn for_tag(tag: u16) -> Self {
                     Self::new((tag >> 8) as u8, (tag & 0xFF) as u8).with_le(0)
                 }
 
                 /// Get card serial number
-                pub fn serial_number() -> Self {
+                pub const fn serial_number() -> Self {
                     Self::new(0x9F, 0x7F).with_le(0)
                 }
             }
@@ -68,7 +68,7 @@ impl GetDataOk {
     }
 
     /// Get the number of remaining bytes for MoreData response
-    pub fn remaining_bytes(&self) -> Option<u8> {
+    pub const fn remaining_bytes(&self) -> Option<u8> {
         match self {
             Self::MoreData { sw2, .. } => Some(*sw2),
             _ => None,
@@ -78,12 +78,12 @@ impl GetDataOk {
 
 impl GetDataError {
     /// Check if the data was not found
-    pub fn is_not_found(&self) -> bool {
+    pub const fn is_not_found(&self) -> bool {
         matches!(self, Self::NotFound)
     }
 
     /// Check if security conditions are not satisfied
-    pub fn is_security_error(&self) -> bool {
+    pub const fn is_security_error(&self) -> bool {
         matches!(self, Self::SecurityNotSatisfied)
     }
 }
@@ -109,11 +109,11 @@ fn main() {
         Ok(ok) => {
             println!("Success! Data: {:?}", ok.data());
             if let Some(remaining) = ok.remaining_bytes() {
-                println!("More data available: {} bytes", remaining);
+                println!("More data available: {remaining} bytes");
             }
         }
         Err(err) => {
-            println!("Error: {}", err);
+            println!("Error: {err}");
 
             if err.is_not_found() {
                 println!("Data not found on card");
@@ -133,7 +133,7 @@ fn main() {
 
         // Check if there's more data
         if let Some(remaining) = ok.remaining_bytes() {
-            println!("Note: {} more bytes available", remaining);
+            println!("Note: {remaining} more bytes available");
         }
 
         Ok(data)
@@ -141,7 +141,7 @@ fn main() {
 
     // Use our function with the response
     match process_response(result) {
-        Ok(data) => println!("Processed data: {:?}", data),
-        Err(e) => println!("Processing error: {}", e),
+        Ok(data) => println!("Processed data: {data:?}"),
+        Err(e) => println!("Processing error: {e}"),
     }
 }

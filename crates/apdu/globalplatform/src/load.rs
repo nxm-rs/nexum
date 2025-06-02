@@ -78,7 +78,7 @@ impl LoadCommandStream {
 
         // Load all required components
         for file_name in INTERNAL_FILES {
-            let cap_suffix = format!("/{}.cap", file_name);
+            let cap_suffix = format!("/{file_name}.cap");
             if let Some(path) = find_file(&cap_suffix) {
                 if let Ok(mut file) = zip.by_name(&path) {
                     let mut data = Vec::new();
@@ -87,7 +87,7 @@ impl LoadCommandStream {
                 }
             } else {
                 // Try without .cap extension
-                if let Some(path) = find_file(&format!("/{}", file_name)) {
+                if let Some(path) = find_file(&format!("/{file_name}")) {
                     if let Ok(mut file) = zip.by_name(&path) {
                         let mut data = Vec::new();
                         file.read_to_end(&mut data)?;
@@ -165,7 +165,7 @@ impl LoadCommandStream {
     }
 
     /// Check if there are more blocks
-    pub fn has_next(&self) -> bool {
+    pub const fn has_next(&self) -> bool {
         self.position < self.data.len()
     }
 
@@ -338,8 +338,8 @@ fn parse_manifest(manifest_data: &str, info: &mut CapFileInfo) -> Result<()> {
     // Parse applet AIDs and names
     let mut applet_index = 1;
     loop {
-        let aid_key = format!("Java-Card-Applet-{}-AID:", applet_index);
-        let name_key = format!("Java-Card-Applet-{}-Name:", applet_index);
+        let aid_key = format!("Java-Card-Applet-{applet_index}-AID:");
+        let name_key = format!("Java-Card-Applet-{applet_index}-Name:");
 
         let aid_line = manifest_data
             .lines()
@@ -364,10 +364,10 @@ fn parse_manifest(manifest_data: &str, info: &mut CapFileInfo) -> Result<()> {
                             let name = &name_line[after_colon + 2..];
                             info.applet_names.push(name.trim().to_string());
                         } else {
-                            info.applet_names.push(format!("Applet {}", applet_index));
+                            info.applet_names.push(format!("Applet {applet_index}"));
                         }
                     } else {
-                        info.applet_names.push(format!("Applet {}", applet_index));
+                        info.applet_names.push(format!("Applet {applet_index}"));
                     }
                 }
             }
@@ -433,7 +433,7 @@ fn enhance_with_applet_xml(xml_data: &str, info: &mut CapFileInfo) -> Result<()>
                                 // Create a composite display name with both display name and class name
                                 let full_name =
                                     if !display_name.is_empty() && !class_name.is_empty() {
-                                        format!("{} ({})", display_name, class_name)
+                                        format!("{display_name} ({class_name})")
                                     } else if !display_name.is_empty() {
                                         display_name
                                     } else if !class_name.is_empty() {

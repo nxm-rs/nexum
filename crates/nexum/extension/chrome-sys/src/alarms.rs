@@ -52,8 +52,7 @@ pub async fn get(name: &str) -> Result<Option<AlarmInfo>, JsValue> {
             Err(err) => {
                 error!("Failed to parse response for alarm '{}': {:?}", name, err);
                 Err(JsValue::from_str(&format!(
-                    "Failed to parse response: {:?}",
-                    err
+                    "Failed to parse response: {err:?}"
                 )))
             }
         }

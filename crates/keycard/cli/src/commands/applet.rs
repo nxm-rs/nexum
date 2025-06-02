@@ -124,7 +124,7 @@ fn connect_globalplatform(
     let gp = if use_default_key {
         // Use default keys (via DefaultGlobalPlatform)
         DefaultGlobalPlatform::connect(&reader_name)
-            .map_err(|e| format!("Failed to connect to the reader: {}", e))?
+            .map_err(|e| format!("Failed to connect to the reader: {e}"))?
     } else {
         // Use Keycard development keys
         // Create a key type that the SCP02 protocol can use
@@ -135,10 +135,10 @@ fn connect_globalplatform(
         // Create new transport with config and wrap it in the secure channel
         let config = nexum_apdu_transport_pcsc::PcscConfig::default();
         let manager = nexum_apdu_transport_pcsc::PcscDeviceManager::new()
-            .map_err(|e| format!("Failed to create PCSC device manager: {}", e))?;
+            .map_err(|e| format!("Failed to create PCSC device manager: {e}"))?;
         let transport = manager
             .open_reader_with_config(&reader_name, config)
-            .map_err(|e| format!("Failed to open reader: {}", e))?;
+            .map_err(|e| format!("Failed to open reader: {e}"))?;
 
         // Create secure channel with custom keys
         let secure_channel = GPSecureChannel::new(transport, keys);
@@ -163,13 +163,13 @@ where
     // Select the Card Manager
     match gp.select_card_manager() {
         Ok(_) => println!("Card Manager selected successfully."),
-        Err(e) => return Err(format!("Failed to select Card Manager: {}", e).into()),
+        Err(e) => return Err(format!("Failed to select Card Manager: {e}").into()),
     }
 
     // Open secure channel
     match gp.open_secure_channel() {
         Ok(_) => println!("Secure channel established."),
-        Err(e) => return Err(format!("Failed to open secure channel: {}", e).into()),
+        Err(e) => return Err(format!("Failed to open secure channel: {e}").into()),
     }
 
     Ok(())
@@ -214,7 +214,7 @@ fn install_command(
     println!("Analyzing CAP file...");
     let info = match LoadCommandStream::extract_info(cap_file) {
         Ok(info) => info,
-        Err(e) => return Err(format!("Failed to extract CAP file info: {}", e).into()),
+        Err(e) => return Err(format!("Failed to extract CAP file info: {e}").into()),
     };
 
     // Verify package AID
@@ -247,7 +247,7 @@ fn install_command(
     println!("Installing for load...");
     match gp.install_for_load(package_aid, None) {
         Ok(_) => println!("Install for load successful."),
-        Err(e) => return Err(format!("Install for load failed: {}", e).into()),
+        Err(e) => return Err(format!("Install for load failed: {e}").into()),
     }
 
     // Prepare callback for progress reporting
@@ -265,7 +265,7 @@ fn install_command(
     println!("Loading CAP file...");
     match gp.load_cap_file(cap_file, Some(&mut callback)) {
         Ok(_) => println!("CAP file loaded successfully."),
-        Err(e) => return Err(format!("Failed to load CAP file: {}", e).into()),
+        Err(e) => return Err(format!("Failed to load CAP file: {e}").into()),
     }
 
     // Determine instance index
@@ -282,7 +282,7 @@ fn install_command(
         &[],
     ) {
         Ok(_) => println!("Keycard applet installed successfully."),
-        Err(e) => println!("Failed to install Keycard applet: {}", e),
+        Err(e) => println!("Failed to install Keycard applet: {e}"),
     }
 
     // 2. NDEF applet
@@ -294,7 +294,7 @@ fn install_command(
         &[],
     ) {
         Ok(_) => println!("NDEF applet installed successfully."),
-        Err(e) => println!("Failed to install NDEF applet: {}", e),
+        Err(e) => println!("Failed to install NDEF applet: {e}"),
     }
 
     // 3. Cash applet
@@ -306,7 +306,7 @@ fn install_command(
         &[],
     ) {
         Ok(_) => println!("Cash applet installed successfully."),
-        Err(e) => println!("Failed to install Cash applet: {}", e),
+        Err(e) => println!("Failed to install Cash applet: {e}"),
     }
 
     // 4. Ident applet
@@ -318,7 +318,7 @@ fn install_command(
         &[],
     ) {
         Ok(_) => println!("Ident applet installed successfully."),
-        Err(e) => println!("Failed to install Ident applet: {}", e),
+        Err(e) => println!("Failed to install Ident applet: {e}"),
     }
 
     println!("Installation process completed.");
@@ -344,7 +344,7 @@ fn delete_command(transport: PcscTransport, args: &DeleteArgs) -> Result<(), Box
         println!("Deleting Keycard package...");
         match gp.delete_object_and_related(&PACKAGE_AID) {
             Ok(_) => println!("Keycard package deleted successfully."),
-            Err(e) => return Err(format!("Failed to delete Keycard package: {}", e).into()),
+            Err(e) => return Err(format!("Failed to delete Keycard package: {e}").into()),
         }
 
         println!("Deletion process completed.");

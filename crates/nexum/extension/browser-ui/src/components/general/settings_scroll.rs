@@ -20,7 +20,7 @@ pub fn SettingsScroll(
     };
 
     // Dynamically set the margin-right style based on scroll_bar prop
-    let dynamic_style = move || format!("margin-right: -{}px;", scroll_bar);
+    let dynamic_style = move || format!("margin-right: -{scroll_bar}px;");
 
     view! { class=styler_class,
         <div class="settings-scroll" style=dynamic_style()>

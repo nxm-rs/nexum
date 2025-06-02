@@ -82,7 +82,9 @@ impl CommandProcessor for GetResponseProcessor {
             let le = response.bytes_available().unwrap_or(0);
 
             // Create GET RESPONSE command
-            let get_response = Command::new_with_le(self.cla, 0xC0, 0x00, 0x00, le.into());
+            #[cfg(feature = "longer_payloads")]
+            let le = le.into();
+            let get_response = Command::new_with_le(self.cla, 0xC0, 0x00, 0x00, le);
             let bytes = get_response.to_bytes();
 
             // Send command

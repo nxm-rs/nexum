@@ -50,10 +50,10 @@ impl DefaultGlobalPlatform {
     pub fn connect(reader_name: &str) -> Result<Self> {
         let config = PcscConfig::default();
         let manager = PcscDeviceManager::new()
-            .map_err(|e| Error::message(format!("Failed to create PCSC device manager: {}", e)))?;
+            .map_err(|e| Error::message(format!("Failed to create PCSC device manager: {e}")))?;
         let transport = manager
             .open_reader_with_config(reader_name, config)
-            .map_err(|e| Error::message(format!("Failed to open reader: {}", e)))?;
+            .map_err(|e| Error::message(format!("Failed to open reader: {e}")))?;
 
         // Create secure channel with default keys
         let secure_channel = GPSecureChannel::new(transport, Keys::default());

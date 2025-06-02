@@ -19,7 +19,7 @@ pub fn find_reader_by_name(
         }
     }
 
-    Err(format!("No reader matching '{}' found", reader_name).into())
+    Err(format!("No reader matching '{reader_name}' found").into())
 }
 
 /// Find first reader with a card present

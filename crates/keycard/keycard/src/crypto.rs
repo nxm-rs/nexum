@@ -268,7 +268,7 @@ mod tests {
 
         let (enc_key, mac_key) = derive_session_keys(
             SharedSecret::from(shared_secret_key),
-            pairing_key.as_ref().try_into().unwrap(),
+            pairing_key.as_ref().into(),
             challenge,
         );
 
@@ -291,8 +291,8 @@ mod tests {
 
         let encrypted_data = encrypt_data(
             &mut BytesMut::from(data.as_ref()),
-            enc_key.as_ref().try_into().unwrap(),
-            iv.as_ref().try_into().unwrap(),
+            enc_key.as_ref().into(),
+            iv.as_ref().into(),
         );
 
         let expected = bytes!(
@@ -312,8 +312,8 @@ mod tests {
         let mut enc_data = bytes::BytesMut::from(enc_data.as_ref());
         let data = decrypt_data(
             &mut enc_data,
-            enc_key.as_ref().try_into().unwrap(),
-            iv.as_ref().try_into().unwrap(),
+            enc_key.as_ref().into(),
+            iv.as_ref().into(),
         )
         .unwrap();
 

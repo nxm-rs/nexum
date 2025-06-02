@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.open_secure_channel() {
         Ok(_) => println!("Secure channel established."),
         Err(e) => {
-            println!("Failed to open secure channel: {:?}", e);
+            println!("Failed to open secure channel: {e:?}");
             return Ok(());
         }
     }
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.delete_object_and_related(&package_aid) {
         Ok(_) => println!("Package deleted successfully."),
         Err(e) => {
-            println!("Failed to delete package: {:?}", e);
+            println!("Failed to delete package: {e:?}");
             return Ok(());
         }
     }

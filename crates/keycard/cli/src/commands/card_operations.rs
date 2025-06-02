@@ -15,7 +15,7 @@ pub fn select_command(transport: PcscTransport) -> Result<(), Box<dyn Error>> {
 
     // Display card info
     info!("Keycard applet selected successfully.");
-    println!("{}", app_info);
+    println!("{app_info}");
 
     Ok(())
 }
@@ -104,7 +104,7 @@ pub fn pair_command(
         utils::save_pairing_to_file(&pairing_info, path)?;
         println!(
             "{}",
-            display::info(format!("Pairing information saved to {:?}", path).as_str())
+            display::info(format!("Pairing information saved to {path:?}").as_str())
         );
     }
 
@@ -134,7 +134,7 @@ pub fn unpair_command(
     println!("{}", display::success("Pairing removed successfully"));
     println!(
         "{}",
-        display::info(format!("Pairing slot {} is now available", index).as_str())
+        display::info(format!("Pairing slot {index} is now available").as_str())
     );
 
     Ok(())
@@ -156,10 +156,10 @@ pub fn get_status_command(
 
     // Display the information we have fetched
     println!("{}", display::section_title("Keycard Information"));
-    println!("{}", application_info);
+    println!("{application_info}");
 
     println!("{}", display::section_title("Keycard Status"));
-    println!("{}", application_status);
+    println!("{application_status}");
 
     Ok(())
 }

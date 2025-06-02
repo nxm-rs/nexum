@@ -18,7 +18,7 @@ apdu_pair! {
                 }
 
                 /// Query remaining PIN attempts
-                pub fn query_remaining() -> Self {
+                pub const fn query_remaining() -> Self {
                     Self::new(0x00, 0x00)
                 }
             }
@@ -94,7 +94,7 @@ apdu_pair! {
 // Implement methods directly on the generated types
 impl VerifyPinOk {
     /// Get attempts remaining (if available)
-    pub fn attempts_remaining(&self) -> Option<u8> {
+    pub const fn attempts_remaining(&self) -> Option<u8> {
         match self {
             Self::AttemptsRemaining { count } => Some(*count),
             _ => None,
@@ -102,14 +102,14 @@ impl VerifyPinOk {
     }
 
     /// Check if verification was successful
-    pub fn is_verified(&self) -> bool {
+    pub const fn is_verified(&self) -> bool {
         matches!(self, Self::Verified)
     }
 }
 
 impl VerifyPinError {
     /// Get attempts remaining (if available)
-    pub fn attempts_remaining(&self) -> Option<u8> {
+    pub const fn attempts_remaining(&self) -> Option<u8> {
         match self {
             Self::Incorrect { count } => Some(*count),
             _ => None,
@@ -117,7 +117,7 @@ impl VerifyPinError {
     }
 
     /// Check if PIN is blocked
-    pub fn is_blocked(&self) -> bool {
+    pub const fn is_blocked(&self) -> bool {
         matches!(self, Self::Blocked)
     }
 }
@@ -160,11 +160,11 @@ fn main() {
                 println!("PIN verified successfully!");
             }
             VerifyPinOk::AttemptsRemaining { count } => {
-                println!("PIN not verified, {} attempts remaining", count);
+                println!("PIN not verified, {count} attempts remaining");
             }
         },
         Err(err) => {
-            println!("Error: {}", err);
+            println!("Error: {err}");
         }
     }
 
@@ -175,15 +175,15 @@ fn main() {
                 println!("PIN verified successfully!");
             }
             VerifyPinOk::AttemptsRemaining { count } => {
-                println!("PIN not verified, {} attempts remaining", count);
+                println!("PIN not verified, {count} attempts remaining");
             }
         },
         Err(err) => {
-            println!("Error: {}", err);
+            println!("Error: {err}");
 
             // We can match on specific error variants
             if let Some(count) = err.attempts_remaining() {
-                println!("Incorrect PIN, {} attempts remaining", count);
+                println!("Incorrect PIN, {count} attempts remaining");
             }
         }
     }
@@ -194,7 +194,7 @@ fn main() {
             println!("PIN verified successfully!");
         }
         Err(err) => {
-            println!("Error: {}", err);
+            println!("Error: {err}");
 
             if err.is_blocked() {
                 println!("PIN is blocked, please reset your card or contact support");
@@ -210,7 +210,7 @@ fn main() {
         // Get the inner result - now more ergonomic with deref
         match query_result {
             VerifyPinOk::AttemptsRemaining { count } => {
-                println!("PIN attempts remaining: {}", count);
+                println!("PIN attempts remaining: {count}");
                 if count == 0 {
                     return Err(VerifyPinError::ResponseError(
                         nexum_apdu_core::Error::message("PIN is blocked".to_string()),
@@ -238,7 +238,7 @@ fn main() {
                 Ok(())
             }
             VerifyPinOk::AttemptsRemaining { count } => {
-                println!("PIN verification not needed, {} attempts remaining", count);
+                println!("PIN verification not needed, {count} attempts remaining");
                 Ok(())
             }
         }
@@ -250,7 +250,7 @@ fn main() {
             println!("Authentication successful");
         }
         Err(err) => {
-            println!("Authentication failed: {}", err);
+            println!("Authentication failed: {err}");
         }
     }
 }

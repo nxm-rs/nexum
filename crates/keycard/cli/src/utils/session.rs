@@ -10,7 +10,7 @@ type KeycardExecutor = CardExecutor<KeycardSecureChannel<PcscTransport>>;
 /// Default input request handler (asks for PIN/PUK/etc)
 pub fn default_input_request(prompt: &str) -> String {
     use std::io::{self, Write};
-    print!("{}: ", prompt);
+    print!("{prompt}: ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
@@ -20,7 +20,7 @@ pub fn default_input_request(prompt: &str) -> String {
 /// Default confirmation handler
 pub fn default_confirmation(message: &str) -> bool {
     use std::io::{self, Write};
-    print!("{} (y/n): ", message);
+    print!("{message} (y/n): ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();

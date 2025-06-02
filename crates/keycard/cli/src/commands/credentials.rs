@@ -32,7 +32,7 @@ pub fn change_credential_command(
             // validate_pairing_secret(new_value)?;
             CredentialType::PairingSecret
         }
-        _ => return Err(format!("Unknown credential type: {}", credential_type).into()),
+        _ => return Err(format!("Unknown credential type: {credential_type}").into()),
     };
 
     // Change the credential
@@ -40,7 +40,7 @@ pub fn change_credential_command(
 
     println!(
         "{}",
-        display::success(format!("Successfully changed {}", credential_type).as_str())
+        display::success(format!("Successfully changed {credential_type}").as_str())
     );
 
     let title = format!("New {}", credential_type.to_uppercase());

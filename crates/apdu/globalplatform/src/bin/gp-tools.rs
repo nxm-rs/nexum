@@ -100,7 +100,7 @@ enum InstallMode {
 }
 
 fn get_user_confirmation(message: &str) -> bool {
-    print!("{} (y/N): ", message);
+    print!("{message} (y/N): ");
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
@@ -173,7 +173,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create default keys or use custom keys from CLI
     let keys = if let Some(key_str) = cli.keys {
-        println!("Using custom keys: {}", key_str);
+        println!("Using custom keys: {key_str}");
 
         // Parse custom key from hex string
         match hex::decode(&key_str) {
@@ -191,7 +191,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Keys::from_single_key(*key)
             }
             Err(e) => {
-                eprintln!("Failed to parse key as hex: {}", e);
+                eprintln!("Failed to parse key as hex: {e}");
                 return Ok(());
             }
         }
@@ -219,7 +219,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.open_secure_channel() {
         Ok(_) => println!("Secure channel established."),
         Err(e) => {
-            eprintln!("Failed to open secure channel: {:?}", e);
+            eprintln!("Failed to open secure channel: {e:?}");
             return Ok(());
         }
     }
@@ -302,7 +302,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     success_count += 1;
                                 }
                                 Err(e) => {
-                                    println!("  ❌ Failed to delete application: {}", e);
+                                    println!("  ❌ Failed to delete application: {e}");
                                     failed_count += 1;
                                 }
                             }
@@ -326,7 +326,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     success_count += 1;
                                 }
                                 Err(e) => {
-                                    println!("  ❌ Failed to delete package: {}", e);
+                                    println!("  ❌ Failed to delete package: {e}");
                                     failed_count += 1;
                                 }
                             }
@@ -336,8 +336,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
 
                     println!("\nDeletion summary:");
-                    println!("  Successfully deleted: {}", success_count);
-                    println!("  Failed to delete: {}", failed_count);
+                    println!("  Successfully deleted: {success_count}");
+                    println!("  Failed to delete: {failed_count}");
                 } else {
                     println!("Operation cancelled.");
                 }
@@ -350,7 +350,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 match operations::delete_package(&mut gp, &aid_bytes) {
                     Ok(_) => println!("Package deleted successfully."),
-                    Err(e) => println!("Failed to delete package: {}", e),
+                    Err(e) => println!("Failed to delete package: {e}"),
                 }
             } else {
                 return Err("Either --all flag or a specific AID must be provided".into());
@@ -366,7 +366,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             // Verify the CAP file exists
             if !cap.exists() {
-                println!("CAP file not found: {:?}", cap);
+                println!("CAP file not found: {cap:?}");
                 return Ok(());
             }
 
@@ -387,7 +387,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Display version if available
             if let Some((major, minor)) = info.version {
-                println!("Version: {}.{}", major, minor);
+                println!("Version: {major}.{minor}");
             }
 
             // Display applet AIDs
@@ -467,7 +467,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match gp.install_for_load(package_aid, None) {
                 Ok(_) => println!("Install for load successful."),
                 Err(e) => {
-                    println!("Install for load failed: {:?}", e);
+                    println!("Install for load failed: {e:?}");
                     return Ok(());
                 }
             }
@@ -489,7 +489,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match gp.load_cap_file(&cap, Some(&mut callback)) {
                 Ok(_) => println!("CAP file loaded successfully."),
                 Err(e) => {
-                    println!("Failed to load CAP file: {:?}", e);
+                    println!("Failed to load CAP file: {e:?}");
                     return Ok(());
                 }
             }
@@ -515,7 +515,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         &install_params,
                     ) {
                         Ok(_) => println!("  Installed successfully."),
-                        Err(e) => println!("  Installation failed: {:?}", e),
+                        Err(e) => println!("  Installation failed: {e:?}"),
                     }
                 }
             } else if selection <= info.applet_aids.len() {
@@ -537,7 +537,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &install_params,
                 ) {
                     Ok(_) => println!("Applet installed successfully."),
-                    Err(e) => println!("Applet installation failed: {:?}", e),
+                    Err(e) => println!("Applet installation failed: {e:?}"),
                 }
             } else {
                 println!("Invalid selection!");
@@ -574,7 +574,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
-                Err(e) => println!("Failed to get card information: {}", e),
+                Err(e) => println!("Failed to get card information: {e}"),
             }
         }
     }

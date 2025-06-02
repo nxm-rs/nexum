@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     match pcsc_transport.atr() {
                         Ok(atr) => println!("ATR: {}", hex::encode_upper(&atr)),
-                        Err(e) => println!("Error getting ATR: {:?}", e),
+                        Err(e) => println!("Error getting ATR: {e:?}"),
                     }
                 } else {
                     println!("Could not access transport");
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Reset both the executor and transport
                 match executor.reset() {
                     Ok(_) => println!("Card reset successfully"),
-                    Err(e) => println!("Error resetting card: {:?}", e),
+                    Err(e) => println!("Error resetting card: {e:?}"),
                 }
             }
 
@@ -152,9 +152,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 None => println!("  Data: None"),
                             }
                         }
-                        Err(e) => println!("Error parsing response: {:?}", e),
+                        Err(e) => println!("Error parsing response: {e:?}"),
                     },
-                    Err(e) => println!("Command failed: {:?}", e),
+                    Err(e) => println!("Command failed: {e:?}"),
                 }
             }
 
@@ -183,10 +183,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             println!("  Data: {}", hex::encode_upper(payload));
                                         }
                                     }
-                                    Err(e) => println!("Error parsing response: {:?}", e),
+                                    Err(e) => println!("Error parsing response: {e:?}"),
                                 }
                             }
-                            Err(e) => println!("Command failed: {:?}", e),
+                            Err(e) => println!("Command failed: {e:?}"),
                         }
                     }
                     Err(_) => println!("Invalid hex input"),

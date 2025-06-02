@@ -62,7 +62,7 @@ impl CommandDef {
                 _ => {
                     return Err(syn::Error::new(
                         key.span(),
-                        format!("Unknown command field: {}", key),
+                        format!("Unknown command field: {key}"),
                     ));
                 }
             }

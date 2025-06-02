@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_delete_command() {
         let aid = hex!("0102030405");
-        let cmd = DeleteCommand::delete_object(&aid);
+        let cmd = DeleteCommand::delete_object(aid);
 
         assert_eq!(cmd.class(), cla::GP);
         assert_eq!(cmd.instruction(), ins::DELETE);
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn test_delete_object_and_related() {
         let aid = hex!("A0000000030000");
-        let cmd = DeleteCommand::delete_object_and_related(&aid);
+        let cmd = DeleteCommand::delete_object_and_related(aid);
 
         assert_eq!(cmd.p2(), delete_p2::OBJECT_AND_RELATED);
 

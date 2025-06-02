@@ -83,7 +83,7 @@ pub fn Value(
     };
 
     // Combine custom inline styles from the `custom_style` prop if provided
-    let combined_style = move || style.clone().unwrap_or_else(|| "".to_string());
+    let combined_style = move || style.clone().unwrap_or_default();
 
     view! { class=styler_class,
         <div

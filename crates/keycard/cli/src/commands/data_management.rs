@@ -18,12 +18,11 @@ pub fn store_data_command(
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Store the data with the provided record type
-    let record_label = format!("{:?}", record);
+    let record_label = format!("{record:?}");
     keycard.store_data(record, data)?;
 
     println!(
-        "Data stored successfully using {} record type",
-        record_label
+        "Data stored successfully using {record_label} record type"
     );
 
     Ok(())
@@ -39,7 +38,7 @@ pub fn get_data_command(
     let mut keycard = utils::session::initialize_keycard(transport, Some(pairing_args))?;
 
     // Get the data by record type
-    let record_label = format!("{:?}", record);
+    let record_label = format!("{record:?}");
     let data = keycard.get_data(record)?;
 
     println!(
@@ -55,7 +54,7 @@ pub fn get_data_command(
             .chars()
             .all(|c| !c.is_control() || c == '\n' || c == '\t' || c == '\r')
         {
-            println!("Data as string: {}", str_data);
+            println!("Data as string: {str_data}");
         }
     }
 

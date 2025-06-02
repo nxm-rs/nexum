@@ -225,7 +225,7 @@ impl<T: CardTransport> GPSecureChannel<T> {
             .ok_or_else(|| Error::message("Wrapper not initialized".to_string()))?;
 
         let cmd = Command::from_bytes(command)
-            .map_err(|e| Error::message(format!("Invalid command: {}", e)))?;
+            .map_err(|e| Error::message(format!("Invalid command: {e}")))?;
 
         let wrapped = wrapper.wrap_command(&cmd);
         Ok(wrapped.to_bytes().to_vec())
@@ -341,7 +341,7 @@ impl<T: CardTransport> GPSecureChannel<T> {
 
         // Parse response
         let init_response = InitializeUpdateCommand::parse_response_raw(response_bytes)
-            .map_err(|e| Error::message(format!("INITIALIZE UPDATE failed: {}", e)))?;
+            .map_err(|e| Error::message(format!("INITIALIZE UPDATE failed: {e}")))?;
 
         // Create session directly from response - wrap in Ok() to match expected type
         let wrapped_response = Ok(init_response);
@@ -349,7 +349,7 @@ impl<T: CardTransport> GPSecureChannel<T> {
             match Session::from_response(&self.keys, &wrapped_response, host_challenge) {
                 Ok(session) => session,
                 Err(e) => {
-                    return Err(Error::message(format!("Failed to create session: {}", e)));
+                    return Err(Error::message(format!("Failed to create session: {e}")));
                 }
             };
 
@@ -362,7 +362,7 @@ impl<T: CardTransport> GPSecureChannel<T> {
         // Step 2: Authenticate the channel (sends EXTERNAL AUTHENTICATE)
         match self.authenticate() {
             Ok(_) => Ok(()),
-            Err(e) => Err(Error::message(format!("Authentication failed: {}", e))),
+            Err(e) => Err(Error::message(format!("Authentication failed: {e}"))),
         }
     }
 
