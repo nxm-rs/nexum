@@ -6,10 +6,10 @@
 
 use cbc_mac::{CbcMac, Mac};
 use cipher::{
-    BlockEncrypt, BlockEncryptMut, Iv, IvSizeUser, Key, KeyInit, KeyIvInit, KeySizeUser,
     block_padding::{Iso7816, Padding, RawPadding},
-    consts::{U8, U16, U256},
+    consts::{U16, U256, U8},
     generic_array::GenericArray,
+    BlockEncrypt, BlockEncryptMut, Iv, IvSizeUser, Key, KeyInit, KeyIvInit, KeySizeUser,
 };
 use des::{Des, TdesEde3};
 
@@ -39,7 +39,7 @@ pub const DERIVATION_ENC: Purpose = [0x01, 0x82];
 pub const DERIVATION_MAC: Purpose = [0x01, 0x01];
 
 /// Placeholder struct for defining SCP02 cryptographic parameters
-/// 
+///
 /// This struct serves as a type-level token for defining the key and IV sizes
 /// required for SCP02 cryptographic operations (16-byte keys and 8-byte IVs).
 /// It's used as a type parameter for the cryptographic primitives.

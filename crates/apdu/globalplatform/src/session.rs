@@ -7,13 +7,13 @@ use cipher::Key;
 use zeroize::Zeroize;
 
 use crate::{
-    Error, Result,
     constants::scp,
     crypto::{
-        CardChallenge, DERIVATION_ENC, DERIVATION_MAC, HostChallenge, Scp02, SequenceCounter,
-        calculate_cryptogram, derive_key,
+        calculate_cryptogram, derive_key, CardChallenge, HostChallenge, Scp02, SequenceCounter,
+        DERIVATION_ENC, DERIVATION_MAC,
     },
     initialize_update::{InitializeUpdateError, InitializeUpdateOk},
+    Error, Result,
 };
 
 /// Secure Channel Protocol (SCP) keys

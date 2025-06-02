@@ -3,8 +3,8 @@ use bytes::{BufMut, Bytes, BytesMut};
 use rand::{Rng, RngCore};
 
 use crate::{
+    crypto::{generate_pairing_token, PairingToken},
     AppletVersion,
-    crypto::{PairingToken, generate_pairing_token},
 };
 
 const MAX_PUK_NUMBER: u64 = 999_999_999_999;

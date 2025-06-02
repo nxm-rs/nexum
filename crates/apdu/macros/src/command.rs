@@ -2,7 +2,7 @@
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{Expr, Ident, ItemFn, Token, Visibility, braced, parse::ParseStream};
+use syn::{braced, parse::ParseStream, Expr, Ident, ItemFn, Token, Visibility};
 
 /// Command definition parsed from the `command` block
 pub(crate) struct CommandDef {
@@ -162,10 +162,10 @@ pub(crate) fn expand_command(
         impl nexum_apdu_core::ApduCommand for #command_name {
             /// The success response type for this command
             type Success = #ok_name;
-            
+
             /// The error response type for this command
             type Error = #error_name;
-            
+
             /// Converts a general APDU error into a command-specific error
             fn convert_error(error: nexum_apdu_core::Error) -> Self::Error {
                 Self::Error::ResponseError(error)

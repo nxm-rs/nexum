@@ -14,8 +14,8 @@ use tracing::debug;
 
 use crate::commands::external_authenticate::{ExternalAuthenticateCommand, ExternalAuthenticateOk};
 use crate::commands::initialize_update::InitializeUpdateCommand;
-use crate::crypto::{HostChallenge, Scp02};
 use crate::crypto::{encrypt_icv, mac_full_3des};
+use crate::crypto::{HostChallenge, Scp02};
 use crate::error::Error as GPError;
 use crate::session::{Keys, Session};
 

@@ -3,9 +3,9 @@
 //! This module provides additional traits that extend the core Executor trait
 //! with functionality needed for specialized operations.
 
-use crate::Bytes;
 use crate::error::Error;
 use crate::executor::Executor;
+use crate::Bytes;
 
 /// Extension trait for executors that support access to the last response
 pub trait ResponseAwareExecutor: Executor {

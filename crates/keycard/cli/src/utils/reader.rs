@@ -39,9 +39,9 @@ pub fn find_reader_with_card(manager: &PcscDeviceManager) -> Result<String, Box<
 
 /// List all available readers
 pub fn list_readers(manager: &PcscDeviceManager) -> Result<(), Box<dyn Error>> {
-    use colored::Colorize;
     use crate::utils::display;
-    
+    use colored::Colorize;
+
     let readers = manager.list_readers()?;
 
     if readers.is_empty() {
@@ -50,7 +50,10 @@ pub fn list_readers(manager: &PcscDeviceManager) -> Result<(), Box<dyn Error>> {
     }
 
     println!("{}", display::section_title("Available Readers"));
-    println!("{}", display::info(format!("Found {} reader(s)", readers.len()).as_str()));
+    println!(
+        "{}",
+        display::info(format!("Found {} reader(s)", readers.len()).as_str())
+    );
 
     for (i, reader) in readers.iter().enumerate() {
         let card_status = if reader.has_card() {

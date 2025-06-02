@@ -3,8 +3,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    Attribute, Expr, ExprClosure, ExprLit, Field, Ident, Lit, Token, Type, Visibility, braced,
-    parse::ParseStream, spanned::Spanned,
+    braced, parse::ParseStream, spanned::Spanned, Attribute, Expr, ExprClosure, ExprLit, Field,
+    Ident, Lit, Token, Type, Visibility,
 };
 
 use crate::utils::byte_lit;

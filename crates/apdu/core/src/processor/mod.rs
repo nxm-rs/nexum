@@ -28,7 +28,7 @@ pub trait CommandProcessor: Send + Sync + fmt::Debug {
 pub trait TransportAdapterTrait {
     /// Transmit a raw command over the transport
     fn transmit_raw(&mut self, command: &[u8]) -> Result<crate::Bytes, Error>;
-    
+
     /// Reset the transport
     fn reset(&mut self) -> Result<(), Error>;
 }

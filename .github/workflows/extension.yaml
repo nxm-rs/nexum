@@ -43,6 +43,13 @@ jobs:
       - name: Cargo check
         run: just check
 
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - *common_steps
+      - name: Cargo fmt
+        run: cargo fmt --all --check
+
   build:
     runs-on: ubuntu-latest
     steps:

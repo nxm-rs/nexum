@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use cipher::Key;
 use nexum_apdu_core::prelude::*;
 use nexum_apdu_globalplatform::{
-    DefaultGlobalPlatform, GPSecureChannel, load::LoadCommandStream, session::Keys,
+    load::LoadCommandStream, session::Keys, DefaultGlobalPlatform, GPSecureChannel,
 };
 use nexum_apdu_transport_pcsc::PcscTransport;
 
@@ -287,18 +287,24 @@ fn install_command(
 
     // 2. NDEF applet
     println!("Installing NDEF applet...");
-    match gp
-        .install_for_install_and_make_selectable(package_aid, &NDEF_AID, &NDEF_INSTANCE_AID, &[])
-    {
+    match gp.install_for_install_and_make_selectable(
+        package_aid,
+        &NDEF_AID,
+        &NDEF_INSTANCE_AID,
+        &[],
+    ) {
         Ok(_) => println!("NDEF applet installed successfully."),
         Err(e) => println!("Failed to install NDEF applet: {}", e),
     }
 
     // 3. Cash applet
     println!("Installing Cash applet...");
-    match gp
-        .install_for_install_and_make_selectable(package_aid, &CASH_AID, &CASH_INSTANCE_AID, &[])
-    {
+    match gp.install_for_install_and_make_selectable(
+        package_aid,
+        &CASH_AID,
+        &CASH_INSTANCE_AID,
+        &[],
+    ) {
         Ok(_) => println!("Cash applet installed successfully."),
         Err(e) => println!("Failed to install Cash applet: {}", e),
     }

@@ -7,7 +7,7 @@ use std::fmt;
 
 use super::{CommandProcessor, TransportAdapter, TransportAdapterTrait};
 use crate::{
-    Command, Error, Response, command::ApduCommand, error::ResultExt, transport::CardTransport,
+    command::ApduCommand, error::ResultExt, transport::CardTransport, Command, Error, Response,
 };
 
 /// Command processor pipeline

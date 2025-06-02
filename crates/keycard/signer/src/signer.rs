@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use alloy_consensus::SignableTransaction;
 use alloy_network::{AnyNetwork, EthereumWallet, IntoWallet};
-use alloy_primitives::{Address, B256, ChainId, Signature};
-use alloy_signer::{Result, Signer, sign_transaction_with_chain_id};
+use alloy_primitives::{Address, ChainId, Signature, B256};
+use alloy_signer::{sign_transaction_with_chain_id, Result, Signer};
 use async_trait::async_trait;
 use coins_bip32::path::DerivationPath;
 use nexum_apdu_core::prelude::*;
@@ -70,9 +70,9 @@ where
         pairing_key: [u8; 32],
         pairing_index: u8,
         path: DerivationPath,
-    ) -> Result<Self> 
-    where 
-        T: 'static,  // Add a static lifetime bound to T
+    ) -> Result<Self>
+    where
+        T: 'static, // Add a static lifetime bound to T
     {
         // Create pairing info from the provided key and index
         let pairing_info = nexum_keycard::PairingInfo {
@@ -81,11 +81,8 @@ where
         };
 
         // Create a keycard with known credentials - directly use the transport
-        let keycard = Keycard::with_known_credentials(
-            transport,
-            pin,
-            pairing_info,
-        ).map_err(|e| alloy_signer::Error::Other(Box::new(e)))?;
+        let keycard = Keycard::with_known_credentials(transport, pin, pairing_info)
+            .map_err(|e| alloy_signer::Error::Other(Box::new(e)))?;
 
         // Wrap the keycard in Arc<Mutex<_>>
         let keycard_mutex = Arc::new(Mutex::new(keycard));

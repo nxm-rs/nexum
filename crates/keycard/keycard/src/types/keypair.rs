@@ -1,8 +1,8 @@
 use std::fmt;
 
 use iso7816_tlv::{
-    TlvError,
     ber::{Tag, Tlv, Value},
+    TlvError,
 };
 use k256::{PublicKey, SecretKey};
 

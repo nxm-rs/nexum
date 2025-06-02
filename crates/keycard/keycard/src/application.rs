@@ -13,8 +13,8 @@ use crate::secure_channel::{
 };
 use crate::types::{Capabilities, Capability, ExportedKey, Signature, Version};
 use crate::validation::{get_valid_pairing_index, get_valid_pairing_key, get_valid_pin};
+use crate::{commands::*, Secrets};
 use crate::{ApplicationInfo, ApplicationStatus, Error, PairingInfo, Result};
-use crate::{Secrets, commands::*};
 use alloy_primitives::hex;
 use coins_bip32::path::DerivationPath;
 use std::sync::Arc;

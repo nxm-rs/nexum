@@ -27,9 +27,9 @@ pub use secure_channel::GPSecureChannel;
 pub use session::{Keys, Session};
 
 // Re-export from nexum_apdu_core for convenience
-pub use nexum_apdu_core::ResponseAwareExecutor;
 pub use nexum_apdu_core::executor::SecureChannelExecutor;
 pub use nexum_apdu_core::secure_channel::SecurityLevel;
+pub use nexum_apdu_core::ResponseAwareExecutor;
 
 // Export main commands
 pub use commands::*;
@@ -54,22 +54,22 @@ impl DefaultGlobalPlatform {
         let transport = manager
             .open_reader_with_config(reader_name, config)
             .map_err(|e| Error::message(format!("Failed to open reader: {}", e)))?;
-        
+
         // Create secure channel with default keys
         let secure_channel = GPSecureChannel::new(transport, Keys::default());
-        
+
         // Create executor with secure channel
         let executor = CardExecutor::new(secure_channel);
-        
+
         Ok(Self::new(executor))
     }
 }
 
 /// Convenience functions for common operations
 pub mod operations {
-    use nexum_apdu_core::ResponseAwareExecutor;
     use nexum_apdu_core::executor::SecureChannelExecutor;
     use nexum_apdu_core::prelude::Executor;
+    use nexum_apdu_core::ResponseAwareExecutor;
 
     use crate::commands::get_status::{parse_applications, parse_load_files};
     use crate::error::{Error, ResultExt};

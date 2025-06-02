@@ -14,7 +14,7 @@ use crate::commands::select::SelectOk;
 use crate::commands::{
     DeleteCommand, GetStatusCommand, InstallCommand, LoadCommand, SelectCommand,
 };
-use crate::constants::{SECURITY_DOMAIN_AID, get_status_p1, load_p1};
+use crate::constants::{get_status_p1, load_p1, SECURITY_DOMAIN_AID};
 use crate::error::{Error, Result};
 use crate::load::{CapFileInfo, LoadCommandStream};
 use crate::session::Session;

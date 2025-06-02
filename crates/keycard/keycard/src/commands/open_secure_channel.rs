@@ -1,4 +1,4 @@
-use k256::{PublicKey, elliptic_curve::sec1::ToEncodedPoint};
+use k256::{elliptic_curve::sec1::ToEncodedPoint, PublicKey};
 use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 

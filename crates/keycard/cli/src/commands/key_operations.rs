@@ -1,7 +1,7 @@
 //! Commands for key management operations
 
-use alloy_primitives::Address;
 use alloy_primitives::hex::{self, ToHexExt};
+use alloy_primitives::Address;
 use coins_bip32::path::DerivationPath;
 use nexum_apdu_transport_pcsc::PcscTransport;
 use nexum_keycard::ExportOption;
@@ -28,10 +28,10 @@ pub fn generate_key_command(
     println!("{}", display::success("Key generated successfully"));
     println!(
         "{}",
-        display::key_value_box("Key Details", vec![(
-            "UID",
-            format!("0x{}", hex::encode(key_uid))
-        )])
+        display::key_value_box(
+            "Key Details",
+            vec![("UID", format!("0x{}", hex::encode(key_uid)))]
+        )
     );
 
     Ok(())
@@ -146,10 +146,13 @@ pub async fn sign_command(
     // Display the signature in a box format
     println!(
         "{}",
-        display::key_value_box("Signature", vec![(
-            "Value",
-            signature.as_bytes().encode_hex_with_prefix().to_string()
-        )])
+        display::key_value_box(
+            "Signature",
+            vec![(
+                "Value",
+                signature.as_bytes().encode_hex_with_prefix().to_string()
+            )]
+        )
     );
 
     Ok(())
@@ -238,10 +241,10 @@ pub fn load_seed_command(
     );
     println!(
         "{}",
-        display::key_value_box("Key Details", vec![(
-            "UID",
-            result.encode_hex_with_prefix()
-        )])
+        display::key_value_box(
+            "Key Details",
+            vec![("UID", result.encode_hex_with_prefix())]
+        )
     );
 
     Ok(())

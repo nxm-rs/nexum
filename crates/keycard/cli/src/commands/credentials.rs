@@ -46,10 +46,13 @@ pub fn change_credential_command(
     let title = format!("New {}", credential_type.to_uppercase());
     println!(
         "{}",
-        display::key_value_box(&title, vec![(
-            credential_type.to_uppercase().as_str(),
-            new_value.to_string()
-        )])
+        display::key_value_box(
+            &title,
+            vec![(
+                credential_type.to_uppercase().as_str(),
+                new_value.to_string()
+            )]
+        )
     );
 
     Ok(())

@@ -9,9 +9,9 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Attribute, Ident, Token, Visibility, braced,
+    braced,
     parse::{Parse, ParseStream},
-    parse_macro_input,
+    parse_macro_input, Attribute, Ident, Token, Visibility,
 };
 
 mod command;
