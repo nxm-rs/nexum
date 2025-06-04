@@ -7,7 +7,7 @@ use std::fmt;
 
 use super::{CommandProcessor, TransportAdapter, TransportAdapterTrait};
 use crate::{
-    Command, Error, Response, command::ApduCommand, error::ResultExt, transport::CardTransport,
+    command::ApduCommand, error::ResultExt, transport::CardTransport, Command, Error, Response,
 };
 
 /// Command processor pipeline
@@ -99,7 +99,7 @@ mod tests {
     fn test_empty_pipeline() {
         let pipeline = ProcessorPipeline::new();
         let response_data = Bytes::from_static(&[0x90, 0x00]);
-        let mut transport = MockTransport::with_response(response_data.clone());
+        let mut transport = MockTransport::with_response(response_data);
 
         let command = Command::new(0x00, 0xA4, 0x04, 0x00);
         let response = pipeline.process_command(&command, &mut transport).unwrap();
@@ -115,7 +115,7 @@ mod tests {
         pipeline.add_processor(Box::new(IdentityProcessor));
 
         let response_data = Bytes::from_static(&[0x90, 0x00]);
-        let mut transport = MockTransport::with_response(response_data.clone());
+        let mut transport = MockTransport::with_response(response_data);
 
         let command = Command::new(0x00, 0xA4, 0x04, 0x00);
         let response = pipeline.process_command(&command, &mut transport).unwrap();

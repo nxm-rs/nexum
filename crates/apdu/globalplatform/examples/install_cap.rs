@@ -6,7 +6,7 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use nexum_apdu_globalplatform::{DefaultGlobalPlatform, load::LoadCommandStream};
+use nexum_apdu_globalplatform::{load::LoadCommandStream, DefaultGlobalPlatform};
 use nexum_apdu_transport_pcsc::PcscDeviceManager;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cap_file_path = PathBuf::from(&args[1]);
     if !cap_file_path.exists() {
-        println!("CAP file not found: {:?}", cap_file_path);
+        println!("CAP file not found: {cap_file_path:?}");
         return Ok(());
     }
 
@@ -64,13 +64,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.open_secure_channel() {
         Ok(_) => println!("Secure channel established."),
         Err(e) => {
-            println!("Failed to open secure channel: {:?}", e);
+            println!("Failed to open secure channel: {e:?}");
             return Ok(());
         }
     }
 
     // Extract CAP file information
-    println!("Analyzing CAP file: {:?}", cap_file_path);
+    println!("Analyzing CAP file: {cap_file_path:?}");
     let info = LoadCommandStream::extract_info(&cap_file_path)?;
 
     // Display package info
@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Display version if available
     if let Some((major, minor)) = info.version {
-        println!("Version: {}.{}", major, minor);
+        println!("Version: {major}.{minor}");
     }
 
     // Display applet AIDs
@@ -136,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.install_for_load(package_aid, None) {
         Ok(_) => println!("Install for load successful."),
         Err(e) => {
-            println!("Install for load failed: {:?}", e);
+            println!("Install for load failed: {e:?}");
             return Ok(());
         }
     }
@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match gp.load_cap_file(&cap_file_path, Some(&mut callback)) {
         Ok(_) => println!("CAP file loaded successfully."),
         Err(e) => {
-            println!("Failed to load CAP file: {:?}", e);
+            println!("Failed to load CAP file: {e:?}");
             return Ok(());
         }
     }
@@ -183,7 +183,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &[],        // empty parameters
             ) {
                 Ok(_) => println!("  Installed successfully."),
-                Err(e) => println!("  Installation failed: {:?}", e),
+                Err(e) => println!("  Installation failed: {e:?}"),
             }
         }
     } else if selection <= info.applet_aids.len() {
@@ -205,7 +205,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &[],        // empty parameters
         ) {
             Ok(_) => println!("Applet installed successfully."),
-            Err(e) => println!("Applet installation failed: {:?}", e),
+            Err(e) => println!("Applet installation failed: {e:?}"),
         }
     } else {
         println!("Invalid selection!");

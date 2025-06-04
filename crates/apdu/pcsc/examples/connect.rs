@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Try each command
     for (name, hex) in &commands {
         let cmd_bytes = hex::decode(hex)?;
-        println!("\nSending {}: {}", name, hex);
+        println!("\nSending {name}: {hex}");
 
         match executor.transmit_raw(&cmd_bytes) {
             Ok(response_bytes) => match Response::from_bytes(&response_bytes) {
@@ -71,9 +71,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("  Data: {}", hex::encode_upper(payload));
                     }
                 }
-                Err(e) => println!("Error parsing response: {:?}", e),
+                Err(e) => println!("Error parsing response: {e:?}"),
             },
-            Err(e) => println!("Command failed: {:?}", e),
+            Err(e) => println!("Command failed: {e:?}"),
         }
 
         // Add a small delay between commands to let the card stabilize
@@ -100,12 +100,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
         }
-        Err(e) => println!("Command failed: {:?}", e),
+        Err(e) => println!("Command failed: {e:?}"),
     }
 
     // Reset the card before exiting to put it in a clean state
     if let Err(e) = executor.reset() {
-        println!("Warning: Failed to reset card: {:?}", e);
+        println!("Warning: Failed to reset card: {e:?}");
     }
 
     println!("\nConnection test completed.");

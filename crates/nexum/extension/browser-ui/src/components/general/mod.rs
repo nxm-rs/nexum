@@ -18,8 +18,8 @@ mod current_origin_title;
 pub use current_origin_title::*;
 mod download;
 pub use download::*;
+#[allow(dead_code)]
 mod frame_button;
-pub use frame_button::*;
 mod frame_connected;
 pub use frame_connected::*;
 mod logo_wrap;

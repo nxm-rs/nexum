@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-#![feature(result_flattening)]
 
 use std::{
     fs::OpenOptions,

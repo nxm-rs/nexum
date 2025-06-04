@@ -191,7 +191,7 @@ mod tests {
     fn test_install_for_load() {
         let package_aid = hex!("53746174757357616C6C6574");
         let sd_aid = hex!("A000000151000000");
-        let cmd = InstallCommand::for_load(&package_aid, &sd_aid);
+        let cmd = InstallCommand::for_load(package_aid, sd_aid);
 
         assert_eq!(cmd.class(), cla::GP);
         assert_eq!(cmd.instruction(), ins::INSTALL);
@@ -220,12 +220,12 @@ mod tests {
         let install_token = hex!("");
 
         let cmd = InstallCommand::for_install_and_make_selectable(
-            &package_aid,
-            &module_aid,
-            &applet_aid,
-            &privileges,
-            &install_params,
-            &install_token,
+            package_aid,
+            module_aid,
+            applet_aid,
+            privileges,
+            install_params,
+            install_token,
         );
 
         assert_eq!(cmd.p1(), install_p1::FOR_INSTALL_AND_MAKE_SELECTABLE);
@@ -242,7 +242,7 @@ mod tests {
         let app_aid = hex!("A0000001510000");
         let app_data = hex!("84010102");
 
-        let cmd = InstallCommand::for_personalization(&app_aid, &app_data);
+        let cmd = InstallCommand::for_personalization(app_aid, app_data);
 
         assert_eq!(cmd.p1(), install_p1::FOR_PERSONALIZATION);
 

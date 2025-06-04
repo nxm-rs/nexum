@@ -3,8 +3,8 @@ use bytes::{BufMut, Bytes, BytesMut};
 use rand::{Rng, RngCore};
 
 use crate::{
+    crypto::{generate_pairing_token, PairingToken},
     AppletVersion,
-    crypto::{PairingToken, generate_pairing_token},
 };
 
 const MAX_PUK_NUMBER: u64 = 999_999_999_999;
@@ -34,14 +34,12 @@ impl Secrets {
         assert_eq!(
             pin.len(),
             PIN_LENGTH,
-            "PIN must be exactly {} digits",
-            PIN_LENGTH
+            "PIN must be exactly {PIN_LENGTH} digits"
         );
         assert_eq!(
             puk.len(),
             PUK_LENGTH,
-            "PUK must be exactly {} digits",
-            PUK_LENGTH
+            "PUK must be exactly {PUK_LENGTH} digits"
         );
 
         Self {
@@ -70,14 +68,12 @@ impl Secrets {
         assert_eq!(
             pin.len(),
             PIN_LENGTH,
-            "PIN must be exactly {} digits",
-            PIN_LENGTH
+            "PIN must be exactly {PIN_LENGTH} digits"
         );
         assert_eq!(
             puk.len(),
             PUK_LENGTH,
-            "PUK must be exactly {} digits",
-            PUK_LENGTH
+            "PUK must be exactly {PUK_LENGTH} digits"
         );
 
         // Validate duress PIN if provided
@@ -85,8 +81,7 @@ impl Secrets {
             assert_eq!(
                 duress.len(),
                 PIN_LENGTH,
-                "Duress PIN must be exactly {} digits",
-                PIN_LENGTH
+                "Duress PIN must be exactly {PIN_LENGTH} digits"
             );
         }
 
@@ -111,8 +106,8 @@ impl Secrets {
         let pin = rng.random_range(0..MAX_PIN_NUMBER);
 
         Self {
-            pin: format!("{:06}", pin),  // Ensure 6 digits with zero padding
-            puk: format!("{:012}", puk), // Ensure 12 digits with zero padding
+            pin: format!("{pin:06}"),  // Ensure 6 digits with zero padding
+            puk: format!("{puk:012}"), // Ensure 12 digits with zero padding
             pairing_pass: pairing_pass.clone(),
             pairing_token: generate_pairing_token(&pairing_pass),
             version: AppletVersion::Legacy,
@@ -133,14 +128,14 @@ impl Secrets {
         let mut rng = rand::rng();
         let puk = rng.random_range(0..MAX_PUK_NUMBER);
         let pin = rng.random_range(0..MAX_PIN_NUMBER);
-        let puk_str = format!("{:012}", puk); // Ensure 12 digits with zero padding
-        let pin_str = format!("{:06}", pin); // Ensure 6 digits with zero padding
+        let puk_str = format!("{puk:012}"); // Ensure 12 digits with zero padding
+        let pin_str = format!("{pin:06}"); // Ensure 6 digits with zero padding
 
         // Generate duress PIN if requested
         let duress_pin = if with_duress_pin {
             // Generate a different PIN for duress
             let duress = rng.random_range(0..MAX_PIN_NUMBER);
-            Some(format!("{:06}", duress)) // Ensure 6 digits with zero padding
+            Some(format!("{duress:06}")) // Ensure 6 digits with zero padding
         } else {
             None
         };
@@ -213,8 +208,7 @@ impl Secrets {
         debug_assert_eq!(
             self.pin.len(),
             PIN_LENGTH,
-            "PIN must be exactly {} digits",
-            PIN_LENGTH
+            "PIN must be exactly {PIN_LENGTH} digits"
         );
         buffer.put_slice(self.pin.as_bytes());
 
@@ -222,8 +216,7 @@ impl Secrets {
         debug_assert_eq!(
             self.puk.len(),
             PUK_LENGTH,
-            "PUK must be exactly {} digits",
-            PUK_LENGTH
+            "PUK must be exactly {PUK_LENGTH} digits"
         );
         buffer.put_slice(self.puk.as_bytes());
 
@@ -249,8 +242,7 @@ impl Secrets {
                 debug_assert_eq!(
                     duress.len(),
                     PIN_LENGTH,
-                    "Duress PIN must be exactly {} digits",
-                    PIN_LENGTH
+                    "Duress PIN must be exactly {PIN_LENGTH} digits"
                 );
                 buffer.put_slice(duress.as_bytes());
             } else {

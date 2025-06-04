@@ -89,7 +89,7 @@ impl SelectOk {
     }
 
     /// Get the File Control Information if available
-    pub fn fci(&self) -> &[u8] {
+    pub const fn fci(&self) -> &[u8] {
         match self {
             Self::Success { fci } => fci.as_slice(),
         }

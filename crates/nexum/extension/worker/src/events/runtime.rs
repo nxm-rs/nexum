@@ -121,7 +121,7 @@ async fn handle_request(extension: Arc<Extension>, request: RequestWithId, sende
 // Processes `embedded_action_res` requests and sets the chain if applicable
 async fn handle_embedded_action(extension: Arc<Extension>, params: &Option<Vec<Value>>) {
     if let Some(params) = params {
-        if let (Some(action), Some(res)) = (params.get(0), params.get(1)) {
+        if let (Some(action), Some(res)) = (params.first(), params.get(1)) {
             if action.get("type") == Some(&Value::String("getChainId".to_string())) {
                 if let Some(chain_id_str) = res.get("chainId").and_then(Value::as_str) {
                     match Chain::from_str(chain_id_str) {

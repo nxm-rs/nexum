@@ -258,7 +258,7 @@ impl Provider {
                 client
                     .request::<T, _>(method, params)
                     .await
-                    .map_err(|e| JsValue::from_str(&format!("Request failed: {:?}", e)))
+                    .map_err(|e| JsValue::from_str(&format!("Request failed: {e:?}")))
             } else {
                 Err(JsValue::from_str("Client is not connected"))
             }
@@ -274,5 +274,5 @@ async fn create_client() -> Result<Client, JsValue> {
         .request_timeout(Duration::from_secs(60))
         .build(UPSTREAM_URL)
         .await
-        .map_err(|e| JsValue::from_str(&format!("Failed to create provider: {:?}", e)))
+        .map_err(|e| JsValue::from_str(&format!("Failed to create provider: {e:?}")))
 }

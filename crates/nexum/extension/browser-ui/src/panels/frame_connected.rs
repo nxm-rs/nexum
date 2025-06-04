@@ -18,7 +18,9 @@ pub fn FrameConnected(frame_state: ReadSignal<FrameState>) -> impl IntoView {
                 "method": FRAME_SUMMON,
                 "params": [],
             })) {
-                chrome_sys::runtime::send_message(&message);
+                chrome_sys::runtime::send_message(&message)
+                    .inspect_err(|e| tracing::error!(?e, "sending FRMAE_SUMMON message failed"))
+                    .ok();
             }
         }
     });

@@ -1,7 +1,7 @@
 //! Commands for key management operations
 
-use alloy_primitives::Address;
 use alloy_primitives::hex::{self, ToHexExt};
+use alloy_primitives::Address;
 use coins_bip32::path::DerivationPath;
 use nexum_apdu_transport_pcsc::PcscTransport;
 use nexum_keycard::ExportOption;
@@ -28,10 +28,10 @@ pub fn generate_key_command(
     println!("{}", display::success("Key generated successfully"));
     println!(
         "{}",
-        display::key_value_box("Key Details", vec![(
-            "UID",
-            format!("0x{}", hex::encode(key_uid))
-        )])
+        display::key_value_box(
+            "Key Details",
+            vec![("UID", format!("0x{}", hex::encode(key_uid)))]
+        )
     );
 
     Ok(())
@@ -146,10 +146,13 @@ pub async fn sign_command(
     // Display the signature in a box format
     println!(
         "{}",
-        display::key_value_box("Signature", vec![(
-            "Value",
-            signature.as_bytes().encode_hex_with_prefix().to_string()
-        )])
+        display::key_value_box(
+            "Signature",
+            vec![(
+                "Value",
+                signature.as_bytes().encode_hex_with_prefix().to_string()
+            )]
+        )
     );
 
     Ok(())
@@ -201,7 +204,7 @@ pub fn load_seed_command(
     {
         // Parse the mnemonic phrase
         let mnemonic = Mnemonic::<L>::new_from_phrase(phrase)
-            .map_err(|e| format!("Failed to parse mnemonic: {}", e))?;
+            .map_err(|e| format!("Failed to parse mnemonic: {e}"))?;
 
         // Load the key from seed
         Ok(match password {
@@ -226,7 +229,7 @@ pub fn load_seed_command(
         "korean" => parse_and_load_seed::<Korean>(&mnemonic_phrase, password, &mut keycard),
         "portuguese" => parse_and_load_seed::<Portuguese>(&mnemonic_phrase, password, &mut keycard),
         "spanish" => parse_and_load_seed::<Spanish>(&mnemonic_phrase, password, &mut keycard),
-        _ => return Err(format!("Unsupported language: {}", language).into()),
+        _ => return Err(format!("Unsupported language: {language}").into()),
     }?;
 
     // Handle the result
@@ -238,10 +241,10 @@ pub fn load_seed_command(
     );
     println!(
         "{}",
-        display::key_value_box("Key Details", vec![(
-            "UID",
-            result.encode_hex_with_prefix()
-        )])
+        display::key_value_box(
+            "Key Details",
+            vec![("UID", result.encode_hex_with_prefix())]
+        )
     );
 
     Ok(())
@@ -312,7 +315,7 @@ pub fn generate_mnemonic_command(
 
     println!(
         "{}",
-        display::success(format!("Generated {} word mnemonic", words_count).as_str())
+        display::success(format!("Generated {words_count} word mnemonic").as_str())
     );
     println!("{}", display::sensitive_data_warning());
 

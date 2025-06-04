@@ -14,7 +14,7 @@ pub type ExpectedLength = u16;
 /// Expected length type for APDU commands
 pub type ExpectedLength = u8;
 
-use crate::{Error, Response, prelude::SecurityLevel};
+use crate::{prelude::SecurityLevel, Error, Response};
 
 /// Core trait for APDU commands
 pub trait ApduCommand {
@@ -23,7 +23,7 @@ pub trait ApduCommand {
 
     /// Error response type
     type Error: fmt::Debug;
-    
+
     /// Convert core Error to command-specific error type
     fn convert_error(error: Error) -> Self::Error;
 
@@ -152,8 +152,7 @@ pub trait ApduCommand {
 
     /// Parse raw bytes into the command's response type
     fn parse_response_raw(bytes: Bytes) -> Result<Self::Success, Self::Error> {
-        let response = Response::from_bytes(&bytes)
-            .map_err(Self::convert_error)?;
+        let response = Response::from_bytes(&bytes).map_err(Self::convert_error)?;
         Self::parse_response(response)
     }
 }
@@ -290,7 +289,7 @@ impl Command {
 impl ApduCommand for Command {
     type Success = Response;
     type Error = Error;
-    
+
     fn convert_error(error: Error) -> Self::Error {
         error
     }

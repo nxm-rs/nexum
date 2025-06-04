@@ -14,5 +14,14 @@ alias re := run-ext
 run-ext:
 	web-ext run -s crates/nexum/extension/dist
 
-check:
-	cargo check --all-targets --all-features
+clippy:
+	cargo clippy --all-targets --all-features --workspace -- -Dwarnings
+
+build:
+	cargo build --all-targets --all-features --workspace
+
+test:
+	cargo test --all-targets --all-features --workspace
+
+# clippy-extension:
+# 	cargo clippy --all-targets --all-features --target wasm32-unknown-unknown -p browser-ui -p worker -p injected -p injector -- -Dwarnings

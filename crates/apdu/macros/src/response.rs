@@ -3,8 +3,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    Attribute, Expr, ExprClosure, ExprLit, Field, Ident, Lit, Token, Type, Visibility, braced,
-    parse::ParseStream, spanned::Spanned,
+    braced, parse::ParseStream, spanned::Spanned, Attribute, Expr, ExprClosure, ExprLit, Field,
+    Ident, Lit, Token, Type, Visibility,
 };
 
 use crate::utils::byte_lit;
@@ -119,7 +119,7 @@ impl ResponseDef {
                 _ => {
                     return Err(syn::Error::new(
                         key.span(),
-                        format!("Unknown response field: {}", key_str),
+                        format!("Unknown response field: {key_str}"),
                     ));
                 }
             }
@@ -235,8 +235,7 @@ impl ResponseDef {
                         return Err(syn::Error::new(
                             variant_name.span(),
                             format!(
-                                "Payload field '{}' not found in variant '{}'",
-                                field_name, variant_name
+                                "Payload field '{field_name}' not found in variant '{variant_name}'"
                             ),
                         ));
                     }
@@ -433,7 +432,7 @@ impl ResponseDef {
                     } else {
                         return Err(syn::Error::new(
                             attr.span(),
-                            format!("Invalid SW1 value: {}", sw1_str),
+                            format!("Invalid SW1 value: {sw1_str}"),
                         ));
                     }
                 } else if sw1_str.starts_with("0x") {
@@ -442,7 +441,7 @@ impl ResponseDef {
                     } else {
                         return Err(syn::Error::new(
                             attr.span(),
-                            format!("Invalid SW1 value: {}", sw1_str),
+                            format!("Invalid SW1 value: {sw1_str}"),
                         ));
                     }
                 } else {
@@ -452,7 +451,7 @@ impl ResponseDef {
                     } else {
                         return Err(syn::Error::new(
                             attr.span(),
-                            format!("Invalid SW1 value: {}", sw1_str),
+                            format!("Invalid SW1 value: {sw1_str}"),
                         ));
                     }
                 };
@@ -466,7 +465,7 @@ impl ResponseDef {
                     } else {
                         return Err(syn::Error::new(
                             attr.span(),
-                            format!("Invalid SW2 value: {}", sw2_str),
+                            format!("Invalid SW2 value: {sw2_str}"),
                         ));
                     }
                 } else if sw2_str.starts_with("0x") {
@@ -475,7 +474,7 @@ impl ResponseDef {
                     } else {
                         return Err(syn::Error::new(
                             attr.span(),
-                            format!("Invalid SW2 value: {}", sw2_str),
+                            format!("Invalid SW2 value: {sw2_str}"),
                         ));
                     }
                 } else {
@@ -485,7 +484,7 @@ impl ResponseDef {
                     } else {
                         return Err(syn::Error::new(
                             attr.span(),
-                            format!("Invalid SW2 value: {}", sw2_str),
+                            format!("Invalid SW2 value: {sw2_str}"),
                         ));
                     }
                 };

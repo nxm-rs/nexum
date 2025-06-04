@@ -98,7 +98,6 @@ pub enum Error {
     Other(&'static str),
 
     // Command-specific errors
-    
     /// Error from DELETE command
     #[error(transparent)]
     DeleteError(#[from] DeleteError),

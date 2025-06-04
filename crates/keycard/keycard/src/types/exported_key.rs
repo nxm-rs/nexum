@@ -1,6 +1,6 @@
-use crate::Error;
 use crate::commands::ExportOption;
 use crate::types::Keypair;
+use crate::Error;
 use k256::{PublicKey, SecretKey};
 
 /// Represents different types of keys that can be exported from the keycard

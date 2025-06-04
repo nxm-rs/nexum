@@ -13,8 +13,8 @@ use crate::secure_channel::{
 };
 use crate::types::{Capabilities, Capability, ExportedKey, Signature, Version};
 use crate::validation::{get_valid_pairing_index, get_valid_pairing_key, get_valid_pin};
+use crate::{commands::*, Secrets};
 use crate::{ApplicationInfo, ApplicationStatus, Error, PairingInfo, Result};
-use crate::{Secrets, commands::*};
 use alloy_primitives::hex;
 use coins_bip32::path::DerivationPath;
 use std::sync::Arc;
@@ -239,22 +239,16 @@ impl<E: Executor> Keycard<E> {
     {
         // Validate PIN
         let _ = crate::validation::validate_pin(&pin)
-            .map_err(|e| Error::Message(format!("Invalid PIN: {}", e)))?;
+            .map_err(|e| Error::Message(format!("Invalid PIN: {e}")))?;
 
         // Create no-op callbacks that will panic if called
         // These should never be called since we have all credentials up front
         let input_callback: InputRequestFn = Box::new(|prompt| {
-            panic!(
-                "Input callback called when using known credentials: {}",
-                prompt
-            );
+            panic!("Input callback called when using known credentials: {prompt}");
         });
 
         let confirm_callback: ConfirmationFn = Box::new(|prompt| {
-            panic!(
-                "Confirmation callback called when using known credentials: {}",
-                prompt
-            );
+            panic!("Confirmation callback called when using known credentials: {prompt}");
             #[allow(unreachable_code)]
             false
         });
@@ -634,7 +628,7 @@ where
     ) -> Result<()> {
         // Create description for confirmation
         let description = match path {
-            Some(p) => format!("Set the pinless path to {:?}?", p),
+            Some(p) => format!("Set the pinless path to {p:?}?"),
             None => "Clear the pinless path?".to_string(),
         };
 
@@ -782,7 +776,7 @@ where
             .require_capability(Capability::SecureChannel)?;
 
         // Confirm the operation if a confirmation function is provided
-        if confirm && !self.confirm_operation(&format!("Unpair slot {} from the card?", index))? {
+        if confirm && !self.confirm_operation(&format!("Unpair slot {index} from the card?"))? {
             return Err(Error::UserCancelled);
         }
 

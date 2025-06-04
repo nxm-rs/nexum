@@ -2,7 +2,7 @@ use bytes::{Bytes, BytesMut};
 use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
-use super::{CLA_GP, DERIVE_FROM_MASTER, DERIVE_FROM_PINLESS, derivation_path_to_bytes};
+use super::{derivation_path_to_bytes, CLA_GP, DERIVE_FROM_MASTER, DERIVE_FROM_PINLESS};
 use crate::types::Signature;
 
 use coins_bip32::path::DerivationPath;

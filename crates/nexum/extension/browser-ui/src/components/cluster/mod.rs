@@ -1,28 +1,28 @@
 use leptos::prelude::*;
 use stylers::style;
 
+#[allow(dead_code)]
 mod address;
-pub use address::*;
+#[allow(dead_code)]
 mod address_recipient;
-pub use address_recipient::*;
+#[allow(dead_code)]
 mod address_recipient_full;
-pub use address_recipient_full::*;
+#[allow(dead_code)]
 mod box_label;
-pub use box_label::*;
 mod box_main;
 pub use box_main::*;
+#[allow(dead_code)]
 mod column;
-pub use column::*;
+#[allow(dead_code)]
 mod fira;
-pub use fira::*;
+#[allow(dead_code)]
 mod focus;
-pub use focus::*;
+#[allow(dead_code)]
 mod focus_highlight;
-pub use focus_highlight::*;
 mod row;
 pub use row::*;
+#[allow(dead_code)]
 mod tag;
-pub use tag::*;
 mod value;
 pub use value::*;
 

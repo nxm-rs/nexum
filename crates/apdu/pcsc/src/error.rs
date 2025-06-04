@@ -36,15 +36,15 @@ pub enum PcscError {
 impl fmt::Display for PcscError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Pcsc(e) => write!(f, "PC/SC error: {}", e),
+            Self::Pcsc(e) => write!(f, "PC/SC error: {e}"),
             Self::NoReadersAvailable => write!(f, "No readers available"),
-            Self::ReaderNotFound(r) => write!(f, "Reader not found: {}", r),
-            Self::NoCard(r) => write!(f, "No card present in reader: {}", r),
+            Self::ReaderNotFound(r) => write!(f, "Reader not found: {r}"),
+            Self::NoCard(r) => write!(f, "No card present in reader: {r}"),
             Self::CardReset => write!(f, "Card was reset"),
             Self::CardRemoved => write!(f, "Card was removed"),
             Self::TransactionInProgress => write!(f, "Transaction already in progress"),
             Self::NoTransaction => write!(f, "No active transaction"),
-            Self::Other(msg) => write!(f, "{}", msg),
+            Self::Other(msg) => write!(f, "{msg}"),
         }
     }
 }

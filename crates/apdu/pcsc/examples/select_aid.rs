@@ -38,9 +38,9 @@ fn select_aid(
     let aid = hex::decode(aid_hex).map_err(|_| Error::Other("Invalid AID hex"))?;
 
     // Create SELECT command with AID
-    let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid.clone());
+    let select_cmd = Command::new_with_data(0x00, 0xA4, 0x04, 0x00, aid);
 
-    println!("Selecting AID: {}", aid_hex);
+    println!("Selecting AID: {aid_hex}");
 
     // Send command and receive response
     let response = executor.transmit_raw(&select_cmd.to_bytes())?;
@@ -102,10 +102,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     for (name, aid) in &aids {
-        print!("{:<20}: ", name);
+        print!("{name:<20}: ");
         match select_aid(&mut executor, aid) {
-            Ok(result) => println!("{}", result),
-            Err(e) => println!("Error: {:?}", e),
+            Ok(result) => println!("{result}"),
+            Err(e) => println!("Error: {e:?}"),
         }
 
         // Add a small delay between operations to allow the card to stabilize
@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Reset the card before exiting to put it in a clean state
     if let Err(e) = executor.reset() {
-        println!("Warning: Failed to reset card: {:?}", e);
+        println!("Warning: Failed to reset card: {e:?}");
     }
 
     Ok(())

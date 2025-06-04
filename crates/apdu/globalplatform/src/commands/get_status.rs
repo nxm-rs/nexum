@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_get_status_command() {
         let aid = hex!("AABBCC");
-        let cmd = GetStatusCommand::applications(&aid);
+        let cmd = GetStatusCommand::applications(aid);
 
         assert_eq!(cmd.class(), cla::GP);
         assert_eq!(cmd.instruction(), ins::GET_STATUS);

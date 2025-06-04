@@ -29,15 +29,15 @@ pub enum ParsedSelectOk {
 impl fmt::Display for ParsedSelectOk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParsedSelectOk::InitializedWithKey(info) => write!(f, "{}", info),
+            ParsedSelectOk::InitializedWithKey(info) => write!(f, "{info}"),
             ParsedSelectOk::InitializedNoKey(info) => {
                 writeln!(f, "Initialized Card (with no key):")?;
-                write!(f, "{}", info)
+                write!(f, "{info}")
             }
             ParsedSelectOk::Uninitialized(maybe_key) => {
                 writeln!(f, "Un-initialized State:")?;
                 match &maybe_key {
-                    Some(key) => write!(f, "  Public Key: {:#?}", key),
+                    Some(key) => write!(f, "  Public Key: {key:#?}"),
                     None => write!(f, "  Public Key: None"),
                 }
             }

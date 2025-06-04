@@ -33,10 +33,10 @@ pub mod transport;
 
 pub use command::{ApduCommand, Command, ExpectedLength};
 pub use error::{Error, ResultExt};
-pub use executor::Executor;
 pub use executor::response_aware::ResponseAwareExecutor;
-pub use processor::CommandProcessor;
+pub use executor::Executor;
 pub use processor::pipeline::ProcessorPipeline;
+pub use processor::CommandProcessor;
 pub use response::status::StatusWord;
 pub use response::{ApduResponse, Response};
 pub use secure_channel::{SecureChannel, SecurityLevel};
@@ -48,30 +48,30 @@ pub mod prelude {
     pub use crate::{Bytes, BytesMut, Error, ResultExt};
 
     // Command related
-    pub use crate::Command;
     pub use crate::command::{ApduCommand, ExpectedLength};
+    pub use crate::Command;
 
     // Response related
-    pub use crate::Response;
-    pub use crate::response::ApduResponse;
-    pub use crate::response::status::{StatusWord, common as status};
+    pub use crate::response::status::{common as status, StatusWord};
     pub use crate::response::utils;
+    pub use crate::response::ApduResponse;
+    pub use crate::Response;
 
     // Transport layer
     pub use crate::CardTransport;
 
     // Processor layer
-    pub use crate::processor::CommandProcessor;
     pub use crate::processor::pipeline::ProcessorPipeline;
     pub use crate::processor::processors::{GetResponseProcessor, IdentityProcessor};
+    pub use crate::processor::CommandProcessor;
 
     // Secure channel layer
     pub use crate::secure_channel::{SecureChannel, SecurityLevel};
 
     // Executor layer
+    pub use crate::executor::response_aware::ResponseAwareExecutor;
     pub use crate::executor::Executor;
     pub use crate::executor::SecureChannelExecutor;
-    pub use crate::executor::response_aware::ResponseAwareExecutor;
 
     pub use crate::card::CardExecutor;
 }

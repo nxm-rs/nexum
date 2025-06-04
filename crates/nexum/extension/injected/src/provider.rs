@@ -19,14 +19,17 @@ use crate::eip6963::{EIP6963Provider, EIP6963ProviderDetail, EIP6963ProviderInfo
 
 // Global thread-local storage for the provider instance
 thread_local! {
-    static PROVIDER_INSTANCE: RefCell<Option<Rc<EthereumProvider>>> = RefCell::new(None);
+    static PROVIDER_INSTANCE: RefCell<Option<Rc<EthereumProvider>>> = const { RefCell::new(None) };
 }
 
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct EthereumProvider {
+    #[allow(dead_code)]
     connected: bool,
+    #[allow(dead_code)]
     chain_id: String,
+    #[allow(dead_code)]
     accounts: Vec<String>,
 
     // EIP-1193 fields
@@ -73,7 +76,7 @@ impl EthereumProvider {
         let mut listeners = self.event_listeners.borrow_mut();
         listeners
             .entry(event.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(listener);
     }
 
@@ -123,10 +126,13 @@ impl EthereumProvider {
         }));
 
         // Dispatch the request
-        if let Err(_) = window.post_message(
-            &JsValue::from(payload),
-            window.location().origin().unwrap_or_default().as_str(),
-        ) {
+        if window
+            .post_message(
+                &JsValue::from(payload),
+                window.location().origin().unwrap_or_default().as_str(),
+            )
+            .is_err()
+        {
             return Err(JsValue::from_str("Failed to post message"));
         }
 
@@ -192,8 +198,8 @@ impl EthereumProvider {
             JsValue::from(provider.clone()),
         );
 
-        let mut event_init = CustomEventInit::new();
-        event_init.detail(&JsValue::from(detail));
+        let event_init = CustomEventInit::new();
+        event_init.set_detail(&JsValue::from(detail));
 
         let custom_event =
             CustomEvent::new_with_event_init_dict("eip6963:announceProvider", &event_init)
@@ -256,5 +262,11 @@ impl EIP6963Provider for EthereumProvider {
             icon: env!("ICON_SVG_BASE64").to_string(),
             rdns: "rs.nexum".to_string(),
         }
+    }
+}
+
+impl std::default::Default for EthereumProvider {
+    fn default() -> Self {
+        Self::new()
     }
 }

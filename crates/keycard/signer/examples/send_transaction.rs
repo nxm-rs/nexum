@@ -4,7 +4,7 @@ use std::{str::FromStr, sync::Arc};
 
 use alloy::{
     network::TransactionBuilder,
-    primitives::{U256, address},
+    primitives::{address, U256},
     providers::{Provider, ProviderBuilder},
     rpc::types::transaction::TransactionRequest,
 };

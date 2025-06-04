@@ -45,12 +45,14 @@ mod mock {
 
     impl CardTransport for MockTransport {
         fn transmit_raw(&mut self, _command: &[u8]) -> Result<Bytes, Error> {
-            match self.response.lock() {
-                Ok(response) => Ok(response.clone()),
-                Err(_) => Err(Error::message(
-                    "Failed to lock response in MockTransport".to_string(),
-                )),
-            }
+            self.response.lock().map_or_else(
+                |_| {
+                    Err(Error::message(
+                        "Failed to lock response in MockTransport".to_string(),
+                    ))
+                },
+                |response| Ok(response.clone()),
+            )
         }
 
         fn reset(&mut self) -> Result<(), Error> {

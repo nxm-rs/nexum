@@ -1,4 +1,4 @@
-name: Build and Package Extension
+name: Lint, build, test
 
 # run this action on main branch and every pull request
 on:
@@ -8,17 +8,18 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-package:
+  ci:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
+
         uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown,x86_64-unknown-linux-gnu
+          components: clippy,rustfmt
 
       - uses: actions/cache@v4
         with:
@@ -27,7 +28,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            ./target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install cargo-binstall
@@ -39,11 +40,23 @@ jobs:
       - name: Install trunk and just
         run: cargo binstall trunk just
 
-      - name: Build extension
+      - name: Install needed packages
+        run: sudo apt install -y libpcsclite-dev
+
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: Cargo clippy
+        run: just clippy
+
+      - name: Cargo build
+        run: just build
+
+      - name: Cargo build extension
         run: just be
 
-      - name: Upload Firefox artifact  
+      - name: Upload firefox extension
         uses: actions/upload-artifact@v4
         with:
           name: firefox-extension
-          path: crates/extension/dist/
+          path: crates/nexum/extension/dist/

@@ -5,13 +5,13 @@
 
 use std::fmt;
 
-use crate::Response;
 use crate::command::{ApduCommand, Command};
 use crate::error::{Error, ResultExt};
 use crate::executor::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
-use crate::processor::CommandProcessor;
 use crate::processor::pipeline::ProcessorPipeline;
+use crate::processor::CommandProcessor;
 use crate::secure_channel::{SecureChannel, SecurityLevel};
+use crate::Response;
 use bytes::Bytes;
 
 /// Card executor implementation with a transport and processor pipeline
@@ -203,7 +203,7 @@ where
         self.transport = secure_channel;
         Ok(())
     }
-    
+
     /// Execute a command with automatic security level checking
     ///
     /// This overrides the base execute method to automatically handle secure channel
@@ -246,7 +246,7 @@ where
     fn security_level(&self) -> SecurityLevel {
         self.transport.security_level()
     }
-    
+
     fn upgrade_secure_channel(&mut self, level: SecurityLevel) -> Result<(), Error> {
         self.transport
             .upgrade(level)

@@ -17,11 +17,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cap_file_path = PathBuf::from(&args[1]);
     if !cap_file_path.exists() {
-        println!("CAP file not found: {:?}", cap_file_path);
+        println!("CAP file not found: {cap_file_path:?}");
         return Ok(());
     }
 
-    println!("Analyzing CAP file: {:?}", cap_file_path);
+    println!("Analyzing CAP file: {cap_file_path:?}");
 
     // Open the CAP file
     let file = std::fs::File::open(&cap_file_path)?;
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stream = match LoadCommandStream::from_file_handle(file) {
         Ok(s) => s,
         Err(e) => {
-            println!("Failed to open CAP file: {:?}", e);
+            println!("Failed to open CAP file: {e:?}");
             return Ok(());
         }
     };
@@ -58,7 +58,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("\nPossible AIDs found in applet.cap:");
         find_possible_aids(&contents);
-    } else if let Ok(mut file) = archive.by_name("Header.cap") {
+    }
+
+    if let Ok(mut file) = archive.by_name("Header.cap") {
         use std::io::Read;
         let mut contents = Vec::new();
         file.read_to_end(&mut contents)?;
@@ -68,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if contents.len() > 10 {
             println!("  CAP file version: {}.{}", contents[1], contents[2]);
             let flags = contents[3];
-            println!("  Flags: {:#04X}", flags);
+            println!("  Flags: {flags:#04X}");
 
             // Try to find the package AID
             if contents.len() > 15 && contents[13] < 16 {

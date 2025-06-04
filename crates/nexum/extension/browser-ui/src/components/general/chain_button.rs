@@ -46,8 +46,11 @@ pub fn ChainButton(
                 "method": "wallet_switchEthereumChain",
                 "params": [{"chainId": chain.id()}],
             })) {
-                chrome_sys::runtime::send_message(&message);
-                let tab_clone = tab.clone();
+                chrome_sys::runtime::send_message(&message)
+                    .inspect_err(|e| {
+                        tracing::error!(?e, "sending wallet_switchEthereumChain message failed")
+                    })
+                    .ok();
                 spawn_local(async move {
                     update_current_chain(&tab.get()).await;
                 });

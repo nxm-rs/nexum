@@ -74,7 +74,7 @@ mod tests {
         let label = tlv::find_tlv_value(data.clone(), 0x84);
         assert_eq!(label, Some(Bytes::from(hex!("4143434F554E54").to_vec()))); // "ACCOUNT" in ASCII
 
-        let missing = tlv::find_tlv_value(data.clone(), 0x50);
+        let missing = tlv::find_tlv_value(data, 0x50);
         assert_eq!(missing, None);
     }
 

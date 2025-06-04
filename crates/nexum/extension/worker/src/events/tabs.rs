@@ -56,7 +56,7 @@ pub async fn tabs_on_updated(extension: Arc<Extension>, tab_id: JsValue, change_
 pub async fn tabs_on_activated(extension: Arc<Extension>, active_info: JsValue) {
     let active_info: tabs::ActiveInfo = from_value(active_info).unwrap();
 
-    let tab = match tabs::get(active_info.tab_id).await {
+    let _tab = match tabs::get(active_info.tab_id).await {
         Ok(tab) => tab,
         Err(e) => {
             warn!("Failed to get tab {}: {:?}", active_info.tab_id, e);

@@ -2,7 +2,7 @@
 //!
 //! This example connects to a PC/SC reader, selects the ISD, and opens a secure channel.
 
-use nexum_apdu_globalplatform::{DefaultGlobalPlatform, commands::select::SelectOk};
+use nexum_apdu_globalplatform::{commands::select::SelectOk, DefaultGlobalPlatform};
 use nexum_apdu_transport_pcsc::PcscDeviceManager;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Card is ready for management operations.");
         }
         Err(e) => {
-            println!("Failed to open secure channel: {:?}", e);
+            println!("Failed to open secure channel: {e:?}");
             println!("The card might be using non-default keys or might not support SCP02.");
         }
     }

@@ -46,10 +46,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(event) = card_receiver.try_recv() {
             match event {
                 nexum_apdu_transport_pcsc::CardEvent::Inserted { reader, atr } => {
-                    let is_new = match seen_cards.get(&reader) {
-                        Some(prev_atr) => *prev_atr != atr,
-                        None => true,
-                    };
+                    let is_new = seen_cards
+                        .get(&reader)
+                        .is_none_or(|prev_atr| *prev_atr != atr);
 
                     if is_new {
                         println!(
@@ -62,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 nexum_apdu_transport_pcsc::CardEvent::Removed { reader } => {
                     if seen_cards.contains_key(&reader) {
-                        println!("Card removed from reader '{}'", reader);
+                        println!("Card removed from reader '{reader}'");
                         // Mark as removed but keep in map to track state
                         seen_cards.insert(reader, Vec::new());
                     }
@@ -75,13 +74,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match event {
                 nexum_apdu_transport_pcsc::ReaderEvent::Added(name) => {
                     if !known_readers.contains(&name) {
-                        println!("Reader added: {}", name);
+                        println!("Reader added: {name}");
                         known_readers.push(name);
                     }
                 }
                 nexum_apdu_transport_pcsc::ReaderEvent::Removed(name) => {
                     if let Some(pos) = known_readers.iter().position(|x| *x == name) {
-                        println!("Reader removed: {}", name);
+                        println!("Reader removed: {name}");
                         known_readers.remove(pos);
                         seen_cards.remove(&name);
                     }

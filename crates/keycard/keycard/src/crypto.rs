@@ -1,12 +1,12 @@
 use aes::cipher::{
-    BlockDecryptMut, BlockEncryptMut, Iv, IvSizeUser, Key, KeyIvInit, KeySizeUser,
     block_padding::Iso7816,
     typenum::{U16, U32},
+    BlockDecryptMut, BlockEncryptMut, Iv, IvSizeUser, Key, KeyIvInit, KeySizeUser,
 };
 use alloy_primitives::bytes::{Bytes, BytesMut};
 use cipher::block_padding::UnpadError;
 use generic_array::GenericArray;
-use k256::{PublicKey, SecretKey, ecdh::SharedSecret, elliptic_curve::sec1::ToEncodedPoint};
+use k256::{ecdh::SharedSecret, elliptic_curve::sec1::ToEncodedPoint, PublicKey, SecretKey};
 use pbkdf2::pbkdf2_hmac;
 use rand::RngCore;
 use sha2::{Digest, Sha256, Sha512};
@@ -268,7 +268,7 @@ mod tests {
 
         let (enc_key, mac_key) = derive_session_keys(
             SharedSecret::from(shared_secret_key),
-            pairing_key.as_ref().try_into().unwrap(),
+            pairing_key.as_ref().into(),
             challenge,
         );
 
@@ -291,8 +291,8 @@ mod tests {
 
         let encrypted_data = encrypt_data(
             &mut BytesMut::from(data.as_ref()),
-            enc_key.as_ref().try_into().unwrap(),
-            iv.as_ref().try_into().unwrap(),
+            enc_key.as_ref().into(),
+            iv.as_ref().into(),
         );
 
         let expected = bytes!(
@@ -310,12 +310,8 @@ mod tests {
         let iv = bytes!("F959B1220333046D3C47D61B1E1B891B");
 
         let mut enc_data = bytes::BytesMut::from(enc_data.as_ref());
-        let data = decrypt_data(
-            &mut enc_data,
-            enc_key.as_ref().try_into().unwrap(),
-            iv.as_ref().try_into().unwrap(),
-        )
-        .unwrap();
+        let data =
+            decrypt_data(&mut enc_data, enc_key.as_ref().into(), iv.as_ref().into()).unwrap();
 
         let expected =
             bytes!("2E21F9F2B2C2CC9038D518A5C6B490613E7955BD19D19108B77786986B7ABFE69000");

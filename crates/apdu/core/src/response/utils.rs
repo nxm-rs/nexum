@@ -1,7 +1,7 @@
 //! Utility functions for APDU response handling
 
-use crate::Error;
 use crate::response::status::StatusWord;
+use crate::Error;
 use bytes::Bytes;
 use tracing::debug;
 
@@ -37,9 +37,7 @@ pub fn extract_response_parts(data: &Bytes) -> Result<((u8, u8), Option<Bytes>),
 ///
 /// # Errors
 /// Returns an error if the data is too short to contain a valid status word.
-pub fn extract_status_and_payload(
-    data: &Bytes,
-) -> Result<(StatusWord, Option<Bytes>), Error> {
+pub fn extract_status_and_payload(data: &Bytes) -> Result<(StatusWord, Option<Bytes>), Error> {
     let ((sw1, sw2), payload) = extract_response_parts(data)?;
     Ok((StatusWord::new(sw1, sw2), payload))
 }

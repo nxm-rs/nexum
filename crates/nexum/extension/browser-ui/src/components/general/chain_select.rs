@@ -24,7 +24,7 @@ pub fn ChainSelect(
 
                                 view! {
                                     <ChainButton
-                                        chain=(*chain).clone()
+                                        chain=*(*chain)
                                         frame_state=frame_state
                                         index=i
                                         tab=tab

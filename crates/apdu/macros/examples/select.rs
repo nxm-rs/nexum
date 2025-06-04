@@ -22,7 +22,7 @@ apdu_pair! {
                 }
 
                 /// Select parent directory
-                pub fn parent() -> Self {
+                pub const fn parent() -> Self {
                     Self::new(0x03, 0x00).with_le(0)
                 }
             }
@@ -57,12 +57,12 @@ apdu_pair! {
 // Implement methods directly on the generated types
 impl SelectOk {
     /// Returns true if selection was successful
-    pub fn is_selected(&self) -> bool {
+    pub const fn is_selected(&self) -> bool {
         matches!(self, Self::Selected { .. })
     }
 
     /// Get the File Control Information if available
-    pub fn fci(&self) -> Option<&Vec<u8>> {
+    pub const fn fci(&self) -> Option<&Vec<u8>> {
         match self {
             Self::Selected { fci } => Some(fci),
         }
@@ -71,7 +71,7 @@ impl SelectOk {
 
 impl SelectError {
     /// Returns true if the file was not found
-    pub fn is_not_found(&self) -> bool {
+    pub const fn is_not_found(&self) -> bool {
         matches!(self, Self::NotFound)
     }
 }
@@ -107,12 +107,12 @@ fn main() {
                 println!("Application selected successfully!");
                 if let Some(fci) = ok.fci() {
                     // Using our custom method
-                    println!("FCI data: {:02X?}", fci);
+                    println!("FCI data: {fci:02X?}");
                 }
             }
         }
         Err(err) => {
-            println!("Selection failed: {}", err);
+            println!("Selection failed: {err}");
 
             // Using our custom method on SelectError
             if err.is_not_found() {
@@ -149,7 +149,7 @@ fn main() {
             println!("FCI length: {} bytes", fci.len());
         }
         Err(err) => {
-            println!("Selection via helper function failed: {}", err);
+            println!("Selection via helper function failed: {err}");
         }
     }
 
@@ -161,8 +161,8 @@ fn main() {
     match unknown_result {
         Ok(_) => println!("Unexpected success"),
         Err(SelectError::Unknown { sw1, sw2 }) => {
-            println!("Handled unknown status word: {:02X}{:02X}", sw1, sw2);
+            println!("Handled unknown status word: {sw1:02X}{sw2:02X}");
         }
-        Err(err) => println!("Other error: {}", err),
+        Err(err) => println!("Other error: {err}"),
     }
 }
