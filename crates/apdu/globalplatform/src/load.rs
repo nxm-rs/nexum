@@ -139,18 +139,18 @@ impl LoadCommandStream {
             vec![length as u8]
         } else if length < 0x100 {
             // Long form, 1 byte
-            return vec![0x81, length as u8];
+            vec![0x81, length as u8]
         } else if length < 0x10000 {
             // Long form, 2 bytes
-            return vec![0x82, (length >> 8) as u8, (length & 0xFF) as u8];
+            vec![0x82, (length >> 8) as u8, (length & 0xFF) as u8]
         } else {
             // Long form, 3 bytes
-            return vec![
+            vec![
                 0x83,
                 (length >> 16) as u8,
                 ((length >> 8) & 0xFF) as u8,
                 (length & 0xFF) as u8,
-            ];
+            ]
         }
     }
 
