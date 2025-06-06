@@ -127,25 +127,25 @@ impl ConfigTab {
         }
     }
 
-    fn r_origin_connections_collapsed(&self) -> RwLockReadGuard<bool> {
+    fn r_origin_connections_collapsed(&self) -> RwLockReadGuard<'_, bool> {
         self.origin_connections_collapsed
             .read()
             .expect("failed to get read lock on origin_connections_collapsed")
     }
 
-    fn w_origin_connections_collapsed(&self) -> RwLockWriteGuard<bool> {
+    fn w_origin_connections_collapsed(&self) -> RwLockWriteGuard<'_, bool> {
         self.origin_connections_collapsed
             .write()
             .expect("failed to get write lock on origin_connections_collapsed")
     }
 
-    fn r_labels_collapsed(&self) -> RwLockReadGuard<bool> {
+    fn r_labels_collapsed(&self) -> RwLockReadGuard<'_, bool> {
         self.labels_collapsed
             .read()
             .expect("failed to get read lock on labels_collapsed")
     }
 
-    fn w_labels_collapsed(&self) -> RwLockWriteGuard<bool> {
+    fn w_labels_collapsed(&self) -> RwLockWriteGuard<'_, bool> {
         self.labels_collapsed
             .write()
             .expect("failed to get write lock on labels_collapsed")
