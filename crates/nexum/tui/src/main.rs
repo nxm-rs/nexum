@@ -869,37 +869,37 @@ impl WalletPane {
             .and_then(|idx| self.r_accounts()[idx].address())
     }
 
-    fn r_accounts(&self) -> RwLockReadGuard<Vec<NexumAccount>> {
+    fn r_accounts(&self) -> RwLockReadGuard<'_, Vec<NexumAccount>> {
         self.accounts
             .read()
             .expect("failed to get read lock on accounts")
     }
 
-    fn w_accounts(&self) -> RwLockWriteGuard<Vec<NexumAccount>> {
+    fn w_accounts(&self) -> RwLockWriteGuard<'_, Vec<NexumAccount>> {
         self.accounts
             .write()
             .expect("failed to get write lock on accounts")
     }
 
-    fn r_active_wallet_idx(&self) -> RwLockReadGuard<Option<usize>> {
+    fn r_active_wallet_idx(&self) -> RwLockReadGuard<'_, Option<usize>> {
         self.active_wallet_idx
             .read()
             .expect("failed to get read lock on active wallet idx")
     }
 
-    fn w_active_wallet_idx(&self) -> RwLockWriteGuard<Option<usize>> {
+    fn w_active_wallet_idx(&self) -> RwLockWriteGuard<'_, Option<usize>> {
         self.active_wallet_idx
             .write()
             .expect("failed to get write lock on active wallet idx")
     }
 
-    fn r_is_active(&self) -> RwLockReadGuard<bool> {
+    fn r_is_active(&self) -> RwLockReadGuard<'_, bool> {
         self.is_active
             .read()
             .expect("failed to get read lock on is active")
     }
 
-    fn w_is_active(&self) -> RwLockWriteGuard<bool> {
+    fn w_is_active(&self) -> RwLockWriteGuard<'_, bool> {
         self.is_active
             .write()
             .expect("failed to get write lock on is active")
