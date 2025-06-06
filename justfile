@@ -25,3 +25,4 @@ test:
 
 # clippy-extension:
 # 	cargo clippy --all-targets --all-features --target wasm32-unknown-unknown -p browser-ui -p worker -p injected -p injector -- -Dwarnings
+
