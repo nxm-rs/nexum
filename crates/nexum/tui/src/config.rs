@@ -27,13 +27,32 @@ pub struct Config {
     #[serde(default)]
     pub labels: BTreeMap<NamedChain, HashMap<Address, String>>,
     #[serde(default)]
+    pub signer: SignerConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct SignerConfig {
+    #[serde(default)]
     pub keystores: Vec<KeystoreDir>,
+    #[serde(default)]
+    pub ledger: LedgerConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct KeystoreDir {
     dir: String,
     ignore: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LedgerConfig {
+    pub n: usize,
+}
+
+impl Default for LedgerConfig {
+    fn default() -> Self {
+        Self { n: 10 }
+    }
 }
 
 impl Config {
@@ -62,6 +81,7 @@ impl Config {
 
     pub fn keystores(&self) -> eyre::Result<Vec<NexumAccount>> {
         Ok(self
+            .signer
             .keystores
             .iter()
             .map(|k| {

@@ -236,7 +236,7 @@ impl App {
         // load ledger accounts in background because its too slow
         let wallet_pane_clone = self.wallet_pane.clone();
         tokio::spawn(async move {
-            load_ledger_accounts(10)
+            load_ledger_accounts(self.config_tab.config.signer.ledger.n)
                 .await
                 .map(|accounts| wallet_pane_clone.add_accounts(accounts))
                 .ok();
