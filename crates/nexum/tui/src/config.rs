@@ -17,11 +17,23 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::signers::{load_keystores, NexumAccount};
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub rpcs: BTreeMap<String, Url>,
+    #[serde(default)]
     pub origin_connections: BTreeMap<Address, HashMap<Url, bool>>,
+    #[serde(default)]
     pub labels: BTreeMap<NamedChain, HashMap<Address, String>>,
+    #[serde(default)]
+    pub keystores: Vec<KeystoreDir>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct KeystoreDir {
+    dir: String,
+    ignore: Vec<String>,
 }
 
 impl Config {
@@ -46,6 +58,20 @@ impl Config {
             .into_iter()
             .zip(self.rpcs.values().cloned())
             .collect())
+    }
+
+    pub fn keystores(&self) -> eyre::Result<Vec<NexumAccount>> {
+        Ok(self
+            .keystores
+            .iter()
+            .map(|k| {
+                load_keystores(
+                    &k.dir,
+                    &k.ignore.iter().map(|x| x.as_str()).collect::<Vec<_>>()[..],
+                )
+            })
+            .collect::<eyre::Result<Vec<_>>>()?
+            .concat())
     }
 }
 

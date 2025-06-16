@@ -126,19 +126,30 @@ impl NexumSigner {
     }
 }
 
-/// Returns all the keystore file paths in the foundry keystore directory.
-pub fn load_foundry_keystores() -> eyre::Result<Vec<NexumAccount>> {
-    let home_dir = std::env::home_dir().ok_or_eyre("home directory not found")?;
-    let foundry_keystore_dir = home_dir.join(".foundry/keystores");
-    let foundry_keystore_files = std::fs::read_dir(foundry_keystore_dir)?;
+pub fn load_keystores(dir: &str, ignored: &[&str]) -> eyre::Result<Vec<NexumAccount>> {
+    let dir = if dir.starts_with("~/")
+        && let Some((_, path_rel_to_home)) = dir.split_once("~/")
+    {
+        std::env::home_dir()
+            .ok_or_eyre("getting home directory failed")?
+            .join(path_rel_to_home)
+    } else {
+        dir.parse()?
+    };
 
-    Ok(foundry_keystore_files
-        .into_iter()
+    Ok(dir
+        .read_dir()?
         .filter_map(|f| {
-            f.ok().map(|f| NexumAccount {
-                name: f.file_name().to_string_lossy().to_string(),
-                signer: NexumSigner::Keystore(f.path(), None),
-            })
+            f.ok()
+                // only read files
+                .filter(|f| f.file_type().ok().map(|t| t.is_file()).unwrap_or_default())
+                // filter ignored files
+                .filter(|f| !ignored.contains(&f.file_name().to_str().unwrap_or_default()))
+                // TODO: read the file and validate that it is a valid keystore file
+                .map(|f| NexumAccount {
+                    name: f.file_name().to_string_lossy().to_string(),
+                    signer: NexumSigner::Keystore(f.path(), None),
+                })
         })
         .collect::<Vec<_>>())
 }
