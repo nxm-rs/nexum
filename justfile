@@ -16,7 +16,7 @@ run-ext:
 
 alias pe := pack-ext
 pack-ext:
-	web-ext build -s crates/nexum/extension/dist -a .
+	web-ext build -s crates/nexum/extension/dist -a . --overwrite-dest
 
 clippy:
 	cargo clippy --all-targets --all-features --workspace -- -Dwarnings
