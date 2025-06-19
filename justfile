@@ -14,6 +14,10 @@ alias re := run-ext
 run-ext:
 	web-ext run -s crates/nexum/extension/dist
 
+alias pe := pack-ext
+pack-ext:
+	web-ext build -s crates/nexum/extension/dist -a .
+
 clippy:
 	cargo clippy --all-targets --all-features --workspace -- -Dwarnings
 

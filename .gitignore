@@ -6,3 +6,6 @@ dist
 
 # We keep the symbolic link
 !dist/browser-ui
+
+# ignore the packaged zip file
+/nexum_companion*.zip
