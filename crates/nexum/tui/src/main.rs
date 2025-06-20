@@ -32,7 +32,7 @@ use ratatui::{
     },
     DefaultTerminal, Frame,
 };
-use signers::{load_foundry_keystores, load_ledger_accounts, NexumAccount};
+use signers::{load_ledger_accounts, NexumAccount};
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
@@ -209,7 +209,12 @@ impl App {
             active_tab: AppTab::default(),
             wallet_pane: Arc::new(WalletPane {
                 is_active: RwLock::new(true),
-                accounts: RwLock::new(load_foundry_keystores().unwrap_or_default()),
+                accounts: RwLock::new(
+                    config
+                        .keystores()
+                        .inspect_err(|err| tracing::error!(?err, "error loading foundry keystores"))
+                        .unwrap_or_default(),
+                ),
                 list_state: RwLock::new(list_state),
                 active_wallet_idx: RwLock::new(None),
                 prompt_sender: sender.clone(),
@@ -231,7 +236,7 @@ impl App {
         // load ledger accounts in background because its too slow
         let wallet_pane_clone = self.wallet_pane.clone();
         tokio::spawn(async move {
-            load_ledger_accounts(10)
+            load_ledger_accounts(self.config_tab.config.signer.ledger.n)
                 .await
                 .map(|accounts| wallet_pane_clone.add_accounts(accounts))
                 .ok();

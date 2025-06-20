@@ -13,7 +13,7 @@ use ratatui::{
 use crate::{config::Config, HandleEvent};
 
 pub struct ConfigTab {
-    config: Config,
+    pub config: Config,
     config_list_state: Mutex<ListState>,
     origin_connections_collapsed: RwLock<bool>,
     labels_collapsed: RwLock<bool>,
