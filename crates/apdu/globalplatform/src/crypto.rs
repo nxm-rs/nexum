@@ -161,7 +161,7 @@ pub fn calculate_cryptogram(
 /// The MAC value (8 bytes)
 pub fn mac_full_3des(key: &Key<Scp02>, iv: &Iv<Scp02>, data: &[u8]) -> Scp02Mac {
     // Calculate padded length (includes padding bytes)
-    let padding_bytes = if data.len() % 8 == 0 {
+    let padding_bytes = if data.len().is_multiple_of(8) {
         8
     } else {
         8 - (data.len() % 8)

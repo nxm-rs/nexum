@@ -55,7 +55,7 @@ apdu_pair! {
                 match response.status() {
                     SW_NO_ERROR => {
                         match response.payload() {
-                            Some(data) if data.len() % 4 == 0 => {
+                            Some(data) if data.len().is_multiple_of(4) => {
                                 let u32_iter = data.chunks(4).map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()));
                                 let path = DerivationPath::from_iter(u32_iter);
                                 Ok(GetStatusOk::KeyPathStatus {
