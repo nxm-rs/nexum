@@ -3,7 +3,7 @@ use nexum_apdu_macros::apdu_pair;
 
 use crate::Keypair;
 
-use super::{derivation_path_to_bytes, CLA_GP, DERIVE_FROM_MASTER};
+use super::{CLA_GP, DERIVE_FROM_MASTER, derivation_path_to_bytes};
 use coins_bip32::path::DerivationPath;
 
 #[derive(Clone, Copy, Debug)]

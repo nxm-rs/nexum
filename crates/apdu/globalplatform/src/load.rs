@@ -10,7 +10,7 @@ use zip::ZipArchive;
 
 use bytes::{BufMut, BytesMut};
 
-use crate::{constants::tags, Error, Result};
+use crate::{Error, Result, constants::tags};
 
 /// Maximum block size for LOAD commands
 pub const BLOCK_SIZE: usize = 247; // 255 - 8 bytes for MAC

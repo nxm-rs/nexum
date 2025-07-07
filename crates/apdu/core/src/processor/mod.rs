@@ -9,7 +9,7 @@ pub mod processors;
 
 use std::fmt;
 
-use crate::{transport::CardTransport, Command, Error, Response};
+use crate::{Command, Error, Response, transport::CardTransport};
 
 /// Trait for command processors
 pub trait CommandProcessor: Send + Sync + fmt::Debug {

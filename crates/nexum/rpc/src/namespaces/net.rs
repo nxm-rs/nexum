@@ -1,4 +1,4 @@
-use alloy::providers::{fillers::TxFiller, Provider};
+use alloy::providers::{Provider, fillers::TxFiller};
 use jsonrpsee::RpcModule;
 use std::sync::Arc;
 

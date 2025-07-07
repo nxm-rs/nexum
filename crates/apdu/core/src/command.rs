@@ -14,7 +14,7 @@ pub type ExpectedLength = u16;
 /// Expected length type for APDU commands
 pub type ExpectedLength = u8;
 
-use crate::{prelude::SecurityLevel, Error, Response};
+use crate::{Error, Response, prelude::SecurityLevel};
 
 /// Core trait for APDU commands
 pub trait ApduCommand {

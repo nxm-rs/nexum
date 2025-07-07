@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use cipher::Key;
 use nexum_apdu_core::prelude::*;
 use nexum_apdu_globalplatform::{
-    load::LoadCommandStream, session::Keys, DefaultGlobalPlatform, GPSecureChannel,
+    DefaultGlobalPlatform, GPSecureChannel, load::LoadCommandStream, session::Keys,
 };
 use nexum_apdu_transport_pcsc::PcscTransport;
 

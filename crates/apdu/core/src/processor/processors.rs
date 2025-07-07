@@ -5,7 +5,7 @@
 use std::fmt;
 
 use super::{CommandProcessor, TransportAdapterTrait};
-use crate::{error::ResultExt, ApduCommand, Command, Error, Response};
+use crate::{ApduCommand, Command, Error, Response, error::ResultExt};
 
 /// Identity processor
 ///

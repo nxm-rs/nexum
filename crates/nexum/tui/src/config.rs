@@ -11,13 +11,13 @@ use alloy::{
 use alloy_chains::NamedChain;
 use eyre::OptionExt;
 use figment::{
-    providers::{Format, Toml},
     Figment,
+    providers::{Format, Toml},
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::signers::{load_keystores, NexumAccount};
+use crate::signers::{NexumAccount, load_keystores};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {

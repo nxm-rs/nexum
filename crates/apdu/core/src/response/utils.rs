@@ -1,7 +1,7 @@
 //! Utility functions for APDU response handling
 
-use crate::response::status::StatusWord;
 use crate::Error;
+use crate::response::status::StatusWord;
 use bytes::Bytes;
 use tracing::debug;
 

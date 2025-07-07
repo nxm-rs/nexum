@@ -4,7 +4,7 @@ use tracing::{error, info};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
-use crate::{Extension, CLIENT_STATUS_ALARM_KEY};
+use crate::{CLIENT_STATUS_ALARM_KEY, Extension};
 use std::sync::Arc;
 
 // To be used with the `chrome.alarms.onAlarm` event

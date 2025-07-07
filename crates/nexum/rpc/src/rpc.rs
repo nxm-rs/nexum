@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use alloy::consensus::{EthereumTypedTransaction, TxEip4844Variant};
 use alloy::dyn_abi::TypedData;
@@ -13,12 +13,12 @@ use alloy::providers::{Provider, ProviderBuilder, RootProvider};
 use alloy::signers::Signature;
 use alloy_chains::NamedChain;
 use eyre::OptionExt;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use jsonrpsee::core::traits::ToRpcParams;
 use jsonrpsee::server::middleware::rpc::{RpcServiceBuilder, RpcServiceT};
 use jsonrpsee::server::{
-    serve_with_graceful_shutdown, stop_channel, ServerHandle, StopHandle, TowerServiceBuilder,
+    ServerHandle, StopHandle, TowerServiceBuilder, serve_with_graceful_shutdown, stop_channel,
 };
 use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Request};
 use jsonrpsee::{MethodResponse, RpcModule};

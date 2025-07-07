@@ -5,7 +5,7 @@ use serde_wasm_bindgen::from_value;
 use tracing::{debug, trace, warn};
 use wasm_bindgen::JsValue;
 
-use crate::{origin_from_url, state::tab_unsubscribe, Extension};
+use crate::{Extension, origin_from_url, state::tab_unsubscribe};
 
 // To be used with the `chrome.tabs.onRemoved` event
 pub async fn tabs_on_removed(extension: Arc<Extension>, tab_id: JsValue) {

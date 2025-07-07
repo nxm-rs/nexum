@@ -1,7 +1,7 @@
 //! Commands for key management operations
 
-use alloy_primitives::hex::{self, ToHexExt};
 use alloy_primitives::Address;
+use alloy_primitives::hex::{self, ToHexExt};
 use coins_bip32::path::DerivationPath;
 use nexum_apdu_transport_pcsc::PcscTransport;
 use nexum_keycard::ExportOption;

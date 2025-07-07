@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct EIP6963ProviderInfo {

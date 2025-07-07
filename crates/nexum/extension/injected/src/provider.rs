@@ -13,7 +13,7 @@ use uuid::Uuid;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
-use web_sys::{window, CustomEvent, CustomEventInit, MessageEvent};
+use web_sys::{CustomEvent, CustomEventInit, MessageEvent, window};
 
 use crate::eip6963::{EIP6963Provider, EIP6963ProviderDetail, EIP6963ProviderInfo};
 

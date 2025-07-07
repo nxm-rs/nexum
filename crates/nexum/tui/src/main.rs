@@ -10,7 +10,7 @@ use std::{
 use alloy::{
     consensus::{EthereumTypedTransaction, SignableTransaction, TxEip4844Variant},
     dyn_abi::TypedData,
-    primitives::{Address, Bytes, B256},
+    primitives::{Address, B256, Bytes},
     signers::Signature,
 };
 use alloy_chains::NamedChain;
@@ -19,9 +19,10 @@ use config_tab::ConfigTab;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
 use futures::StreamExt;
 use nexum_rpc::rpc::{
-    chain_id_or_name_to_named_chain, InteractiveRequest, InteractiveResponse, RpcServerBuilder,
+    InteractiveRequest, InteractiveResponse, RpcServerBuilder, chain_id_or_name_to_named_chain,
 };
 use ratatui::{
+    DefaultTerminal, Frame,
     layout::{Constraint, HorizontalAlignment, Layout},
     prelude::{Buffer, Rect},
     style::{Color, Style, Stylize},
@@ -30,13 +31,12 @@ use ratatui::{
     widgets::{
         Block, Borders, FrameExt, List, ListState, Padding, Paragraph, StatefulWidget, Tabs, Widget,
     },
-    DefaultTerminal, Frame,
 };
-use signers::{load_ledger_accounts, NexumAccount};
+use signers::{NexumAccount, load_ledger_accounts};
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
-use config::{config_dir, load_config, Config};
+use config::{Config, config_dir, load_config};
 use url::Url;
 
 mod config;

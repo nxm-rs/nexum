@@ -4,23 +4,23 @@ use alloy::{
     network::{Ethereum, Network, NetworkWallet},
     primitives::{Address, Bytes, TxHash},
     providers::{
-        fillers::{TxFiller, WalletFiller},
         Provider,
+        fillers::{TxFiller, WalletFiller},
     },
     rpc::types::TransactionRequest,
 };
 use jsonrpsee::{
+    RpcModule,
     core::RpcResult,
     types::{ErrorCode, ErrorObject},
-    RpcModule,
 };
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     rpc::{
-        json_rpc_internal_error, make_interactive_request, GlobalRpcContext, InteractiveRequest,
-        InteractiveResponse,
+        GlobalRpcContext, InteractiveRequest, InteractiveResponse, json_rpc_internal_error,
+        make_interactive_request,
     },
     upstream_requests,
 };

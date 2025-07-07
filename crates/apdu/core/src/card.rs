@@ -5,13 +5,13 @@
 
 use std::fmt;
 
+use crate::Response;
 use crate::command::{ApduCommand, Command};
 use crate::error::{Error, ResultExt};
 use crate::executor::{Executor, ResponseAwareExecutor, SecureChannelExecutor};
-use crate::processor::pipeline::ProcessorPipeline;
 use crate::processor::CommandProcessor;
+use crate::processor::pipeline::ProcessorPipeline;
 use crate::secure_channel::{SecureChannel, SecurityLevel};
-use crate::Response;
 use bytes::Bytes;
 
 /// Card executor implementation with a transport and processor pipeline
