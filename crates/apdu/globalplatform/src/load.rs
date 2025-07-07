@@ -87,13 +87,12 @@ impl LoadCommandStream {
                 }
             } else {
                 // Try without .cap extension
-                if let Some(path) = find_file(&format!("/{file_name}")) {
-                    if let Ok(mut file) = zip.by_name(&path) {
+                if let Some(path) = find_file(&format!("/{file_name}"))
+                    && let Ok(mut file) = zip.by_name(&path) {
                         let mut data = Vec::new();
                         file.read_to_end(&mut data)?;
                         files.insert(*file_name, data);
                     }
-                }
             }
         }
 
@@ -235,8 +234,8 @@ impl LoadCommandStream {
             };
 
             // Process Header.cap file
-            if let Some(header_name) = find_file("/Header.cap") {
-                if let Ok(mut header_file) = zip.by_name(&header_name) {
+            if let Some(header_name) = find_file("/Header.cap")
+                && let Ok(mut header_file) = zip.by_name(&header_name) {
                     let mut header_data = Vec::new();
                     header_file.read_to_end(&mut header_data)?;
 
@@ -257,12 +256,11 @@ impl LoadCommandStream {
                         }
                     }
                 }
-            }
 
             // Process Applet.cap file if we still don't have applet AIDs
-            if info.applet_aids.is_empty() {
-                if let Some(applet_name) = find_file("/Applet.cap") {
-                    if let Ok(mut applet_file) = zip.by_name(&applet_name) {
+            if info.applet_aids.is_empty()
+                && let Some(applet_name) = find_file("/Applet.cap")
+                    && let Ok(mut applet_file) = zip.by_name(&applet_name) {
                         let mut applet_data = Vec::new();
                         applet_file.read_to_end(&mut applet_data)?;
 
@@ -290,8 +288,6 @@ impl LoadCommandStream {
                             }
                         }
                     }
-                }
-            }
         }
 
         Ok(info)
@@ -319,21 +315,18 @@ fn parse_manifest(manifest_data: &str, info: &mut CapFileInfo) -> Result<()> {
     if let Some(version_line) = manifest_data
         .lines()
         .find(|line| line.starts_with("Java-Card-Package-Version:"))
-    {
-        if let Some(after_colon) = version_line.find(": ") {
+        && let Some(after_colon) = version_line.find(": ") {
             let version_str = &version_line[after_colon + 2..];
 
             // Try to parse version in format "x.y"
             let parts: Vec<&str> = version_str.split('.').collect();
-            if parts.len() >= 2 {
-                if let (Ok(major), Ok(minor)) =
+            if parts.len() >= 2
+                && let (Ok(major), Ok(minor)) =
                     (parts[0].trim().parse::<u8>(), parts[1].trim().parse::<u8>())
                 {
                     info.version = Some((major, minor));
                 }
-            }
         }
-    }
 
     // Parse applet AIDs and names
     let mut applet_index = 1;
@@ -352,8 +345,8 @@ fn parse_manifest(manifest_data: &str, info: &mut CapFileInfo) -> Result<()> {
             break; // No more applets found
         }
 
-        if let Some(aid_line) = aid_line {
-            if let Some(after_colon) = aid_line.find(": ") {
+        if let Some(aid_line) = aid_line
+            && let Some(after_colon) = aid_line.find(": ") {
                 let aid_part = &aid_line[after_colon + 2..];
                 if let Ok(aid_bytes) = parse_aid_bytes(aid_part) {
                     info.applet_aids.push(aid_bytes);
@@ -371,7 +364,6 @@ fn parse_manifest(manifest_data: &str, info: &mut CapFileInfo) -> Result<()> {
                     }
                 }
             }
-        }
 
         applet_index += 1;
     }
@@ -394,27 +386,25 @@ fn enhance_with_applet_xml(xml_data: &str, info: &mut CapFileInfo) -> Result<()>
 
             // Extract applet name
             let mut display_name = String::new();
-            if let Some(name_start) = applet_section.find("<display-name>") {
-                if let Some(name_end) = applet_section[name_start..].find("</display-name>") {
+            if let Some(name_start) = applet_section.find("<display-name>")
+                && let Some(name_end) = applet_section[name_start..].find("</display-name>") {
                     display_name = applet_section[name_start + 14..name_start + name_end]
                         .trim()
                         .to_string();
                 }
-            }
 
             // Extract applet class
             let mut class_name = String::new();
-            if let Some(class_start) = applet_section.find("<applet-class>") {
-                if let Some(class_end) = applet_section[class_start..].find("</applet-class>") {
+            if let Some(class_start) = applet_section.find("<applet-class>")
+                && let Some(class_end) = applet_section[class_start..].find("</applet-class>") {
                     class_name = applet_section[class_start + 14..class_start + class_end]
                         .trim()
                         .to_string();
                 }
-            }
 
             // Extract applet AID
-            if let Some(aid_start) = applet_section.find("<applet-AID>") {
-                if let Some(aid_end) = applet_section[aid_start..].find("</applet-AID>") {
+            if let Some(aid_start) = applet_section.find("<applet-AID>")
+                && let Some(aid_end) = applet_section[aid_start..].find("</applet-AID>") {
                     let aid_str = &applet_section[aid_start + 12..aid_start + aid_end];
 
                     // Format: //aid/A000000804/000101
@@ -447,7 +437,6 @@ fn enhance_with_applet_xml(xml_data: &str, info: &mut CapFileInfo) -> Result<()>
                         }
                     }
                 }
-            }
 
             applet_start = end_pos;
         } else {

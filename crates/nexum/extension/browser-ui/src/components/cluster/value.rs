@@ -74,11 +74,10 @@ pub fn Value(
     let handle_keydown = {
         let on_click = Rc::clone(&on_interact);
         move |event: KeyboardEvent| {
-            if (event.key() == "Enter" || event.key() == " ") && on_click.is_some() {
-                if let Some(ref on_click) = *on_click {
+            if (event.key() == "Enter" || event.key() == " ") && on_click.is_some()
+                && let Some(ref on_click) = *on_click {
                     on_click();
                 }
-            }
         }
     };
 

@@ -787,11 +787,10 @@ where
         self.executor.execute_secure(&cmd)?;
 
         // If we unpaired our own slot, clear the pairing info
-        if let Some(pairing_info) = &self.pairing_info {
-            if pairing_info.index == index {
+        if let Some(pairing_info) = &self.pairing_info
+            && pairing_info.index == index {
                 self.pairing_info = None;
             }
-        }
 
         Ok(())
     }

@@ -39,11 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get ATR if available
     let transport = executor.transport();
-    if let Some(pcsc_transport) = (transport as &dyn Any).downcast_ref::<PcscTransport>() {
-        if let Ok(atr) = pcsc_transport.atr() {
+    if let Some(pcsc_transport) = (transport as &dyn Any).downcast_ref::<PcscTransport>()
+        && let Ok(atr) = pcsc_transport.atr() {
             println!("Card ATR: {}", hex::encode_upper(&atr));
         }
-    }
 
     // Define some common APDUs to try
     let commands = [

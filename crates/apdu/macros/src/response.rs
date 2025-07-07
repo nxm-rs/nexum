@@ -227,8 +227,8 @@ impl ResponseDef {
                 }
 
                 // Validate payload field name if specified
-                if let Some(ref field_name) = payload_field {
-                    if !fields
+                if let Some(ref field_name) = payload_field
+                    && !fields
                         .iter()
                         .any(|f| f.ident.as_ref().is_some_and(|ident| ident == field_name))
                     {
@@ -239,7 +239,6 @@ impl ResponseDef {
                             ),
                         ));
                     }
-                }
             }
 
             // Ensure we have a valid SW pattern
@@ -283,17 +282,15 @@ impl ResponseDef {
             syn::Meta::List(list) => {
                 let nested_meta = syn::parse2::<syn::Meta>(quote::quote! { #list })?;
 
-                if let syn::Meta::NameValue(nv) = nested_meta {
-                    if nv.path.is_ident("field") {
-                        if let syn::Expr::Lit(syn::ExprLit {
+                if let syn::Meta::NameValue(nv) = nested_meta
+                    && nv.path.is_ident("field")
+                        && let syn::Expr::Lit(syn::ExprLit {
                             lit: syn::Lit::Str(lit_str),
                             ..
                         }) = &nv.value
                         {
                             return Ok(Some(lit_str.value()));
                         }
-                    }
-                }
 
                 // Try parsing in a more manual way
                 let content = list.tokens.to_string();
@@ -397,15 +394,14 @@ impl ResponseDef {
                 }
                 _ => {
                     // Special handling for underscore
-                    if let Some(lit) = Self::extract_token_str(tokens) {
-                        if lit == "_" {
+                    if let Some(lit) = Self::extract_token_str(tokens)
+                        && lit == "_" {
                             return Ok(SwAnnotation {
                                 sw1: SwPattern::Any,
                                 sw2: SwPattern::Any,
                                 sw_ref: None,
                             });
                         }
-                    }
 
                     return Err(syn::Error::new(
                         expr.span(),

@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 use std::{
     fs::OpenOptions,
     net::Ipv4Addr,

@@ -60,8 +60,8 @@ apdu_pair! {
 
                 match status {
                     SW_NO_ERROR => {
-                        if let Some(payload) = response.payload() {
-                            if payload.len() == 28 {
+                        if let Some(payload) = response.payload()
+                            && payload.len() == 28 {
                                 // Key diversification data (10 bytes)
                                 let key_diversification_data: [u8; 10] = payload[0..10].try_into().unwrap();
 
@@ -85,7 +85,6 @@ apdu_pair! {
                                     card_cryptogram,
                                 })
                             }
-                        }
                         Err(nexum_apdu_core::Error::parse("Response data incorrect length").into())
                     }
                     SW_SECURITY_STATUS_NOT_SATISFIED => Err(InitializeUpdateError::SecurityStatusNotSatisfied),

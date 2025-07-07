@@ -36,8 +36,8 @@ fn update_current_chain_callback(active_tab: ReadSignal<Option<tabs::Info>>) -> 
     move || {
         let tab_clone = active_tab.get_untracked().clone();
         spawn_local(async move {
-            if let Some(tab) = tab_clone {
-                if let Ok(message) = JsValue::from_serde(&json!({
+            if let Some(tab) = tab_clone
+                && let Ok(message) = JsValue::from_serde(&json!({
                     "type": "embedded:action",
                     "action": { "type": "getChainId" }
                 })) {
@@ -46,7 +46,6 @@ fn update_current_chain_callback(active_tab: ReadSignal<Option<tabs::Info>>) -> 
                         .inspect_err(|e| tracing::error!(?e, "failed to send message to tab"))
                         .ok();
                 }
-            }
         });
     }
 }

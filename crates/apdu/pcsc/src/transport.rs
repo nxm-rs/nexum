@@ -127,12 +127,11 @@ impl PcscTransport {
                     self.transaction_active = false;
 
                     // Try to reconnect if needed
-                    if self.config.auto_reconnect && e == pcsc::Error::ResetCard {
-                        if let Ok(()) = self.connect_card() {
+                    if self.config.auto_reconnect && e == pcsc::Error::ResetCard
+                        && let Ok(()) = self.connect_card() {
                             // Try again with the new connection
                             return self.transmit_command(command);
                         }
-                    }
                 }
 
                 Err(e.into())

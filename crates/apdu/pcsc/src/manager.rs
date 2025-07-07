@@ -99,11 +99,10 @@ impl PcscDeviceManager {
                 // Find reader with a card matching the ATR pattern
                 let readers = self.list_readers()?;
                 for reader in readers {
-                    if let Some(atr) = reader.atr() {
-                        if match_atr(atr, &pattern, mask.as_deref()) {
+                    if let Some(atr) = reader.atr()
+                        && match_atr(atr, &pattern, mask.as_deref()) {
                             return self.open_reader_with_config(reader.name(), config);
                         }
-                    }
                 }
                 Err(PcscError::NoCard(
                     "No card with matching ATR found".to_string(),
