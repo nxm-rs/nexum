@@ -87,7 +87,7 @@ where
 
         async move {
             trace!("Request: {:?}", req);
-            
+
             service.call(req).await
         }
         .boxed()

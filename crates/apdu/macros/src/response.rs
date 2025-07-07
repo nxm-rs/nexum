@@ -231,14 +231,14 @@ impl ResponseDef {
                     && !fields
                         .iter()
                         .any(|f| f.ident.as_ref().is_some_and(|ident| ident == field_name))
-                    {
-                        return Err(syn::Error::new(
-                            variant_name.span(),
-                            format!(
-                                "Payload field '{field_name}' not found in variant '{variant_name}'"
-                            ),
-                        ));
-                    }
+                {
+                    return Err(syn::Error::new(
+                        variant_name.span(),
+                        format!(
+                            "Payload field '{field_name}' not found in variant '{variant_name}'"
+                        ),
+                    ));
+                }
             }
 
             // Ensure we have a valid SW pattern
@@ -284,13 +284,13 @@ impl ResponseDef {
 
                 if let syn::Meta::NameValue(nv) = nested_meta
                     && nv.path.is_ident("field")
-                        && let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit_str),
-                            ..
-                        }) = &nv.value
-                        {
-                            return Ok(Some(lit_str.value()));
-                        }
+                    && let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit_str),
+                        ..
+                    }) = &nv.value
+                {
+                    return Ok(Some(lit_str.value()));
+                }
 
                 // Try parsing in a more manual way
                 let content = list.tokens.to_string();
@@ -395,13 +395,14 @@ impl ResponseDef {
                 _ => {
                     // Special handling for underscore
                     if let Some(lit) = Self::extract_token_str(tokens)
-                        && lit == "_" {
-                            return Ok(SwAnnotation {
-                                sw1: SwPattern::Any,
-                                sw2: SwPattern::Any,
-                                sw_ref: None,
-                            });
-                        }
+                        && lit == "_"
+                    {
+                        return Ok(SwAnnotation {
+                            sw1: SwPattern::Any,
+                            sw2: SwPattern::Any,
+                            sw_ref: None,
+                        });
+                    }
 
                     return Err(syn::Error::new(
                         expr.span(),

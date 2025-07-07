@@ -40,12 +40,13 @@ fn update_current_chain_callback(active_tab: ReadSignal<Option<tabs::Info>>) -> 
                 && let Ok(message) = JsValue::from_serde(&json!({
                     "type": "embedded:action",
                     "action": { "type": "getChainId" }
-                })) {
-                    chrome_sys::tabs::send_message_to_tab(&tab, message)
-                        .await
-                        .inspect_err(|e| tracing::error!(?e, "failed to send message to tab"))
-                        .ok();
-                }
+                }))
+            {
+                chrome_sys::tabs::send_message_to_tab(&tab, message)
+                    .await
+                    .inspect_err(|e| tracing::error!(?e, "failed to send message to tab"))
+                    .ok();
+            }
         });
     }
 }

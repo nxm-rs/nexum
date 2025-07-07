@@ -788,9 +788,10 @@ where
 
         // If we unpaired our own slot, clear the pairing info
         if let Some(pairing_info) = &self.pairing_info
-            && pairing_info.index == index {
-                self.pairing_info = None;
-            }
+            && pairing_info.index == index
+        {
+            self.pairing_info = None;
+        }
 
         Ok(())
     }

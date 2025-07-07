@@ -93,15 +93,17 @@ fn print_applications(tlv_data: &[u8]) {
 
                 // Find life cycle (C5 tag)
                 if let Some(lifecycle) = find_tlv_value(entry, 0xC5)
-                    && !lifecycle.is_empty() {
-                        println!("  Life Cycle: {:#04X}", lifecycle[0]);
-                    }
+                    && !lifecycle.is_empty()
+                {
+                    println!("  Life Cycle: {:#04X}", lifecycle[0]);
+                }
 
                 // Find privileges (C6 tag)
                 if let Some(privileges) = find_tlv_value(entry, 0xC6)
-                    && !privileges.is_empty() {
-                        println!("  Privileges: {}", hex::encode_upper(privileges));
-                    }
+                    && !privileges.is_empty()
+                {
+                    println!("  Privileges: {}", hex::encode_upper(privileges));
+                }
 
                 println!();
             }
@@ -132,9 +134,10 @@ fn print_load_files(tlv_data: &[u8]) {
 
                 // Find life cycle (C5 tag)
                 if let Some(lifecycle) = find_tlv_value(entry, 0xC5)
-                    && !lifecycle.is_empty() {
-                        println!("  Life Cycle: {:#04X}", lifecycle[0]);
-                    }
+                    && !lifecycle.is_empty()
+                {
+                    println!("  Life Cycle: {:#04X}", lifecycle[0]);
+                }
 
                 println!();
             }

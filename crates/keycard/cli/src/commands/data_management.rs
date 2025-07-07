@@ -51,9 +51,9 @@ pub fn get_data_command(
         && str_data
             .chars()
             .all(|c| !c.is_control() || c == '\n' || c == '\t' || c == '\r')
-        {
-            println!("Data as string: {str_data}");
-        }
+    {
+        println!("Data as string: {str_data}");
+    }
 
     Ok(())
 }
