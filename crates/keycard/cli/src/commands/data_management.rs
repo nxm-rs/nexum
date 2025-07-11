@@ -47,13 +47,12 @@ pub fn get_data_command(
     );
 
     // Try to interpret as UTF-8 string if possible
-    if let Ok(str_data) = std::str::from_utf8(&data) {
-        if str_data
+    if let Ok(str_data) = std::str::from_utf8(&data)
+        && str_data
             .chars()
             .all(|c| !c.is_control() || c == '\n' || c == '\t' || c == '\r')
-        {
-            println!("Data as string: {str_data}");
-        }
+    {
+        println!("Data as string: {str_data}");
     }
 
     Ok(())

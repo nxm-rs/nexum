@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use hex::FromHex;
 use nexum_apdu_core::prelude::CardExecutor;
 use nexum_apdu_globalplatform::{
-    load::LoadCommandStream, operations, GPSecureChannel, GlobalPlatform, Keys,
+    GPSecureChannel, GlobalPlatform, Keys, load::LoadCommandStream, operations,
 };
 use nexum_apdu_transport_pcsc::{PcscConfig, PcscDeviceManager};
 use std::io::{self, Write};

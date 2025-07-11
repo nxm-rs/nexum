@@ -11,10 +11,10 @@ use rand_v8::thread_rng;
 use zeroize::Zeroize;
 
 use crate::{
-    crypto::{
-        calculate_mac, derive_session_keys, generate_ecdh_shared_secret, ApduMeta, KeycardScp,
-    },
     OpenSecureChannelCommand, OpenSecureChannelOk, PairingInfo,
+    crypto::{
+        ApduMeta, KeycardScp, calculate_mac, derive_session_keys, generate_ecdh_shared_secret,
+    },
 };
 
 /// Keycard SCP keys

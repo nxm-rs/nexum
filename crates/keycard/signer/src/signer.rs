@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use alloy_consensus::SignableTransaction;
 use alloy_network::{AnyNetwork, EthereumWallet, IntoWallet};
-use alloy_primitives::{Address, ChainId, Signature, B256};
-use alloy_signer::{sign_transaction_with_chain_id, Result, Signer};
+use alloy_primitives::{Address, B256, ChainId, Signature};
+use alloy_signer::{Result, Signer, sign_transaction_with_chain_id};
 use async_trait::async_trait;
 use coins_bip32::path::DerivationPath;
 use nexum_apdu_core::prelude::*;

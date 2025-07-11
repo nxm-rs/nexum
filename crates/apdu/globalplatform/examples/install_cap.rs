@@ -6,7 +6,7 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use nexum_apdu_globalplatform::{load::LoadCommandStream, DefaultGlobalPlatform};
+use nexum_apdu_globalplatform::{DefaultGlobalPlatform, load::LoadCommandStream};
 use nexum_apdu_transport_pcsc::PcscDeviceManager;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

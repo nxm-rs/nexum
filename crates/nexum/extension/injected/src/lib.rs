@@ -2,7 +2,7 @@
 
 use js_sys::{Object, Reflect};
 use provider::EthereumProvider;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use web_sys::window;
 
 mod eip6963;

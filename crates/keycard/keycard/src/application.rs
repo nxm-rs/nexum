@@ -13,8 +13,8 @@ use crate::secure_channel::{
 };
 use crate::types::{Capabilities, Capability, ExportedKey, Signature, Version};
 use crate::validation::{get_valid_pairing_index, get_valid_pairing_key, get_valid_pin};
-use crate::{commands::*, Secrets};
 use crate::{ApplicationInfo, ApplicationStatus, Error, PairingInfo, Result};
+use crate::{Secrets, commands::*};
 use alloy_primitives::hex;
 use coins_bip32::path::DerivationPath;
 use std::sync::Arc;
@@ -787,10 +787,10 @@ where
         self.executor.execute_secure(&cmd)?;
 
         // If we unpaired our own slot, clear the pairing info
-        if let Some(pairing_info) = &self.pairing_info {
-            if pairing_info.index == index {
-                self.pairing_info = None;
-            }
+        if let Some(pairing_info) = &self.pairing_info
+            && pairing_info.index == index
+        {
+            self.pairing_info = None;
         }
 
         Ok(())

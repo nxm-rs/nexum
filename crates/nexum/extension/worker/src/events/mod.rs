@@ -72,9 +72,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
                 let extension = extension.clone();
                 trace!(
                     "Tab updated: tab_id={:?}, change_info={:?}, tab={:?}",
-                    tab_id,
-                    change_info,
-                    tab
+                    tab_id, change_info, tab
                 );
                 spawn_local(async move {
                     tabs_on_updated(extension, tab_id, change_info).await;

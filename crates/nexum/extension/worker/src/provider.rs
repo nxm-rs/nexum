@@ -1,14 +1,14 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 use std::time::Duration;
 
 use async_lock::RwLock;
 use chrome_sys::tabs;
 use futures::{
-    future::{select, Either},
     StreamExt,
+    future::{Either, select},
 };
 use gloo_timers::future::{IntervalStream, TimeoutFuture};
 use jsonrpsee::{
@@ -19,7 +19,7 @@ use tracing::{debug, trace, warn};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
-use crate::{events::send_event, ConnectionState, Extension};
+use crate::{ConnectionState, Extension, events::send_event};
 
 const UPSTREAM_URL: &str = "ws://127.0.0.1:1250/sepolia";
 

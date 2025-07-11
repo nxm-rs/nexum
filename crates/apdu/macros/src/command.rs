@@ -2,7 +2,7 @@
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{braced, parse::ParseStream, Expr, Ident, ItemFn, Token, Visibility};
+use syn::{Expr, Ident, ItemFn, Token, Visibility, braced, parse::ParseStream};
 
 /// Command definition parsed from the `command` block
 pub(crate) struct CommandDef {

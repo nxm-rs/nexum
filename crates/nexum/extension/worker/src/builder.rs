@@ -11,9 +11,8 @@ use tracing::info;
 use wasm_bindgen::JsValue;
 
 use crate::{
-    origin_from_url,
-    state::{set_icon_for_connection_state, ExtensionState},
-    Extension, Provider, CLIENT_STATUS_ALARM_KEY,
+    CLIENT_STATUS_ALARM_KEY, Extension, Provider, origin_from_url,
+    state::{ExtensionState, set_icon_for_connection_state},
 };
 
 pub struct ExtensionBuilder {

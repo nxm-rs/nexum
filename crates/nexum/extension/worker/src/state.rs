@@ -12,8 +12,8 @@ use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::{
-    subscription::{unsubscribe, Subscription},
     Extension,
+    subscription::{Subscription, unsubscribe},
 };
 
 #[derive(Default)]

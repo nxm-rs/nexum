@@ -6,10 +6,10 @@
 
 use cbc_mac::{CbcMac, Mac};
 use cipher::{
-    block_padding::{Iso7816, Padding, RawPadding},
-    consts::{U16, U256, U8},
-    generic_array::GenericArray,
     BlockEncrypt, BlockEncryptMut, Iv, IvSizeUser, Key, KeyInit, KeyIvInit, KeySizeUser,
+    block_padding::{Iso7816, Padding, RawPadding},
+    consts::{U8, U16, U256},
+    generic_array::GenericArray,
 };
 use des::{Des, TdesEde3};
 

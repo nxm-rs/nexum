@@ -4,10 +4,10 @@ use alloy::{
     dyn_abi::TypedData,
     primitives::{Address, B256},
     signers::{
+        Signature, Signer, SignerSync,
         k256::ecdsa::SigningKey,
         ledger::{HDPath, LedgerSigner},
         local::LocalSigner,
-        Signature, Signer, SignerSync,
     },
 };
 use eyre::OptionExt;

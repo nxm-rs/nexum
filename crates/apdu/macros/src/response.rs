@@ -3,8 +3,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    braced, parse::ParseStream, spanned::Spanned, Attribute, Expr, ExprClosure, ExprLit, Field,
-    Ident, Lit, Token, Type, Visibility,
+    Attribute, Expr, ExprClosure, ExprLit, Field, Ident, Lit, Token, Type, Visibility, braced,
+    parse::ParseStream, spanned::Spanned,
 };
 
 use crate::utils::byte_lit;
@@ -227,18 +227,17 @@ impl ResponseDef {
                 }
 
                 // Validate payload field name if specified
-                if let Some(ref field_name) = payload_field {
-                    if !fields
+                if let Some(ref field_name) = payload_field
+                    && !fields
                         .iter()
                         .any(|f| f.ident.as_ref().is_some_and(|ident| ident == field_name))
-                    {
-                        return Err(syn::Error::new(
-                            variant_name.span(),
-                            format!(
-                                "Payload field '{field_name}' not found in variant '{variant_name}'"
-                            ),
-                        ));
-                    }
+                {
+                    return Err(syn::Error::new(
+                        variant_name.span(),
+                        format!(
+                            "Payload field '{field_name}' not found in variant '{variant_name}'"
+                        ),
+                    ));
                 }
             }
 
@@ -283,16 +282,14 @@ impl ResponseDef {
             syn::Meta::List(list) => {
                 let nested_meta = syn::parse2::<syn::Meta>(quote::quote! { #list })?;
 
-                if let syn::Meta::NameValue(nv) = nested_meta {
-                    if nv.path.is_ident("field") {
-                        if let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit_str),
-                            ..
-                        }) = &nv.value
-                        {
-                            return Ok(Some(lit_str.value()));
-                        }
-                    }
+                if let syn::Meta::NameValue(nv) = nested_meta
+                    && nv.path.is_ident("field")
+                    && let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit_str),
+                        ..
+                    }) = &nv.value
+                {
+                    return Ok(Some(lit_str.value()));
                 }
 
                 // Try parsing in a more manual way
@@ -397,14 +394,14 @@ impl ResponseDef {
                 }
                 _ => {
                     // Special handling for underscore
-                    if let Some(lit) = Self::extract_token_str(tokens) {
-                        if lit == "_" {
-                            return Ok(SwAnnotation {
-                                sw1: SwPattern::Any,
-                                sw2: SwPattern::Any,
-                                sw_ref: None,
-                            });
-                        }
+                    if let Some(lit) = Self::extract_token_str(tokens)
+                        && lit == "_"
+                    {
+                        return Ok(SwAnnotation {
+                            sw1: SwPattern::Any,
+                            sw2: SwPattern::Any,
+                            sw_ref: None,
+                        });
                     }
 
                     return Err(syn::Error::new(

@@ -2,7 +2,7 @@ use bytes::Bytes;
 use nexum_apdu_globalplatform::constants::status::*;
 use nexum_apdu_macros::apdu_pair;
 
-use super::{PersistentRecord, CLA_GP};
+use super::{CLA_GP, PersistentRecord};
 
 apdu_pair! {
     /// STORE DATA command for Keycard

@@ -1,7 +1,7 @@
 //! Channel-based event handling for PC/SC operations
 
 use crate::event::{CardEvent, CardStatusEvent, ReaderEvent};
-use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, bounded, unbounded};
 
 /// Sender for card events
 pub type CardEventSender = Sender<CardEvent>;

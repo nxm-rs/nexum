@@ -13,10 +13,10 @@ use serde::Deserialize;
 use serde_json::Value;
 use serde_wasm_bindgen::from_value;
 use tracing::{debug, info, trace, warn};
-use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, prelude::Closure};
 use wasm_bindgen_futures::spawn_local;
 
-use crate::{provider::Provider, state::BufferedRequest, Extension, EXTENSION_PORT_NAME};
+use crate::{EXTENSION_PORT_NAME, Extension, provider::Provider, state::BufferedRequest};
 
 // To be used with the `chrome.runtime.onConnect` event
 pub async fn runtime_on_connect(extension: Arc<Extension>, js_port: JsValue) {

@@ -27,9 +27,9 @@ pub use secure_channel::GPSecureChannel;
 pub use session::{Keys, Session};
 
 // Re-export from nexum_apdu_core for convenience
+pub use nexum_apdu_core::ResponseAwareExecutor;
 pub use nexum_apdu_core::executor::SecureChannelExecutor;
 pub use nexum_apdu_core::secure_channel::SecurityLevel;
-pub use nexum_apdu_core::ResponseAwareExecutor;
 
 // Export main commands
 pub use commands::*;
@@ -67,9 +67,9 @@ impl DefaultGlobalPlatform {
 
 /// Convenience functions for common operations
 pub mod operations {
+    use nexum_apdu_core::ResponseAwareExecutor;
     use nexum_apdu_core::executor::SecureChannelExecutor;
     use nexum_apdu_core::prelude::Executor;
-    use nexum_apdu_core::ResponseAwareExecutor;
 
     use crate::commands::get_status::{parse_applications, parse_load_files};
     use crate::error::{Error, ResultExt};

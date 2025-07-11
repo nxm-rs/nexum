@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, List, ListState, Padding, Row, StatefulWidget, Table, Widget},
 };
 
-use crate::{config::Config, HandleEvent};
+use crate::{HandleEvent, config::Config};
 
 pub struct ConfigTab {
     pub config: Config,

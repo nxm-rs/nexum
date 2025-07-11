@@ -2,8 +2,8 @@
 
 use nexum_primitives::ProtocolMessage;
 use tracing::{debug, error, trace};
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use web_sys::{Event, HtmlScriptElement};
 
 // Function to handle onMessage from the Chrome extension runtime

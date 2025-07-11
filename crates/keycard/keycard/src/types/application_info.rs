@@ -4,7 +4,7 @@ use std::fmt;
 
 use crate::tags;
 
-use super::{get_primitive_value, signature::PublicKey, Capabilities, Version};
+use super::{Capabilities, Version, get_primitive_value, signature::PublicKey};
 
 /// Application info return by SELECT command
 #[derive(Debug, Clone)]

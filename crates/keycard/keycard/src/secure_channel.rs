@@ -4,7 +4,7 @@ use alloy_primitives::hex::{self, encode};
 use bytes::{Bytes, BytesMut};
 use k256::elliptic_curve::generic_array::GenericArray;
 use nexum_apdu_core::prelude::*;
-use rand::{rng, RngCore};
+use rand::{RngCore, rng};
 use sha2::{Digest, Sha256};
 use tracing::{debug, trace, warn};
 
@@ -482,8 +482,7 @@ impl<T: CardTransport> SecureChannel for KeycardSecureChannel<T> {
     fn upgrade(&mut self, level: SecurityLevel) -> Result<(), Error> {
         trace!(
             "KeycardSCP::upgrade called with current level={:?}, requested level={:?}",
-            self.security_level,
-            level
+            self.security_level, level
         );
 
         // Check if we're already at or above the required level

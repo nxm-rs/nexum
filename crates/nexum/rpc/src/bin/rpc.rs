@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 use alloy_chains::NamedChain;
 use clap::Parser;
 use eyre::OptionExt;
-use nexum_rpc::rpc::{chain_id_or_name_to_named_chain, RpcServerBuilder};
+use nexum_rpc::rpc::{RpcServerBuilder, chain_id_or_name_to_named_chain};
 use url::Url;
 
 #[derive(Parser, Debug)]
