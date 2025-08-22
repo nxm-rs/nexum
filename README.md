@@ -44,7 +44,7 @@ Nexum is in **active development**. Documentation, user guides, and installation
 
 Nexum welcomes community contributions! To get involved:
 
-- Join the [Signal](https://signal.group/#CjQKIHNV-kWphhtnpwS3zywC7LRr5BEW9Q1XyDl2qZtL2WYqEhAyO0c8tGmrQDmEsY15rALt) group to discuss development.
+- Join the [matrix space](https://matrix.to/#/#space:nxm.rs) to discuss development.
 - Open an [issue](https://github.com/nxm-rs/nexum/issues) with ideas or questions.
 
 ### Building and Testing 🛠️
