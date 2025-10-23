@@ -44,12 +44,12 @@ Nexum is in **active development**. Documentation, user guides, and installation
 
 Nexum welcomes community contributions! To get involved:
 
-- Join the [matrix space](https://matrix.to/#/#space:nxm.rs) to discuss development.
+- Join the [matrix space](https://matrix.to/#/#nexum:nxm.rs) to discuss development.
 - Open an [issue](https://github.com/nxm-rs/nexum/issues) with ideas or questions.
 
 ### Building and Testing 🛠️
 
-Minimum Supported Rust Version (MSRV): [1.82.0](https://blog.rust-lang.org/2024/10/17/Rust-1.82.0.html).
+Minimum Supported Rust Version (MSRV): 1.88
 
 Clone and build Nexum:
 
