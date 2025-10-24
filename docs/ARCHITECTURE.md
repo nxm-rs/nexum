@@ -4,10 +4,10 @@ This document provides a comprehensive overview of Nexum's architecture, compone
 
 ## Overview
 
-Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly. It provides both a Chrome browser extension and a terminal-based interface (TUI) for interacting with Ethereum networks. The codebase is organized into multiple focused crates that handle different concerns: APDU smart card operations, Keycard integration, core RPC functionality, and extension components.
+Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly. It provides both a browser extension and a terminal-based interface (TUI) for interacting with Ethereum networks. The codebase is organized into multiple focused crates that handle different concerns: APDU smart card operations, Keycard integration, core RPC functionality, and extension components.
 
 **Key Technologies:**
-- Language: Rust (2024 edition, MSRV 1.88)
+- Language: Rust
 - Platforms: WebAssembly (browser), native (terminal)
 - License: AGPL-3.0-or-later
 - Primary dependencies: Alloy (Ethereum library), jsonrpsee (JSON-RPC), tokio (async runtime)

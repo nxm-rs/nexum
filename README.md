@@ -49,7 +49,6 @@ Nexum welcomes community contributions! To get involved:
 
 ### Building and Testing 🛠️
 
-Minimum Supported Rust Version (MSRV): 1.88
 
 Clone and build Nexum:
 
