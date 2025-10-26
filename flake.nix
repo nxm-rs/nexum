@@ -18,12 +18,21 @@
       {
         devShells.default = with pkgs; mkShell {
           buildInputs = [
+            # System dependencies
             openssl
             pcsclite
             pkg-config
+
+            # Rust toolchain with WASM target
             ((rust-bin.selectLatestNightlyWith
               (toolchain: toolchain.default)).override
               { targets = [ "wasm32-unknown-unknown" ]; }) # or `toolchain.minimal`
+
+            # Development tools
+            wasm-pack      # WASM build tool
+            trunk          # WASM web app bundler
+            just           # Task runner
+            nodePackages.web-ext  # Browser extension development
           ];
         };
 
