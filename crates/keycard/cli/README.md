@@ -118,7 +118,7 @@ For security-critical operations, you'll need to provide your PIN (and sometimes
 
 ## License
 
-Licensed under the [AGPL License](../../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 

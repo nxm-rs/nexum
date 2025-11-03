@@ -120,7 +120,7 @@ This implementation is based on the GlobalPlatform Card Specification and draws 
 
 ## License
 
-Licensed under the [AGPL License](../../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 

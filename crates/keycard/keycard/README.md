@@ -2,8 +2,8 @@
 
 `nexum-keycard` is a Rust implementation for interacting with Keycards - secure hardware wallets in a smart card form factor. It provides a comprehensive API for managing Keycards, including secure channel communication, key management, and cryptographic operations.
 
-[![docs.rs](https://img.shields.io/docsrs/nexum-keycard/latest)](https://docs.rs/nexum-keycard)
-[![Crates.io](https://img.shields.io/crates/v/nexum-keycard)](https://crates.io/crates/nexum-keycard)
+<!-- [![docs.rs](https://img.shields.io/docsrs/nexum-keycard/latest)](https://docs.rs/nexum-keycard) -->
+<!-- [![Crates.io](https://img.shields.io/crates/v/nexum-keycard)](https://crates.io/crates/nexum-keycard) -->
 
 Secure your blockchain private keys with hardware security in a convenient card format, powered by robust Rust implementation.
 
@@ -84,7 +84,7 @@ The library is designed with a layered approach:
 
 ## License
 
-Licensed under the [AGPL License](../../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 

@@ -143,7 +143,7 @@ You can implement custom processors to handle:
 
 ## License
 
-Licensed under the [AGPL License](../../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 

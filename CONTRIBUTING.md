@@ -26,7 +26,7 @@ This disclosure requirement applies to all forms of AI assistance including but 
 
 1. **Link to an accepted issue**: Pull requests should correspond to previously discussed and accepted issues or feature proposals. Unsolicited PRs may be closed or remain stale indefinitely.
 
-2. **Use Discussions for design**: Pull requests are **not** the place to discuss feature design or architecture decisions. Use [GitHub Discussions](https://github.com/nxm-rs/nexum/discussions) for brainstorming and design conversations. Once design is settled and an issue is marked as "accepted," implementation can begin.
+2. **Use Discussions for design**: Pull requests are **not** the place to discuss feature design or architecture decisions. Use [matrix rooms](https://matrix.to/#/#nexum:nxm.rs) for brainstorming and design conversations. Once design is settled and an issue is marked as "accepted," implementation can begin.
 
 3. **Self-review thoroughly**: Review your own changes before requesting review from others. Ensure your code:
    - Compiles without warnings (`cargo clippy` must pass)

@@ -2,8 +2,8 @@
 
 `nexum-keycard` is a comprehensive toolkit for interacting with Keycards - secure smart cards designed for blockchain applications and cryptocurrency key management. This implementation provides a complete solution for Keycard operations in Rust.
 
-[![docs.rs](https://img.shields.io/docsrs/nexum-keycard/latest)](https://docs.rs/nexum-keycard)
-[![Crates.io](https://img.shields.io/crates/v/nexum-keycard)](https://crates.io/crates/nexum-keycard)
+<!-- [![docs.rs](https://img.shields.io/docsrs/nexum-keycard/latest)](https://docs.rs/nexum-keycard) -->
+<!-- [![Crates.io](https://img.shields.io/crates/v/nexum-keycard)](https://crates.io/crates/nexum-keycard) -->
 
 Build secure blockchain applications with hardware-backed security and the power of Rust.
 
@@ -87,9 +87,9 @@ This repository contains the following crates:
 
 For detailed documentation on each crate, please check their individual `README` files:
 
-- [`nexum-keycard` `README`](./crates/keycard/README.md) - Core Keycard functionality
-- [`nexum-keycard-signer` `README`](./crates/signer/README.md) - Blockchain signer implementation
-- [`nexum-keycard-cli` `README`](./crates/cli/README.md) - Command-line interface
+- [`nexum-keycard` `README`](./keycard/README.md) - Core Keycard functionality
+- [`nexum-keycard-signer` `README`](./signer/README.md) - Blockchain signer implementation
+- [`nexum-keycard-cli` `README`](./cli/README.md) - Command-line interface
 
 ## Command-Line Interface
 
@@ -120,7 +120,7 @@ nexum-keycard-cli sign 0123456789abcdef --path m/44'/60'/0'/0/0
 
 ## License
 
-Licensed under the [AGPL License](LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](./LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 
