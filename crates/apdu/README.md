@@ -2,8 +2,8 @@
 
 nexum-apdu is a comprehensive toolkit for smart card communication in Rust using the APDU (Application Protocol Data Unit) protocol. Whether you're building a payment terminal, identity verification system, or HSM integration, nexum-apdu provides the foundation for secure card communications.
 
-[![docs.rs](https://img.shields.io/docsrs/nexum-apdu-core/latest)](https://docs.rs/nexum-apdu-core)
-[![Crates.io](https://img.shields.io/crates/v/nexum-apdu-core)](https://crates.io/crates/nexum-apdu-core)
+<!-- [![docs.rs](https://img.shields.io/docsrs/nexum-apdu-core/latest)](https://docs.rs/nexum-apdu-core) -->
+<!-- [![Crates.io](https://img.shields.io/crates/v/nexum-apdu-core)](https://crates.io/crates/nexum-apdu-core) -->
 
 Unlock the cryptographic conversations that smart cards are dying to have with nexum-apdu as your trusted interpreter.
 
@@ -98,21 +98,21 @@ This repository contains the following crates:
 
 For detailed documentation on each crate, please check their individual README files:
 
-- [nexum-apdu-core README](./crates/core/README.md) - Core APDU abstractions and types
-- [nexum-apdu-macros README](./crates/macros/README.md) - Procedural macros for command/response definition
-- [nexum-apdu-transport-pcsc README](./crates/pcsc/README.md) - PC/SC transport implementation
-- [nexum-apdu-globalplatform README](./crates/globalplatform/README.md) - GlobalPlatform operations
+- [nexum-apdu-core README](./core/README.md) - Core APDU abstractions and types
+- [nexum-apdu-macros README](./macros/README.md) - Procedural macros for command/response definition
+- [nexum-apdu-transport-pcsc README](./pcsc/README.md) - PC/SC transport implementation
+- [nexum-apdu-globalplatform README](./globalplatform/README.md) - GlobalPlatform operations
 
 ### Example Applications
 
 Check out these examples to see nexum-apdu in action:
 
-- [Connect to a reader](./crates/pcsc/examples/connect.rs) - Basic card connection and communication
-- [List available readers](./crates/pcsc/examples/list_readers.rs) - Enumerate connected card readers
-- [APDU shell](./crates/pcsc/examples/apdu_shell.rs) - Interactive APDU command interpreter
-- [Monitor card events](./crates/pcsc/examples/monitor_events.rs) - Track card insertion/removal events
-- [Select an application by AID](./crates/pcsc/examples/select_aid.rs) - Select applications using their AID
-- [Install a CAP file](./crates/globalplatform/examples/install_cap.rs) - Install Java Card applications
+- [Connect to a reader](./pcsc/examples/connect.rs) - Basic card connection and communication
+- [List available readers](./pcsc/examples/list_readers.rs) - Enumerate connected card readers
+- [APDU shell](./pcsc/examples/apdu_shell.rs) - Interactive APDU command interpreter
+- [Monitor card events](./pcsc/examples/monitor_events.rs) - Track card insertion/removal events
+- [Select an application by AID](./pcsc/examples/select_aid.rs) - Select applications using their AID
+- [Install a CAP file](./globalplatform/examples/install_cap.rs) - Install Java Card applications
 
 For more examples, see the `examples` directory in each crate.
 
@@ -134,7 +134,7 @@ Executors manage the complete command execution flow, combining transports and p
 
 ## License
 
-Licensed under the [AGPL License](LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](./LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 

@@ -2,8 +2,8 @@
 
 `nexum-keycard-signer` provides an implementation of the [`alloy-signer`](https://crates.io/crates/alloy-signer) trait for Keycards, allowing them to be used as hardware signers for Ethereum and other EVM-compatible blockchains.
 
-[![docs.rs](https://img.shields.io/docsrs/nexum-keycard-signer/latest)](https://docs.rs/nexum-keycard-signer)
-[![Crates.io](https://img.shields.io/crates/v/nexum-keycard-signer)](https://crates.io/crates/nexum-keycard-signer)
+<!-- [![docs.rs](https://img.shields.io/docsrs/nexum-keycard-signer/latest)](https://docs.rs/nexum-keycard-signer) -->
+<!-- [![Crates.io](https://img.shields.io/crates/v/nexum-keycard-signer)](https://crates.io/crates/nexum-keycard-signer) -->
 
 Secure your blockchain transactions with hardware-backed signing using Keycards and the Alloy ecosystem.
 
@@ -88,7 +88,7 @@ The implementation delegates all cryptographic operations to the secure element 
 
 ## License
 
-Licensed under the [AGPL License](../../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
+Licensed under the [AGPL License](../LICENSE) or http://www.gnu.org/licenses/agpl-3.0.html.
 
 ## Contributions
 
