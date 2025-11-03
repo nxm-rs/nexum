@@ -74,25 +74,25 @@ nexum-keycard-cli init --pin 123456 --puk 123456789012 --pairing-password MyPass
 ### Pair with a card
 
 ```sh
-nexum-keycard-cli pair --output pairing.json
+nexum-keycard-cli pair --output pairing_data
 ```
 
 ### Generate a key
 
 ```sh
-nexum-keycard-cli generate-key --file pairing.json
+nexum-keycard-cli generate-key --file pairing_data
 ```
 
 ### Sign data
 
 ```sh
-nexum-keycard-cli sign 0123456789abcdef --path m/44'/60'/0'/0/0 --file pairing.json
+nexum-keycard-cli sign 0123456789abcdef --path m/44'/60'/0'/0/0 --file pairing_data
 ```
 
 ### Get card status
 
 ```sh
-nexum-keycard-cli get-status --file pairing.json
+nexum-keycard-cli get-status --file pairing_data
 ```
 
 ## Features
