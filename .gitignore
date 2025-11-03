@@ -2,6 +2,7 @@
 dist
 .data/
 .envrc
+.direnv/
 
 
 # We keep the symbolic link
