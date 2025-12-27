@@ -9,12 +9,12 @@ use futures::{
     StreamExt,
     future::{Either, select},
 };
-use nexum_chrome_gloo::tabs::QueryQueryInfo;
 use gloo_timers::future::{IntervalStream, TimeoutFuture};
 use jsonrpsee::{
     core::{client::ClientT, traits::ToRpcParams},
     wasm_client::{Client, WasmClientBuilder},
 };
+use nexum_chrome_gloo::tabs::QueryQueryInfo;
 use tracing::{debug, trace, warn};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;

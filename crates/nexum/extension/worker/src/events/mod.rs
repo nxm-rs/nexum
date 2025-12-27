@@ -6,7 +6,7 @@ mod idle;
 use idle::*;
 mod runtime;
 use gloo_utils::format::JsValueSerdeExt;
-use nexum_chrome_gloo::tabs::{self as chrome_tabs, Tab, QueryQueryInfo};
+use nexum_chrome_gloo::tabs::{self as chrome_tabs, QueryQueryInfo, Tab};
 use nexum_primitives::{EthEvent, MessageType, ProtocolMessage};
 use runtime::*;
 mod tabs;
@@ -170,7 +170,10 @@ pub(crate) async fn send_event(
 
     // Filter tabs with valid `id` and `url`, then send the event to each
     spawn_local(async move {
-        for tab in tabs.iter().filter(|t| t.get_id().is_some() && t.get_url().is_some()) {
+        for tab in tabs
+            .iter()
+            .filter(|t| t.get_id().is_some() && t.get_url().is_some())
+        {
             let tab_id = tab.get_id().unwrap();
             if let Err(e) = send_event_to_tab(tab_id, event.to_owned(), args_js.clone()).await {
                 warn!(error = ?e, tab_id, "Failed to send event to tab");

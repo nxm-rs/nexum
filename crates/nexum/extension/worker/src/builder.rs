@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use futures::lock::Mutex;
-use nexum_chrome_gloo::{alarms, tabs};
 use nexum_chrome_gloo::tabs::Tab;
+use nexum_chrome_gloo::{alarms, tabs};
 use nexum_chrome_sys::action::{self, SetPopupDetails};
 use nexum_chrome_sys::alarms::AlarmCreateInfo;
 use tracing::info;
@@ -39,10 +39,7 @@ impl ExtensionBuilder {
             .await
             .unwrap_or_else(|_| JsValue::undefined());
         let tab_array = js_sys::Array::from(&tabs_js);
-        let tabs: Vec<Tab> = tab_array
-            .iter()
-            .map(|t| t.unchecked_into())
-            .collect();
+        let tabs: Vec<Tab> = tab_array.iter().map(|t| t.unchecked_into()).collect();
         let tab_origins = tabs
             .into_iter()
             .filter_map(|tab| {

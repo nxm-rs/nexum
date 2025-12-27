@@ -27,16 +27,22 @@ mod panels;
 fn frame_connect(set_frame_state: WriteSignal<FrameState>) {
     // Create connect info with the port name
     let connect_info = Object::new();
-    js_sys::Reflect::set(&connect_info, &JsValue::from_str("name"), &JsValue::from_str(EXTENSION_PORT_NAME)).unwrap();
+    js_sys::Reflect::set(
+        &connect_info,
+        &JsValue::from_str("name"),
+        &JsValue::from_str(EXTENSION_PORT_NAME),
+    )
+    .unwrap();
     let port = runtime::connect(None, Some(connect_info));
 
     // Set up message listener using EventListener2 (receives message and port)
-    let listener = EventListener2::new(&port.on_message(), move |state: JsValue, _port: JsValue| {
-        if let Ok(state) = state.into_serde::<FrameState>() {
-            debug!("Frame state: {:?}", &state);
-            set_frame_state.set(state);
-        }
-    });
+    let listener =
+        EventListener2::new(&port.on_message(), move |state: JsValue, _port: JsValue| {
+            if let Ok(state) = state.into_serde::<FrameState>() {
+                debug!("Frame state: {:?}", &state);
+                set_frame_state.set(state);
+            }
+        });
 
     match listener {
         Ok(l) => l.forget(), // Keep listener alive
