@@ -23,7 +23,7 @@ use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, HorizontalAlignment, Layout},
     prelude::{Buffer, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Style},
     symbols,
     text::Text,
     widgets::{
