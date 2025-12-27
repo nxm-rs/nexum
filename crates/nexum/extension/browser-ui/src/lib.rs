@@ -1,10 +1,14 @@
 use std::time::Duration;
 
-use chrome_sys::{port, tabs};
 use constants::EXTENSION_PORT_NAME;
 use gloo_utils::format::JsValueSerdeExt;
+use js_sys::Object;
 use leptos::{prelude::*, task::spawn_local};
 use leptos_meta::*;
+use nexum_chrome_gloo::events::EventListener2;
+use nexum_chrome_gloo::tabs;
+use nexum_chrome_sys::runtime;
+use nexum_chrome_sys::tabs::TabData;
 use nexum_primitives::FrameState;
 use pages::settings::SettingsPage;
 use send_wrapper::SendWrapper;
@@ -21,57 +25,63 @@ mod panels;
 
 // Define a function to connect to the frame
 fn frame_connect(set_frame_state: WriteSignal<FrameState>) {
-    let port = chrome_sys::runtime::connect(&JsValue::from(EXTENSION_PORT_NAME)).unwrap();
-    let closure = Closure::wrap(Box::new(move |state: JsValue| {
-        let state: FrameState = state.into_serde().unwrap();
-        debug!("Frame state: {:?}", &state);
-        set_frame_state.set(state);
-    }) as Box<dyn FnMut(JsValue)>);
+    // Create connect info with the port name
+    let connect_info = Object::new();
+    js_sys::Reflect::set(&connect_info, &JsValue::from_str("name"), &JsValue::from_str(EXTENSION_PORT_NAME)).unwrap();
+    let port = runtime::connect(None, Some(connect_info));
 
-    port::add_on_message_listener(port, closure.as_ref().unchecked_ref()).unwrap();
-    closure.forget(); // Closure is retained in memory
+    // Set up message listener using EventListener2 (receives message and port)
+    let listener = EventListener2::new(&port.on_message(), move |state: JsValue, _port: JsValue| {
+        if let Ok(state) = state.into_serde::<FrameState>() {
+            debug!("Frame state: {:?}", &state);
+            set_frame_state.set(state);
+        }
+    });
+
+    match listener {
+        Ok(l) => l.forget(), // Keep listener alive
+        Err(e) => tracing::error!(?e, "Failed to add onMessage listener"),
+    }
 }
 
-fn update_current_chain_callback(active_tab: ReadSignal<Option<tabs::Info>>) -> impl Fn() {
+fn update_current_chain_callback(active_tab: ReadSignal<Option<TabData>>) -> impl Fn() {
     move || {
-        let tab_clone = active_tab.get_untracked().clone();
+        let tab_clone = active_tab.get_untracked();
         spawn_local(async move {
             if let Some(tab) = tab_clone
+                && let Some(tab_id) = tab.id
                 && let Ok(message) = JsValue::from_serde(&json!({
                     "type": "embedded:action",
                     "action": { "type": "getChainId" }
                 }))
             {
-                chrome_sys::tabs::send_message_to_tab(&tab, message)
-                    .await
-                    .inspect_err(|e| tracing::error!(?e, "failed to send message to tab"))
-                    .ok();
+                if let Err(e) = tabs::send_message(tab_id, message).await {
+                    tracing::error!(?e, "failed to send message to tab");
+                }
             }
         });
     }
 }
 
 async fn init(
-    set_active_tab: WriteSignal<Option<tabs::Info>>,
+    set_active_tab: WriteSignal<Option<TabData>>,
     set_mm_appear: WriteSignal<bool>,
     set_is_injected_tab: WriteSignal<bool>,
 ) {
     // Get and set the active tab
-    let active_tab = tabs::get_active_tab().await;
-    if let Some(tab) = &active_tab {
-        set_active_tab(Some(tab.clone()));
-        if let Some(url) = &tab.url {
+    if let Ok(Some(tab)) = tabs::get_active_tab().await {
+        let tab_data: TabData = (&tab).into();
+        if let Some(ref url) = tab_data.url {
             set_is_injected_tab(
                 url.starts_with("https://")
                     || url.starts_with("http://")
                     || url.starts_with("file://"),
             );
         }
+        set_active_tab(Some(tab_data));
     }
 
     // Get the initial settings from the page - hard set to not appear as MM for the moment
-    // let settings = helper::get_initial_settings(&active_tab).await;
-    // set_mm_appear.set(settings[0]);
     set_mm_appear(false);
 }
 
@@ -81,7 +91,7 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     // Define reactive signals
-    let (active_tab, set_active_tab) = signal(None::<tabs::Info>);
+    let (active_tab, set_active_tab) = signal(None::<TabData>);
     let (mm_appear, set_mm_appear) = signal(false);
     let (is_injected_tab, set_is_injected_tab) = signal(false);
 

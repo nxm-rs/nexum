@@ -2,10 +2,11 @@ use crate::components::cluster::Value;
 use crate::components::general::{ChainButtonIcon, ChainButtonLabel};
 use crate::helper::update_current_chain;
 use alloy_chains::Chain;
-use chrome_sys::tabs;
 use gloo_utils::format::JsValueSerdeExt;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use nexum_chrome_sys::runtime;
+use nexum_chrome_sys::tabs::TabData;
 use nexum_primitives::FrameState;
 use serde_json::json;
 use wasm_bindgen::JsValue;
@@ -15,7 +16,7 @@ pub fn ChainButton(
     chain: Chain,
     frame_state: ReadSignal<FrameState>,
     index: usize,
-    tab: ReadSignal<Option<tabs::Info>>,
+    tab: ReadSignal<Option<TabData>>,
 ) -> impl IntoView {
     // A chain can be selected if it is connected and a tab is available
     let is_selectable = frame_state.with(|state| {
@@ -40,17 +41,16 @@ pub fn ChainButton(
     // Define the handle_click function
     let handle_click = Box::new(move || {
         if is_selectable {
-            // Send message to switch Ethereum chain
-            if let Ok(message) = JsValue::from_serde(&json!({
-                "tab": tab.get().as_ref().unwrap().id.unwrap(),
-                "method": "wallet_switchEthereumChain",
-                "params": [{"chainId": chain.id()}],
-            })) {
-                chrome_sys::runtime::send_message(&message)
-                    .inspect_err(|e| {
-                        tracing::error!(?e, "sending wallet_switchEthereumChain message failed")
-                    })
-                    .ok();
+            // Send message to switch Ethereum chain - get tab_id from TabData
+            if let Some(tab_ref) = tab.get()
+                && let Some(tab_id) = tab_ref.id
+                && let Ok(message) = JsValue::from_serde(&json!({
+                    "tab": tab_id,
+                    "method": "wallet_switchEthereumChain",
+                    "params": [{"chainId": chain.id()}],
+                }))
+            {
+                let _ = runtime::send_message(None, message, None);
                 spawn_local(async move {
                     update_current_chain(&tab.get()).await;
                 });
