@@ -4553,6 +4553,7 @@ dependencies = [
 [[package]]
 name = "nexum-chrome-gloo"
 version = "0.1.0"
+source = "git+https://github.com/nxm-rs/nexum-chrome-sys#397f2e633dc7cff705b1d914323792d3d89f2f54"
 dependencies = [
  "js-sys",
  "nexum-chrome-sys",
@@ -4563,6 +4564,7 @@ dependencies = [
 [[package]]
 name = "nexum-chrome-sys"
 version = "0.1.0"
+source = "git+https://github.com/nxm-rs/nexum-chrome-sys#397f2e633dc7cff705b1d914323792d3d89f2f54"
 dependencies = [
  "js-sys",
  "serde",
