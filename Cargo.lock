@@ -1693,13 +1693,15 @@ name = "browser-ui"
 version = "0.1.0"
 dependencies = [
  "alloy-chains",
- "chrome-sys",
  "console_error_panic_hook",
  "gloo-timers 0.3.0",
  "gloo-utils",
+ "js-sys",
  "leptos",
  "leptos_meta",
  "leptos_router",
+ "nexum-chrome-gloo",
+ "nexum-chrome-sys",
  "nexum-primitives",
  "send_wrapper 0.6.0",
  "serde",
@@ -1848,22 +1850,6 @@ name = "cfg_aliases"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
-
-[[package]]
-name = "chrome-sys"
-version = "0.1.0"
-dependencies = [
- "futures",
- "gloo-utils",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "tracing",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
-]
 
 [[package]]
 name = "chrono"
@@ -3661,9 +3647,9 @@ dependencies = [
 name = "injector"
 version = "0.1.0"
 dependencies = [
- "chrome-sys",
  "console_error_panic_hook",
  "js-sys",
+ "nexum-chrome-sys",
  "nexum-primitives",
  "tracing",
  "wasm-bindgen",
@@ -4562,6 +4548,27 @@ dependencies = [
  "nexum-apdu-macros",
  "pcsc",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "nexum-chrome-gloo"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "nexum-chrome-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "nexum-chrome-sys"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -8414,13 +8421,14 @@ version = "0.1.0"
 dependencies = [
  "alloy-chains",
  "async-lock",
- "chrome-sys",
  "console_error_panic_hook",
  "futures",
  "gloo-timers 0.3.0",
  "gloo-utils",
  "js-sys",
  "jsonrpsee",
+ "nexum-chrome-gloo",
+ "nexum-chrome-sys",
  "nexum-primitives",
  "serde",
  "serde-wasm-bindgen",

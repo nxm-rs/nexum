@@ -19,7 +19,6 @@ members = [
     "crates/keycard/keycard",
     "crates/keycard/signer",
 
-    "crates/nexum/extension/chrome-sys/",
     "crates/nexum/extension/worker/",
     "crates/nexum/extension/injected/",
     "crates/nexum/extension/injector/",
@@ -79,7 +78,8 @@ console_error_panic_hook = "0.1"
 alloy-chains = { version = "0.2", features = ["serde"] }
 alloy = { version = "1", features = ["signer-keystore", "provider-ws", "eip712", "signer-ledger"] }
 
-chrome-sys = { path = "crates/nexum/extension/chrome-sys" }
+nexum-chrome-sys = { path = "../chrome-sys/crates/nexum-chrome-sys", features = ["runtime", "tabs", "alarms", "idle", "action", "scripting", "serde"] }
+nexum-chrome-gloo = { path = "../chrome-sys/crates/nexum-chrome-gloo", features = ["runtime", "tabs", "alarms"] }
 worker = { path = "crates/nexum/extension/worker" }
 injected = { path = "crates/nexum/extension/injected" }
 injector = { path = "crates/nexum/extension/injector"}

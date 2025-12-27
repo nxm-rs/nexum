@@ -18,7 +18,7 @@ opt-level = "z"
 [dependencies]
 wasm-bindgen.workspace = true
 js-sys.workspace = true
-chrome-sys.workspace = true
+nexum-chrome-sys.workspace = true
 web-sys.workspace = true
 tracing.workspace = true
 wasm-tracing.workspace = true
