@@ -1,5 +1,6 @@
 #![cfg(target_arch = "wasm32")]
 
+use nexum_chrome_sys as chrome_sys;
 use nexum_primitives::ProtocolMessage;
 use tracing::{debug, error, trace};
 use wasm_bindgen::JsCast;
@@ -49,9 +50,7 @@ fn setup_page_message_listener() {
 
         let data = event.data();
         if ProtocolMessage::is_valid(&data) {
-            chrome_sys::runtime::send_message(&data)
-                .inspect_err(|e| tracing::error!(?e, "failed to send message to background script"))
-                .ok();
+            let _ = chrome_sys::runtime::send_message(None, data, None);
         } else {
             trace!("Message event data is not a ProtocolMessage.");
         }
@@ -89,7 +88,7 @@ fn inject_frame_script() {
     };
 
     script.set_type("module");
-    script.set_src(&chrome_sys::runtime::getURL("injected.js"));
+    script.set_src(&chrome_sys::runtime::get_url("injected.js".to_string()));
 
     let script_clone = script.clone();
     let onload = Closure::wrap(Box::new(move || {
@@ -129,7 +128,7 @@ pub fn run() -> Result<(), JsValue> {
         handle_runtime_message(payload);
     }) as Box<dyn FnMut(_)>);
 
-    chrome_sys::runtime::add_on_message_listener(closure.as_ref().unchecked_ref());
+    chrome_sys::runtime::on_message_add_listener(closure.as_ref().unchecked_ref());
 
     closure.forget();
 
