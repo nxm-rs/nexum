@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use chrome_sys::{
-    action::{self, PopupDetails},
-    alarms,
-    tabs::{self, Query},
-};
 use futures::lock::Mutex;
-use serde_wasm_bindgen::{from_value, to_value};
+use nexum_chrome_gloo::{alarms, tabs};
+use nexum_chrome_gloo::tabs::Tab;
+use nexum_chrome_sys::action::{self, SetPopupDetails};
+use nexum_chrome_sys::alarms::AlarmCreateInfo;
 use tracing::info;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 use crate::{
     CLIENT_STATUS_ALARM_KEY, Extension, Provider, origin_from_url,
@@ -37,15 +35,19 @@ impl ExtensionBuilder {
     /// Builds the `Extension` instance with configured `Provider` and `ExtensionState`
     pub async fn build(mut self) -> Result<Arc<Extension>, JsValue> {
         // Initialize ExtensionState
-        let tabs_js = tabs::query(Query::default())
+        let tabs_js = tabs::query(&tabs::QueryQueryInfo::new())
             .await
             .unwrap_or_else(|_| JsValue::undefined());
-        let tabs: Vec<tabs::Info> = from_value(tabs_js).unwrap_or_default();
+        let tab_array = js_sys::Array::from(&tabs_js);
+        let tabs: Vec<Tab> = tab_array
+            .iter()
+            .map(|t| t.unchecked_into())
+            .collect();
         let tab_origins = tabs
             .into_iter()
             .filter_map(|tab| {
-                if let (Some(id), Some(url)) = (tab.id, tab.url) {
-                    Some((id, origin_from_url(Some(url))))
+                if let (Some(id), Some(url)) = (tab.get_id(), tab.get_url()) {
+                    Some((id as u32, origin_from_url(Some(url))))
                 } else {
                     None
                 }
@@ -70,24 +72,21 @@ impl ExtensionBuilder {
                 .frame_connected,
         );
 
-        let _ = action::set_popup(to_value(&PopupDetails {
-            popup: "index.html".to_string(),
-            ..Default::default()
-        })?);
+        let popup_details = SetPopupDetails::new();
+        popup_details.set_popup("index.html".to_string());
+        let _ = action::set_popup(popup_details.into());
 
         // Set up the alarm if not already set
         match alarms::get(CLIENT_STATUS_ALARM_KEY).await {
             Ok(Some(_)) => {}
             Ok(None) | Err(_) => {
-                let alarm_info = alarms::AlarmCreateInfo {
-                    delay_in_minutes: Some(0.0),
-                    period_in_minutes: Some(0.5),
-                    ..Default::default()
-                };
+                let alarm_info = AlarmCreateInfo::new();
+                alarm_info.set_delay_in_minutes(0.0);
+                alarm_info.set_period_in_minutes(0.5);
 
-                info!("Creating alarm: {:?}", alarm_info);
+                info!("Creating alarm");
 
-                alarms::create(CLIENT_STATUS_ALARM_KEY, &to_value(&alarm_info)?);
+                alarms::create(CLIENT_STATUS_ALARM_KEY, &alarm_info);
             }
         }
 

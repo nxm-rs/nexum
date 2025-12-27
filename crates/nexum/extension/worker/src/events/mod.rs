@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use alarm::*;
 mod idle;
-use chrome_sys::tabs::Info;
 use idle::*;
 mod runtime;
 use gloo_utils::format::JsValueSerdeExt;
+use nexum_chrome_gloo::tabs::{self as chrome_tabs, Tab, QueryQueryInfo};
 use nexum_primitives::{EthEvent, MessageType, ProtocolMessage};
 use runtime::*;
 mod tabs;
@@ -33,7 +33,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             });
         }) as Box<dyn FnMut(JsValue, JsValue)>)
     };
-    chrome_sys::runtime::add_on_message_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::runtime::on_message_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Runtime `on_connect` event
@@ -47,7 +47,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             });
         }) as Box<dyn FnMut(JsValue)>)
     };
-    chrome_sys::runtime::add_on_connect_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::runtime::on_connect_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Idle `on_state_changed` event
@@ -61,7 +61,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             });
         }) as Box<dyn FnMut(JsValue)>)
     };
-    chrome_sys::idle::on_state_changed_add_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::idle::on_state_changed_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Tabs `on_updated` event
@@ -80,7 +80,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             }) as Box<dyn FnMut(JsValue, JsValue, JsValue)>,
         )
     };
-    chrome_sys::tabs::add_tab_updated_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::tabs::on_updated_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Tabs `on_activated` event
@@ -94,7 +94,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             });
         }) as Box<dyn FnMut(JsValue)>)
     };
-    chrome_sys::tabs::add_tab_activated_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::tabs::on_activated_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Tabs `on_removed` event
@@ -108,7 +108,7 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             });
         }) as Box<dyn FnMut(JsValue)>)
     };
-    chrome_sys::tabs::add_tab_removed_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::tabs::on_removed_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     // Alarms `on_alarm` event
@@ -123,17 +123,17 @@ pub(crate) fn setup_listeners(extension: Arc<Extension>) -> Result<(), JsValue> 
             });
         }) as Box<dyn FnMut(JsValue)>)
     };
-    chrome_sys::alarms::add_alarm_listener(closure.as_ref().unchecked_ref());
+    nexum_chrome_sys::alarms::on_alarm_add_listener(closure.as_ref().unchecked_ref());
     closure.forget();
 
     Ok(())
 }
 
 // Send an event to a specific tab
-async fn send_event_to_tab(tab: &Info, event: String, args: JsValue) -> Result<(), JsValue> {
+async fn send_event_to_tab(tab_id: i32, event: String, args: JsValue) -> Result<(), JsValue> {
     // Attempt to send the message to the tab
-    chrome_sys::tabs::send_message_to_tab(
-        tab,
+    chrome_tabs::send_message(
+        tab_id,
         JsValue::from(ProtocolMessage::new(MessageType::EthEvent(EthEvent {
             event: event.to_string(),
             args: from_value(args)?,
@@ -147,10 +147,10 @@ async fn send_event_to_tab(tab: &Info, event: String, args: JsValue) -> Result<(
 pub(crate) async fn send_event(
     event: &'static str,
     args: Option<JsValue>, // Pass JsValue directly, defaulting to empty object if None
-    selector: chrome_sys::tabs::Query,
+    selector: &QueryQueryInfo,
 ) {
     // Query tabs based on the provided selector
-    let tabs_js = match chrome_sys::tabs::query(selector).await {
+    let tabs_js = match chrome_tabs::query(selector).await {
         Ok(tabs) => tabs,
         Err(e) => {
             warn!("Failed to query tabs: {:?}", e);
@@ -158,9 +158,11 @@ pub(crate) async fn send_event(
         }
     };
 
-    // Convert to Vec<tabs::Info> and default to an empty array on error
-    let tabs: Vec<chrome_sys::tabs::Info> = from_value(tabs_js).unwrap_or_default();
-    // Define args_js as the provided JsValue or an empty array if None, and make sure to include type annotations
+    // Convert to Vec<Tab> from the JsValue array
+    let tab_array = js_sys::Array::from(&tabs_js);
+    let tabs: Vec<Tab> = tab_array.iter().map(|t| t.unchecked_into()).collect();
+
+    // Define args_js as the provided JsValue or an empty array if None
     let args_js =
         args.unwrap_or_else(|| JsValue::from_serde::<&[serde_json::Value; 0]>(&&[]).unwrap());
 
@@ -168,11 +170,12 @@ pub(crate) async fn send_event(
 
     // Filter tabs with valid `id` and `url`, then send the event to each
     spawn_local(async move {
-        for tab in tabs.iter().filter(|tab| tab.valid()) {
-            if let Err(e) = send_event_to_tab(tab, event.to_owned(), args_js.clone()).await {
-                warn!(error = ?e, "Failed to send event to tab: {:?}", tab);
+        for tab in tabs.iter().filter(|t| t.get_id().is_some() && t.get_url().is_some()) {
+            let tab_id = tab.get_id().unwrap();
+            if let Err(e) = send_event_to_tab(tab_id, event.to_owned(), args_js.clone()).await {
+                warn!(error = ?e, tab_id, "Failed to send event to tab");
             } else {
-                trace!("Event sent successfully to tab: {:?}", tab);
+                trace!(tab_id, "Event sent successfully to tab");
             }
         }
     });

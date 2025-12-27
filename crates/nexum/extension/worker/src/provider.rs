@@ -5,11 +5,11 @@ use std::sync::{
 use std::time::Duration;
 
 use async_lock::RwLock;
-use chrome_sys::tabs;
 use futures::{
     StreamExt,
     future::{Either, select},
 };
+use nexum_chrome_gloo::tabs::QueryQueryInfo;
 use gloo_timers::future::{IntervalStream, TimeoutFuture};
 use jsonrpsee::{
     core::{client::ClientT, traits::ToRpcParams},
@@ -109,7 +109,7 @@ impl Provider {
             state.set_frame_connected(ConnectionState::Connected);
         }
 
-        send_event("connect", None, tabs::Query::default()).await;
+        send_event("connect", None, &QueryQueryInfo::new()).await;
         self.send_buffered_requests().await;
     }
 
@@ -120,7 +120,7 @@ impl Provider {
             state.set_frame_connected(ConnectionState::Disconnected);
         }
 
-        send_event("disconnect", None, tabs::Query::default()).await;
+        send_event("disconnect", None, &QueryQueryInfo::new()).await;
     }
 
     /// Helper function to verify the connection by making a lightweight RPC call

@@ -1,19 +1,15 @@
-use std::{cell::RefCell, future::Future, rc::Rc, str::FromStr, sync::Arc};
+use std::{future::Future, str::FromStr, sync::Arc};
 
 use alloy_chains::Chain;
-use chrome_sys::{
-    port,
-    tabs::{self, send_message_to_tab},
-};
 use gloo_timers::callback::Timeout;
-use gloo_utils::format::JsValueSerdeExt;
-use js_sys::{Function, Reflect};
+use js_sys::Reflect;
+use nexum_chrome_gloo::events::EventListener1;
+use nexum_chrome_gloo::tabs::{self, Tab};
+use nexum_chrome_sys::runtime::Port;
 use nexum_primitives::{Error, MessageType, ProtocolMessage, RequestWithId, ResponseWithId};
-use serde::Deserialize;
 use serde_json::Value;
-use serde_wasm_bindgen::from_value;
 use tracing::{debug, info, trace, warn};
-use wasm_bindgen::{JsCast, JsValue, prelude::Closure};
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::{EXTENSION_PORT_NAME, Extension, provider::Provider, state::BufferedRequest};
@@ -22,73 +18,33 @@ use crate::{EXTENSION_PORT_NAME, Extension, provider::Provider, state::BufferedR
 pub async fn runtime_on_connect(extension: Arc<Extension>, js_port: JsValue) {
     trace!("Received connection: {:?}", js_port);
 
-    #[derive(Deserialize)]
-    struct Port {
-        pub name: String,
-    }
+    // Cast to Port type
+    let port: Port = js_port.unchecked_into();
 
-    let port: Port = from_value(js_port.clone()).unwrap();
-
-    if port.name == EXTENSION_PORT_NAME {
+    if port.get_name() == EXTENSION_PORT_NAME {
         trace!("Connection is for frame_connect");
-        let mut state = extension.state.lock().await;
-        state.settings_panel = Some(js_port.clone());
-        state.update_settings_panel();
 
-        // Add onDisconnect listener
-        port_on_disconnect(extension.clone(), js_port.clone());
-    }
-}
-
-// Function to set up the on_disconnect handler
-fn port_on_disconnect(extension: Arc<Extension>, port: JsValue) {
-    let on_disconnect: Rc<RefCell<Option<Closure<dyn Fn(JsValue)>>>> = Rc::new(RefCell::new(None));
-
-    let port_clone = port.clone();
-    let on_disconnect_clone = Rc::clone(&on_disconnect);
-
-    let on_disconnect_closure = Closure::wrap(Box::new(move |_: JsValue| {
-        let port_inner = port_clone.clone();
-        let on_disconnect_inner = on_disconnect_clone.clone();
-        let extension_inner = extension.clone();
-
-        spawn_local(async move {
-            info!("Port disconnected");
-
-            let mut state = extension_inner.state.lock().await;
-            if state.settings_panel == Some(port_inner.clone()) {
-                debug!("Resetting settings_panel state");
+        // Set up onDisconnect listener before storing
+        let extension_clone = extension.clone();
+        let listener = EventListener1::new(&port.on_disconnect(), move |_: JsValue| {
+            let ext = extension_clone.clone();
+            spawn_local(async move {
+                info!("Port disconnected");
+                let mut state = ext.state.lock().await;
                 state.settings_panel = None;
                 state.update_settings_panel();
-            }
-
-            if let Some(ref closure) = *on_disconnect_inner.borrow() {
-                if port::remove_on_disconnect_listener(
-                    port_inner.clone(),
-                    closure.as_ref().unchecked_ref::<Function>(),
-                )
-                .is_err()
-                {
-                    warn!(
-                        "Failed to remove onDisconnect listener for port: {:?}",
-                        port_inner
-                    );
-                } else {
-                    info!("Removed onDisconnect listener for port: {:?}", port_inner);
-                }
-            }
+            });
         });
-    }) as Box<dyn Fn(JsValue)>);
 
-    *on_disconnect.borrow_mut() = Some(on_disconnect_closure);
-
-    if let Some(ref closure) = *on_disconnect.borrow() {
-        if let Err(e) = port::add_on_disconnect_listener(port, closure.as_ref().unchecked_ref()) {
-            warn!("Failed to add onDisconnect listener: {:?}", e);
+        match listener {
+            Ok(l) => l.forget(), // Keep listener alive
+            Err(e) => warn!("Failed to add onDisconnect listener: {:?}", e),
         }
-    }
 
-    let _ = Rc::clone(&on_disconnect);
+        let mut state = extension.state.lock().await;
+        state.settings_panel = Some(port);
+        state.update_settings_panel();
+    }
 }
 
 // Handles messages received through `chrome.runtime.onMessage` event
@@ -244,16 +200,19 @@ async fn send_timeout_response(uuid: String, sender: JsValue) {
 // Sends the response to the specified sender's tab
 async fn send_response(sender: JsValue, message: ProtocolMessage) {
     trace!("Sending response: {:?}", message);
-    if let Some(tab) = tab_from_sender(sender) {
-        if let Err(e) = send_message_to_tab(&tab, JsValue::from(message)).await {
-            warn!("Failed to send response to tab {:?}: {:?}", tab, e);
+    if let Some(tab_id) = tab_id_from_sender(&sender) {
+        if let Err(e) = tabs::send_message(tab_id, JsValue::from(message)).await {
+            warn!(tab_id, error = ?e, "Failed to send response to tab");
         }
     }
 }
 
-fn tab_from_sender(sender: JsValue) -> Option<tabs::Info> {
-    // Retrieve the `tab` field from `sender`
-    Reflect::get(&sender, &JsValue::from_str("tab"))
+fn tab_id_from_sender(sender: &JsValue) -> Option<i32> {
+    // Retrieve the `tab` field from `sender` and get its id
+    Reflect::get(sender, &JsValue::from_str("tab"))
         .ok()
-        .and_then(|tab| tab.into_serde::<tabs::Info>().ok()) // Deserialize into `tabs::Info`
+        .and_then(|tab_js| {
+            let tab: Tab = tab_js.unchecked_into();
+            tab.get_id()
+        })
 }

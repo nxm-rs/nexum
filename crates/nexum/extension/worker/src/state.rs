@@ -1,14 +1,13 @@
 use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use alloy_chains::Chain;
-use chrome_sys::{
-    action::{self, IconPath, TabIconDetails},
-    port,
-};
+use nexum_chrome_gloo::runtime::port;
+use nexum_chrome_sys::action::{self, SetIconDetails};
+use nexum_chrome_sys::runtime::Port;
 use nexum_primitives::{ConnectionState, FrameState};
 use serde_wasm_bindgen::to_value;
 use tracing::{debug, trace};
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::{
@@ -21,7 +20,7 @@ pub(crate) struct ExtensionState {
     /// The active tab ID
     pub active_tab_id: Option<u32>,
     /// The Chrome port for the settings panel
-    pub settings_panel: Option<JsValue>, // Holds the Chrome port for `postMessage`
+    pub settings_panel: Option<Port>,
     /// A mapping of the subscription ID to the subscription
     pub subscriptions: HashMap<String, Subscription>,
     /// A mapping of tab ID to the origin
@@ -47,7 +46,7 @@ impl ExtensionState {
             debug!("Updating settings panel with new frame state");
 
             let frame_state_js: JsValue = to_value(&self.frame_state).unwrap();
-            port::post_message(panel, frame_state_js).unwrap();
+            let _ = port::post_message(panel, frame_state_js);
         } else {
             debug!("No settings panel available to update");
         }
@@ -109,11 +108,7 @@ pub(crate) fn set_icon_for_connection_state(state: &ConnectionState) {
         ConnectionState::Disconnected => "icons/icon96moon.png",
     };
 
-    action::set_icon(
-        to_value(&TabIconDetails {
-            path: Some(IconPath::Single(path.to_string())),
-            ..Default::default()
-        })
-        .unwrap(),
-    );
+    let details = SetIconDetails::new();
+    details.set_path(&JsValue::from_str(path));
+    let _ = action::set_icon(details.into());
 }
