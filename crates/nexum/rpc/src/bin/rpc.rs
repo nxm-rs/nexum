@@ -9,7 +9,7 @@ use url::Url;
 #[derive(Parser, Debug)]
 #[command(about)]
 pub struct Args {
-    #[arg(short, long, default_value = "127.0.0.1")]
+    #[arg(short = 'H', long, default_value = "127.0.0.1")]
     pub host: Ipv4Addr,
 
     #[arg(short, long, default_value = "1248")]

@@ -30,7 +30,7 @@ use ratatui::{
         Block, Borders, FrameExt, List, ListState, Padding, Paragraph, StatefulWidget, Tabs, Widget,
     },
 };
-use signers::{NexumAccount, load_ledger_accounts};
+use signers::{NexumAccount, NexumSigner, load_ledger_accounts};
 use tokio::sync::{mpsc, oneshot};
 use tracing_subscriber::EnvFilter;
 
@@ -60,6 +60,10 @@ struct Args {
     port: u16,
     #[arg(short, long)]
     rpc_urls: Vec<String>,
+    /// Prank mode: report this address for eth_requestAccounts/eth_accounts
+    /// without having the private key. Signing operations will show prompts but fail.
+    #[arg(long, value_name = "ADDRESS")]
+    prank: Option<Address>,
 }
 
 #[tokio::main]
@@ -70,11 +74,28 @@ async fn main() -> eyre::Result<()> {
         .init();
 
     let args = Args::parse();
-    let config = load_config()?;
+    let config = load_config();
     tracing::debug!(?config, formatted = ?toml::to_string_pretty(&config)?);
 
+    // Create initial accounts based on mode
+    let initial_accounts = if let Some(prank_addr) = args.prank {
+        // Prank mode: use nominated address (cannot sign)
+        vec![NexumAccount::new(
+            "Prank".to_string(),
+            NexumSigner::prank(prank_addr),
+        )]
+    } else {
+        // Default mode: create ephemeral wallet + load any keystores from config
+        let mut accounts = vec![NexumAccount::new(
+            "Ephemeral".to_string(),
+            NexumSigner::ephemeral(),
+        )];
+        accounts.extend(config.keystores().unwrap_or_default());
+        accounts
+    };
+
     let mut builder = RpcServerBuilder::new().host(args.host).port(args.port);
-    let mut rpcs = config.chain_rpcs().await?;
+    let mut rpcs = config.chain_rpcs();
     rpcs.extend(
         args.rpc_urls
             .iter()
@@ -98,7 +119,7 @@ async fn main() -> eyre::Result<()> {
 
     let terminal = ratatui::init();
 
-    let app = App::new(req_receiver, config).await;
+    let app = App::new(req_receiver, config, initial_accounts).await;
     // run the loop until the tui quits or the server quits
     let app_result = tokio::select! {
         app_result = app.run(terminal) => { app_result }
@@ -194,6 +215,7 @@ impl App {
             oneshot::Sender<InteractiveResponse>,
         )>,
         config: Config,
+        initial_accounts: Vec<NexumAccount>,
     ) -> Self {
         let mut list_state = ListState::default();
         list_state.select_first();
@@ -207,12 +229,7 @@ impl App {
             active_tab: AppTab::default(),
             wallet_pane: Arc::new(WalletPane {
                 is_active: RwLock::new(true),
-                accounts: RwLock::new(
-                    config
-                        .keystores()
-                        .inspect_err(|err| tracing::error!(?err, "error loading foundry keystores"))
-                        .unwrap_or_default(),
-                ),
+                accounts: RwLock::new(initial_accounts),
                 list_state: RwLock::new(list_state),
                 active_wallet_idx: RwLock::new(None),
                 prompt_sender: sender.clone(),

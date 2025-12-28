@@ -3,11 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use alloy::{
-    network::Ethereum,
-    primitives::Address,
-    providers::{Provider, RootProvider},
-};
+use alloy::primitives::Address;
 use alloy_chains::NamedChain;
 use eyre::OptionExt;
 use figment::{
@@ -55,28 +51,58 @@ impl Default for LedgerConfig {
     }
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            rpcs: BTreeMap::from([
+                (
+                    "Mainnet".to_string(),
+                    "https://eth.llamarpc.com".parse().unwrap(),
+                ),
+                (
+                    "Gnosis".to_string(),
+                    "https://rpc.gnosischain.com".parse().unwrap(),
+                ),
+                (
+                    "Sepolia".to_string(),
+                    "https://ethereum-sepolia-rpc.publicnode.com"
+                        .parse()
+                        .unwrap(),
+                ),
+                (
+                    "Holesky".to_string(),
+                    "https://ethereum-holesky-rpc.publicnode.com"
+                        .parse()
+                        .unwrap(),
+                ),
+                (
+                    "Hoodi".to_string(),
+                    "https://rpc.hoodi.ethpandaops.io".parse().unwrap(),
+                ),
+            ]),
+            origin_connections: BTreeMap::new(),
+            labels: BTreeMap::new(),
+            signer: SignerConfig::default(),
+        }
+    }
+}
+
 impl Config {
-    pub async fn chain_rpcs(&self) -> eyre::Result<Vec<(NamedChain, Url)>> {
-        let providers = futures::future::join_all(self.rpcs.values().map(|rpc_url| {
-            let rpc_url = rpc_url.to_string();
-            async move { RootProvider::<Ethereum>::connect(&rpc_url).await }
-        }))
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()?;
-        let chain_ids = futures::future::join_all(providers.iter().map(|p| p.get_chain_id()))
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()?;
-        let chains = chain_ids
-            .into_iter()
-            .map(NamedChain::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| eyre::eyre!("failed to parse chainid to NamedChain: {e:?}"))?;
-        Ok(chains
-            .into_iter()
-            .zip(self.rpcs.values().cloned())
-            .collect())
+    /// Returns chain RPCs parsed from config keys (no network validation).
+    /// Invalid chain names are skipped with a warning.
+    pub fn chain_rpcs(&self) -> Vec<(NamedChain, Url)> {
+        self.rpcs
+            .iter()
+            .filter_map(|(chain_name, url)| {
+                chain_name
+                    .parse::<NamedChain>()
+                    .map(|chain| (chain, url.clone()))
+                    .inspect_err(|e| {
+                        tracing::warn!(chain_name, ?e, "failed to parse chain name, skipping");
+                    })
+                    .ok()
+            })
+            .collect()
     }
 
     pub fn keystores(&self) -> eyre::Result<Vec<NexumAccount>> {
@@ -107,8 +133,14 @@ pub fn config_dir() -> eyre::Result<PathBuf> {
     Ok(dir)
 }
 
-pub fn load_config() -> eyre::Result<Config> {
-    Ok(Figment::new()
-        .merge(Toml::file(config_dir()?.join("nxm.toml")))
-        .extract()?)
+pub fn load_config() -> Config {
+    config_dir()
+        .ok()
+        .and_then(|dir| {
+            Figment::new()
+                .merge(Toml::file(dir.join("nxm.toml")))
+                .extract()
+                .ok()
+        })
+        .unwrap_or_default()
 }
