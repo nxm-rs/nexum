@@ -19,6 +19,11 @@ pub struct NexumAccount {
 }
 
 impl NexumAccount {
+    /// Create a new account with the given name and signer
+    pub fn new(name: String, signer: NexumSigner) -> Self {
+        Self { name, signer }
+    }
+
     pub fn is_locked(&self) -> bool {
         self.signer.is_locked()
     }
@@ -33,6 +38,8 @@ impl NexumAccount {
                 Ok(())
             }
             NexumSigner::Ledger(_, _) => Ok(()),
+            NexumSigner::Ephemeral(_) => Ok(()),
+            NexumSigner::Prank(_) => Ok(()),
         }
     }
 
@@ -61,15 +68,32 @@ impl NexumAccount {
 pub enum NexumSigner {
     Keystore(PathBuf, Option<LocalSigner<SigningKey>>),
     Ledger(HDPath, Address),
+    /// Ephemeral wallet: in-memory signer, not persisted to disk
+    Ephemeral(LocalSigner<SigningKey>),
+    /// Prank mode: reports this address for eth_requestAccounts but cannot sign
+    /// (Foundry-style terminology)
+    Prank(Address),
 }
 
 impl NexumSigner {
+    /// Create an ephemeral (in-memory) signer with a random key
+    pub fn ephemeral() -> Self {
+        Self::Ephemeral(LocalSigner::random())
+    }
+
+    /// Create a prank signer that reports the given address but cannot sign
+    pub fn prank(address: Address) -> Self {
+        Self::Prank(address)
+    }
+
     fn is_locked(&self) -> bool {
         match self {
             NexumSigner::Keystore(_, signer) => signer.is_none(),
             // TODO: can probably check some method to see if the ledger is returning some
             // response, will likely make this method async, leaving for refactoring later
             NexumSigner::Ledger(_, _) => false,
+            NexumSigner::Ephemeral(_) => false,
+            NexumSigner::Prank(_) => false,
         }
     }
 
@@ -83,6 +107,8 @@ impl NexumSigner {
                 let signer = LedgerSigner::new(dpath.clone(), None).await?;
                 Ok(signer.sign_hash(hash).await?)
             }
+            NexumSigner::Ephemeral(signer) => Ok(signer.sign_hash_sync(hash)?),
+            NexumSigner::Prank(_) => eyre::bail!("prank signer cannot sign - no private key"),
         }
     }
 
@@ -96,6 +122,8 @@ impl NexumSigner {
                 let signer = LedgerSigner::new(dpath.clone(), None).await?;
                 Ok(signer.sign_message(message).await?)
             }
+            NexumSigner::Ephemeral(signer) => Ok(signer.sign_message_sync(message)?),
+            NexumSigner::Prank(_) => eyre::bail!("prank signer cannot sign - no private key"),
         }
     }
 
@@ -109,6 +137,8 @@ impl NexumSigner {
                 let signer = LedgerSigner::new(dpath.clone(), None).await?;
                 Ok(signer.sign_dynamic_typed_data(payload).await?)
             }
+            NexumSigner::Ephemeral(signer) => Ok(signer.sign_dynamic_typed_data_sync(payload)?),
+            NexumSigner::Prank(_) => eyre::bail!("prank signer cannot sign - no private key"),
         }
     }
 
@@ -116,6 +146,8 @@ impl NexumSigner {
         match self {
             NexumSigner::Keystore(_, signer) => signer.as_ref().map(|s| s.address()),
             NexumSigner::Ledger(_, address) => Some(*address),
+            NexumSigner::Ephemeral(signer) => Some(signer.address()),
+            NexumSigner::Prank(address) => Some(*address),
         }
     }
 
