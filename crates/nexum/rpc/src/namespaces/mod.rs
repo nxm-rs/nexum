@@ -6,7 +6,7 @@ pub mod web3;
 #[macro_export]
 macro_rules! upstream_request {
     ($method_name:literal) => {
-        paste::paste! {
+        pastey::paste! {
         #[allow(non_snake_case)]
         async fn [<upstream_ $method_name>]<F, P> (
             params: jsonrpsee::types::Params<'static>,
@@ -50,7 +50,7 @@ macro_rules! upstream_requests {
     ($rpc_module:ident, $($method_name:literal),+) => {
         $(
             $crate::upstream_request!($method_name);
-            paste::paste! {
+            pastey::paste! {
             $rpc_module.register_async_method($method_name, [<upstream_ $method_name>])?;
             }
         )+
