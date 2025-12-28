@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use chrome_sys::tabs;
-use serde_wasm_bindgen::from_value;
+use nexum_chrome_gloo::tabs::{self, OnActivatedActiveInfo, OnUpdatedChangeInfo};
 use tracing::{debug, trace, warn};
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 use crate::{Extension, origin_from_url, state::tab_unsubscribe};
 
@@ -25,12 +24,13 @@ pub async fn tabs_on_removed(extension: Arc<Extension>, tab_id: JsValue) {
 pub async fn tabs_on_updated(extension: Arc<Extension>, tab_id: JsValue, change_info: JsValue) {
     trace!("Received tab update event: {:?}", change_info);
     let tab_id: u32 = tab_id.as_f64().unwrap() as u32;
-    let change_info: tabs::ChangeInfo = from_value(change_info).unwrap();
+    let change_info: OnUpdatedChangeInfo = change_info.unchecked_into();
 
     // Trace tab update and check for URL changes
-    trace!(tab_id, ?change_info.url, "Tab updated");
+    let url = change_info.get_url();
+    trace!(tab_id, ?url, "Tab updated");
 
-    if let Some(url) = change_info.url {
+    if let Some(url) = url {
         let origin = origin_from_url(Some(url));
         debug!(tab_id, ?origin, "Updated tab origin");
 
@@ -54,37 +54,19 @@ pub async fn tabs_on_updated(extension: Arc<Extension>, tab_id: JsValue, change_
 
 // Handler for `chrome.tabs.onActivated` event
 pub async fn tabs_on_activated(extension: Arc<Extension>, active_info: JsValue) {
-    let active_info: tabs::ActiveInfo = from_value(active_info).unwrap();
+    let active_info: OnActivatedActiveInfo = active_info.unchecked_into();
+    let tab_id = active_info.get_tab_id();
 
-    let _tab = match tabs::get(active_info.tab_id).await {
+    let _tab = match tabs::get(tab_id).await {
         Ok(tab) => tab,
         Err(e) => {
-            warn!("Failed to get tab {}: {:?}", active_info.tab_id, e);
+            warn!(tab_id, error = ?e, "Failed to get tab");
             return;
         }
     };
 
     // Update the active tab ID
     let mut state = extension.state.lock().await;
-    state.active_tab_id = Some(active_info.tab_id);
+    state.active_tab_id = Some(tab_id as u32);
     debug!(active_tab_id = ?state.active_tab_id, "Updated active tab ID");
-
-    // Get and validate tab origin
-    // if tab.valid() {
-    //     let message = MessagePayload::EmbeddedAction(EmbeddedActionPayload::new(
-    //         EmbeddedAction::new("getChainId".to_string(), JsValue::NULL),
-    //     ));
-
-    //     spawn_local(async move {
-    //         if let Err(e) = tabs::send_message_to_tab(tab.id.unwrap(), message.to_js_value()).await
-    //         {
-    //             warn!(
-    //                 "Failed to send message to tab {}: {:?}",
-    //                 active_info.tab_id, e
-    //             );
-    //         }
-    //     });
-    // } else {
-    //     debug!("Filtering tab as invalid: {:?}", tab);
-    // }
 }

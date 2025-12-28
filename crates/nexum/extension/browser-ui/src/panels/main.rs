@@ -1,15 +1,14 @@
 use crate::components::cluster::{BoxMain, Cluster};
 use crate::components::general::{AppearAsMMToggle, ChainSelect, CurrentOriginTitle};
 use crate::panels::{NotConnected, UnsupportedTab};
-use chrome_sys::tabs;
 use leptos::prelude::*;
+use nexum_chrome_sys::tabs::TabData;
 use nexum_primitives::FrameState;
 
 // Define the component props
-// Define the component props
 #[component]
 pub fn Main(
-    tab: ReadSignal<Option<tabs::Info>>,
+    tab: ReadSignal<Option<TabData>>,
     is_supported_tab: ReadSignal<bool>,
     mm_appear: ReadSignal<bool>,
     frame_state: ReadSignal<FrameState>,

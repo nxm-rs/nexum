@@ -1,5 +1,5 @@
-use chrome_sys::tabs;
 use leptos::prelude::*;
+use nexum_chrome_sys::tabs::TabData;
 use nexum_primitives::FrameState;
 use web_sys::window;
 
@@ -10,7 +10,7 @@ use crate::panels::{FrameConnected, Main};
 
 #[component]
 pub fn SettingsPage(
-    tab: ReadSignal<Option<tabs::Info>>,
+    tab: ReadSignal<Option<TabData>>,
     is_supported_tab: ReadSignal<bool>,
     mm_appear: ReadSignal<bool>,
     frame_state: ReadSignal<FrameState>,

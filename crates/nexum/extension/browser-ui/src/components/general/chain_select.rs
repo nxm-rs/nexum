@@ -1,13 +1,13 @@
 use crate::components::cluster::Row;
 use crate::components::general::ChainButton;
-use chrome_sys::tabs;
 use leptos::prelude::*;
+use nexum_chrome_sys::tabs::TabData;
 use nexum_primitives::FrameState;
 
 // Define props for the component
 #[component]
 pub fn ChainSelect(
-    tab: ReadSignal<Option<tabs::Info>>,
+    tab: ReadSignal<Option<TabData>>,
     frame_state: ReadSignal<FrameState>,
 ) -> impl IntoView {
     // Render the component

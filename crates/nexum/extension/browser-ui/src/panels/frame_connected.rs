@@ -3,6 +3,7 @@ use crate::components::general::{self, LogoWrap, SummonFrameButton};
 use crate::constants::FRAME_SUMMON;
 use gloo_utils::format::JsValueSerdeExt;
 use leptos::prelude::*;
+use nexum_chrome_sys::runtime;
 use nexum_primitives::{ConnectionState, FrameState};
 use serde_json::json;
 use wasm_bindgen::JsValue;
@@ -18,9 +19,7 @@ pub fn FrameConnected(frame_state: ReadSignal<FrameState>) -> impl IntoView {
                 "method": FRAME_SUMMON,
                 "params": [],
             })) {
-                chrome_sys::runtime::send_message(&message)
-                    .inspect_err(|e| tracing::error!(?e, "sending FRMAE_SUMMON message failed"))
-                    .ok();
+                let _ = runtime::send_message(None, message, None);
             }
         }
     });

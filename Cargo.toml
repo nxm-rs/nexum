@@ -1,7 +1,7 @@
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.89"
 license = "AGPL-3.0-or-later"
 homepage = "https://nxm.rs"
 repository = "https://github.com/nxm-rs/nexum"
@@ -19,7 +19,6 @@ members = [
     "crates/keycard/keycard",
     "crates/keycard/signer",
 
-    "crates/nexum/extension/chrome-sys/",
     "crates/nexum/extension/worker/",
     "crates/nexum/extension/injected/",
     "crates/nexum/extension/injector/",
@@ -54,32 +53,33 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace.dependencies]
-async-lock = "2.5"
-wasm-bindgen = { version = "0.2.95", features = ["serde", "serde_json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-gloo-utils = "0.2.0"
-js-sys = "0.3.72"
+async-lock = "3"
+wasm-bindgen = { version = "0.2", features = ["serde", "serde_json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+gloo-utils = "0.2"
+js-sys = "0.3"
 futures = "0.3"
-web-sys = { version = "0.3.72", features = ["Window", "WebSocket", "console", "MessageEvent", "Event", "EventListener", "Element", "HtmlHeadElement", "HtmlScriptElement", "CustomEvent", "CustomEventInit", "Storage"] }
-serde-wasm-bindgen = "0.6.5"
+web-sys = { version = "0.3", features = ["Window", "WebSocket", "console", "MessageEvent", "Event", "EventListener", "Element", "HtmlHeadElement", "HtmlScriptElement", "CustomEvent", "CustomEventInit", "Storage"] }
+serde-wasm-bindgen = "0.6"
 wasm-bindgen-test = "0.3"
-tracing-error = "0.2.0"
-wasm-tracing = "0.2.1"
-wasm-bindgen-futures = "0.4.45"
-jsonrpsee = { version = "0.24.7", features = ["wasm-client", "jsonrpsee-core", "jsonrpsee-types", "client-core", "client-web-transport" ] }
-url = { version = "2.5.2", features = ["serde"] }
+tracing-error = "0.2"
+wasm-tracing = "2"
+wasm-bindgen-futures = "0.4"
+jsonrpsee = { version = "0.24", features = ["wasm-client", "jsonrpsee-core", "jsonrpsee-types", "client-core", "client-web-transport"] }
+url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "js"] }
-gloo-timers = { version = "0.3.0", features = ["futures"] }
-tokio = { version = "1.45.0", features = ["full"] }
-eyre = "0.6.12"
+gloo-timers = { version = "0.3", features = ["futures"] }
+tokio = { version = "1", features = ["full"] }
+eyre = "0.6"
 
-console_error_panic_hook = "0.1.7"
+console_error_panic_hook = "0.1"
 
-alloy-chains = { version = "0.1.47", features = ["serde"] }
-alloy = { version = "1.0.3", features = ["signer-keystore", "provider-ws", "eip712", "signer-ledger"] }
+alloy-chains = { version = "0.2", features = ["serde"] }
+alloy = { version = "1", features = ["signer-keystore", "provider-ws", "eip712", "signer-ledger"] }
 
-chrome-sys = { path = "crates/nexum/extension/chrome-sys" }
+nexum-chrome-sys = { git = "https://github.com/nxm-rs/nexum-chrome-sys", features = ["runtime", "tabs", "alarms", "idle", "action", "scripting", "serde"] }
+nexum-chrome-gloo = { git = "https://github.com/nxm-rs/nexum-chrome-sys", features = ["runtime", "tabs", "alarms"] }
 worker = { path = "crates/nexum/extension/worker" }
 injected = { path = "crates/nexum/extension/injected" }
 injector = { path = "crates/nexum/extension/injector"}
@@ -87,34 +87,34 @@ nexum-primitives = { path = "crates/nexum/primitives" }
 nexum-rpc = { path = "crates/nexum/rpc" }
 
 # Common
-thiserror = { version = "2.0", default-features = false }
+thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["display"] }
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "serde"] }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 cbc = { version = "0.1", default-features = false }
 cbc-mac = { version = "0.1", default-features = false }
 cipher = { version = "0.4", default-features = false }
-zeroize = { version = "1.8", features = ["derive"] }
-bytes = { version = "1.10", default-features = false }
-iso7816-tlv = { version = "0.4.4" }
+zeroize = { version = "1", features = ["derive"] }
+bytes = { version = "1", default-features = false }
+iso7816-tlv = "0.4"
 rand = "0.9"
 
 # APDU
 ## APDU crates
-nexum-apdu-core = { version = "0.1.0", path = "crates/apdu/core" }
-nexum-apdu-macros = { version = "0.1.0", path = "crates/apdu/macros" }
-nexum-apdu-globalplatform = { version = "0.1.0", path = "crates/apdu/globalplatform" }
-nexum-apdu-transport-pcsc = { version = "0.1.0", path = "crates/apdu/pcsc" }
+nexum-apdu-core = { path = "crates/apdu/core" }
+nexum-apdu-macros = { path = "crates/apdu/macros" }
+nexum-apdu-globalplatform = { path = "crates/apdu/globalplatform" }
+nexum-apdu-transport-pcsc = { path = "crates/apdu/pcsc" }
 
 ## Crypto
 des = { version = "0.8", default-features = false }
 
 ## PC/SC
-pcsc = { version = "2.9.0", default-features = false }
+pcsc = { version = "2", default-features = false }
 
 ## Serialization & parsing
-hex = "0.4.3"
+hex = "0.4"
 
 ## Concurrency
 crossbeam-channel = { version = "0.5", default-features = false }
@@ -126,21 +126,21 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 heck = "0.5"
 
 ## Miscellaneous
-zip = { version = "4.0.0", default-features = false }
+zip = { version = "4", default-features = false }
 
 # Keycard
 ## keycard crates
-nexum-keycard = { path = "crates/keycard/keycard", version = "0.1.0" }
-nexum-keycard-signer = { path = "crates/keycard/signer", version = "0.1.0" }
+nexum-keycard = { path = "crates/keycard/keycard" }
+nexum-keycard-signer = { path = "crates/keycard/signer" }
 
 ## crypto
-aes = { version = "0.8.4", default-features = false }
-alloy-primitives = { version = "1.0", default-features = false }
-alloy-network = { version = "1.0", default-features = false }
-alloy-signer = { version = "1.0", default-features = false }
-alloy-consensus = { version = "1.0", default-features = false }
-coins-bip32 = { version = "0.12.0", default-features = false }
-coins-bip39 = { version = "0.12.0", default-features = false }
+aes = { version = "0.8", default-features = false }
+alloy-primitives = { version = "1", default-features = false }
+alloy-network = { version = "1", default-features = false }
+alloy-signer = { version = "1", default-features = false }
+alloy-consensus = { version = "1", default-features = false }
+coins-bip32 = { version = "0.12", default-features = false }
+coins-bip39 = { version = "0.12", default-features = false }
 k256 = { version = "0.13", features = ["ecdsa", "ecdh"] }
 pbkdf2 = "0.12"
 sha2 = "0.10"
@@ -153,10 +153,12 @@ generic-array = "0.14"
 unicode-normalization = "0.1"
 
 ## async
-async-trait = "0.1.88"
+async-trait = "0.1"
 
 ## misc
-colored = "3.0"
+colored = "3"
 anyhow = "1"
-rand_v8 = { version = "0.8", package = "rand" }
 parking_lot = "0.12"
+
+# Compatibility: k256 0.13 requires rand_core 0.6 (rand 0.8)
+rand_v8 = { version = "0.8", package = "rand" }

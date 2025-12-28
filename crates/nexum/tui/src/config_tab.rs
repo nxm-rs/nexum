@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout},
     prelude::{Buffer, Rect},
-    style::{Style, Stylize},
+    style::Style,
     widgets::{Block, List, ListState, Padding, Row, StatefulWidget, Table, Widget},
 };
 
@@ -36,7 +36,7 @@ impl ConfigTab {
 
         Self {
             config,
-            config_list_state: Mutex::new(list_state.clone()),
+            config_list_state: Mutex::new(list_state),
             origin_connections_collapsed: false.into(),
             labels_collapsed: false.into(),
         }

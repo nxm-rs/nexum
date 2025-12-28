@@ -1,7 +1,6 @@
-use chrome_sys::alarms;
-use serde_wasm_bindgen::from_value;
+use nexum_chrome_sys::alarms::Alarm;
 use tracing::{error, info};
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::{CLIENT_STATUS_ALARM_KEY, Extension};
@@ -9,16 +8,10 @@ use std::sync::Arc;
 
 // To be used with the `chrome.alarms.onAlarm` event
 pub async fn on_alarm(extension: Arc<Extension>, alarm: JsValue) {
-    // Attempt to deserialize the alarm info and log an error if it fails
-    let alarm: alarms::AlarmInfo = match from_value(alarm) {
-        Ok(alarm) => alarm,
-        Err(e) => {
-            error!("Failed to parse alarm info: {:?}", e);
-            return;
-        }
-    };
+    // Cast to Alarm type
+    let alarm: Alarm = alarm.unchecked_into();
 
-    if alarm.name == CLIENT_STATUS_ALARM_KEY {
+    if alarm.get_name() == CLIENT_STATUS_ALARM_KEY {
         // Retrieve the provider from the extension
         if let Some(provider) = &extension.provider {
             let provider_clone = provider.clone();

@@ -18,7 +18,8 @@ opt-level = "z"
 [dependencies]
 async-lock.workspace = true
 js-sys.workspace = true
-chrome-sys.workspace = true
+nexum-chrome-sys.workspace = true
+nexum-chrome-gloo.workspace = true
 nexum-primitives.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true

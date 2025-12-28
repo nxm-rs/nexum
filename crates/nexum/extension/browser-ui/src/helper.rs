@@ -3,8 +3,9 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use chrome_sys::tabs::{self, send_message_to_tab};
 use gloo_utils::format::JsValueSerdeExt;
+use nexum_chrome_gloo::tabs;
+use nexum_chrome_sys::tabs::TabData;
 use serde_json::json;
 use wasm_bindgen::JsValue;
 
@@ -68,14 +69,16 @@ use wasm_bindgen::JsValue;
 //     }
 // }
 
-pub async fn update_current_chain(tab: &Option<tabs::Info>) {
-    if let Some(tab) = tab {
+pub async fn update_current_chain(tab: &Option<TabData>) {
+    if let Some(tab) = tab
+        && let Some(tab_id) = tab.id
+    {
         let msg = JsValue::from_serde(&json!({
             "type": "embedded:action",
             "action": { "type": "getCurrentChain" }
         }))
         .unwrap();
-        send_message_to_tab(tab, msg)
+        tabs::send_message(tab_id, msg)
             .await
             .inspect_err(|e| tracing::error!(?e, "failed to send message to tab"))
             .ok();
