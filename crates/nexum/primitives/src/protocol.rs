@@ -1,5 +1,6 @@
 use derive_more::Display;
 use gloo_utils::format::JsValueSerdeExt;
+use js_sys::Reflect;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
 
@@ -74,6 +75,17 @@ impl ProtocolMessage {
     }
 
     pub fn is_valid(js_value: &JsValue) -> bool {
+        // Quick check: must be an object with protocol="nexum" before attempting deserialize
+        if !js_value.is_object() {
+            return false;
+        }
+        let Ok(protocol) = Reflect::get(js_value, &JsValue::from_str("protocol")) else {
+            return false;
+        };
+        if protocol.as_string().as_deref() != Some("nexum") {
+            return false;
+        }
+        // Now safe to attempt full deserialization
         js_value.into_serde::<ProtocolMessage>().is_ok()
     }
 }
