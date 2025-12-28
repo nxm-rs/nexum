@@ -94,10 +94,10 @@ fn inject_frame_script() {
     let onload = Closure::wrap(Box::new(move || {
         let _span = tracing::span!(tracing::Level::DEBUG, "Frame script onload").entered();
 
-        if let Some(parent) = script_clone.parent_node() {
-            if let Err(e) = parent.remove_child(&script_clone) {
-                error!("Failed to remove script from DOM: {:?}", e);
-            }
+        if let Some(parent) = script_clone.parent_node()
+            && let Err(e) = parent.remove_child(&script_clone)
+        {
+            error!("Failed to remove script from DOM: {:?}", e);
         }
     }) as Box<dyn FnMut()>);
 

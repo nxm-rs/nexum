@@ -1,4 +1,4 @@
-use std::{future::Future, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use alloy_chains::Chain;
 use gloo_timers::callback::Timeout;
@@ -76,20 +76,18 @@ async fn handle_request(extension: Arc<Extension>, request: RequestWithId, sende
 
 // Processes `embedded_action_res` requests and sets the chain if applicable
 async fn handle_embedded_action(extension: Arc<Extension>, params: &Option<Vec<Value>>) {
-    if let Some(params) = params {
-        if let (Some(action), Some(res)) = (params.first(), params.get(1)) {
-            if action.get("type") == Some(&Value::String("getChainId".to_string())) {
-                if let Some(chain_id_str) = res.get("chainId").and_then(Value::as_str) {
-                    match Chain::from_str(chain_id_str) {
-                        Ok(chain) => {
-                            extension.state.lock().await.set_current_chain(chain);
-                            return;
-                        }
-                        Err(e) => {
-                            warn!("Unable to parse chain: {:?}", e);
-                        }
-                    }
-                }
+    if let Some(params) = params
+        && let (Some(action), Some(res)) = (params.first(), params.get(1))
+        && action.get("type") == Some(&Value::String("getChainId".to_string()))
+        && let Some(chain_id_str) = res.get("chainId").and_then(Value::as_str)
+    {
+        match Chain::from_str(chain_id_str) {
+            Ok(chain) => {
+                extension.state.lock().await.set_current_chain(chain);
+                return;
+            }
+            Err(e) => {
+                warn!("Unable to parse chain: {:?}", e);
             }
         }
     }
@@ -150,38 +148,32 @@ async fn buffer_request(
 }
 
 // Creates a task to handle provider requests by sending them to the provider
-fn create_request_task(
-    req: RequestWithId,
-    provider: Arc<Provider>,
-    sender: JsValue,
-) -> impl Future<Output = ()> {
-    async move {
-        warn!("TODO!: Origin upstreaming not implemented");
+async fn create_request_task(req: RequestWithId, provider: Arc<Provider>, sender: JsValue) {
+    warn!("TODO!: Origin upstreaming not implemented");
 
-        // Convert `Option<Vec<JsonValue>>` into a slice for `ToRpcParams` compatibility.
-        let params: &[Value] = match &req.request.params {
-            Some(params) => params.as_slice(),
-            None => &[],
-        };
+    // Convert `Option<Vec<JsonValue>>` into a slice for `ToRpcParams` compatibility.
+    let params: &[Value] = match &req.request.params {
+        Some(params) => params.as_slice(),
+        None => &[],
+    };
 
-        let result = match provider.request::<Value>(&req.request.method, params).await {
-            Ok(res) => Ok(res),
-            Err(err) => {
-                tracing::error!(?err, ?params, "rpc error");
-                Err(Error {
-                    code: -1,
-                    message: "Client not available".to_string(),
-                    data: None,
-                })
-            }
-        };
+    let result = match provider.request::<Value>(&req.request.method, params).await {
+        Ok(res) => Ok(res),
+        Err(err) => {
+            tracing::error!(?err, ?params, "rpc error");
+            Err(Error {
+                code: -1,
+                message: "Client not available".to_string(),
+                data: None,
+            })
+        }
+    };
 
-        send_response(
-            sender,
-            ProtocolMessage::new(MessageType::Response(ResponseWithId { id: req.id, result })),
-        )
-        .await;
-    }
+    send_response(
+        sender,
+        ProtocolMessage::new(MessageType::Response(ResponseWithId { id: req.id, result })),
+    )
+    .await;
 }
 
 // Sends a timeout response if the request could not be processed within the buffer time
@@ -200,10 +192,10 @@ async fn send_timeout_response(uuid: String, sender: JsValue) {
 // Sends the response to the specified sender's tab
 async fn send_response(sender: JsValue, message: ProtocolMessage) {
     trace!("Sending response: {:?}", message);
-    if let Some(tab_id) = tab_id_from_sender(&sender) {
-        if let Err(e) = tabs::send_message(tab_id, JsValue::from(message)).await {
-            warn!(tab_id, error = ?e, "Failed to send response to tab");
-        }
+    if let Some(tab_id) = tab_id_from_sender(&sender)
+        && let Err(e) = tabs::send_message(tab_id, JsValue::from(message)).await
+    {
+        warn!(tab_id, error = ?e, "Failed to send response to tab");
     }
 }
 

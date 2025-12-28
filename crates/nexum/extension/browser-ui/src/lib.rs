@@ -60,10 +60,9 @@ fn update_current_chain_callback(active_tab: ReadSignal<Option<TabData>>) -> imp
                     "type": "embedded:action",
                     "action": { "type": "getChainId" }
                 }))
+                && let Err(e) = tabs::send_message(tab_id, message).await
             {
-                if let Err(e) = tabs::send_message(tab_id, message).await {
-                    tracing::error!(?e, "failed to send message to tab");
-                }
+                tracing::error!(?e, "failed to send message to tab");
             }
         });
     }
