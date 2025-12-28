@@ -56,23 +56,27 @@ impl Default for Config {
         Self {
             rpcs: BTreeMap::from([
                 (
-                    "mainnet".to_string(),
+                    "Mainnet".to_string(),
                     "https://eth.llamarpc.com".parse().unwrap(),
                 ),
                 (
-                    "gnosis".to_string(),
+                    "Gnosis".to_string(),
                     "https://rpc.gnosischain.com".parse().unwrap(),
                 ),
                 (
-                    "sepolia".to_string(),
-                    "https://ethereum-sepolia-rpc.publicnode.com".parse().unwrap(),
+                    "Sepolia".to_string(),
+                    "https://ethereum-sepolia-rpc.publicnode.com"
+                        .parse()
+                        .unwrap(),
                 ),
                 (
-                    "holesky".to_string(),
-                    "https://ethereum-holesky-rpc.publicnode.com".parse().unwrap(),
+                    "Holesky".to_string(),
+                    "https://ethereum-holesky-rpc.publicnode.com"
+                        .parse()
+                        .unwrap(),
                 ),
                 (
-                    "hoodi".to_string(),
+                    "Hoodi".to_string(),
                     "https://rpc.hoodi.ethpandaops.io".parse().unwrap(),
                 ),
             ]),
@@ -94,11 +98,7 @@ impl Config {
                     .parse::<NamedChain>()
                     .map(|chain| (chain, url.clone()))
                     .inspect_err(|e| {
-                        tracing::warn!(
-                            chain_name,
-                            ?e,
-                            "failed to parse chain name, skipping"
-                        );
+                        tracing::warn!(chain_name, ?e, "failed to parse chain name, skipping");
                     })
                     .ok()
             })
