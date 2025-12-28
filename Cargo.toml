@@ -102,10 +102,10 @@ rand = "0.9"
 
 # APDU
 ## APDU crates
-nexum-apdu-core = { version = "0.1", path = "crates/apdu/core" }
-nexum-apdu-macros = { version = "0.1", path = "crates/apdu/macros" }
-nexum-apdu-globalplatform = { version = "0.1", path = "crates/apdu/globalplatform" }
-nexum-apdu-transport-pcsc = { version = "0.1", path = "crates/apdu/pcsc" }
+nexum-apdu-core = { path = "crates/apdu/core" }
+nexum-apdu-macros = { path = "crates/apdu/macros" }
+nexum-apdu-globalplatform = { path = "crates/apdu/globalplatform" }
+nexum-apdu-transport-pcsc = { path = "crates/apdu/pcsc" }
 
 ## Crypto
 des = { version = "0.8", default-features = false }
@@ -130,8 +130,8 @@ zip = { version = "4", default-features = false }
 
 # Keycard
 ## keycard crates
-nexum-keycard = { version = "0.1", path = "crates/keycard/keycard" }
-nexum-keycard-signer = { version = "0.1", path = "crates/keycard/signer" }
+nexum-keycard = { path = "crates/keycard/keycard" }
+nexum-keycard-signer = { path = "crates/keycard/signer" }
 
 ## crypto
 aes = { version = "0.8", default-features = false }
