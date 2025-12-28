@@ -33,6 +33,7 @@
             trunk          # WASM web app bundler
             just           # Task runner
             nodePackages.web-ext  # Browser extension development
+            cargo-audit
           ];
         };
 
