@@ -101,6 +101,7 @@ pub enum InteractiveRequest {
     SignTransaction(Box<EthereumTypedTransaction<TxEip4844Variant>>),
     EthSign(Address, Bytes),
     EthSignTypedData(Address, Box<TypedData>),
+    PersonalSign(Address, Bytes),
 }
 
 /// Responses for the interactive requests
@@ -111,6 +112,7 @@ pub enum InteractiveResponse {
     SignTransaction(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
     EthSign(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
     EthSignTypedData(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+    PersonalSign(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
 }
 
 pub async fn make_interactive_request(
