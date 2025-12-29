@@ -446,6 +446,24 @@ impl App {
                         ),
                     );
                 }
+                Prompt::PersonalSign(_, message, _) => {
+                    let block = Block::bordered()
+                        .padding(Padding::uniform(1))
+                        .title(" Personal Sign ")
+                        .title_alignment(HorizontalAlignment::Center)
+                        .title_bottom("[A]ccept ───── [R]eject");
+                    // Try to decode the message as UTF-8 for display
+                    let text = String::from_utf8(message.to_vec())
+                        .unwrap_or_else(|_| message.to_string());
+                    let n_lines = text.lines().count().max(1);
+                    frame.render_widget(
+                        Paragraph::new(text).block(block),
+                        frame.area().centered(
+                            Constraint::Length(80),
+                            Constraint::Length((n_lines as u16) + 4),
+                        ),
+                    );
+                }
             }
         }
     }
@@ -528,6 +546,27 @@ impl App {
                                 sender
                                     .send((signer_addr, data, true))
                                     .expect("failed to send eth_sign_typed_data prompt response");
+                            }
+                        }
+                        _ => {}
+                    },
+                    Prompt::PersonalSign(_, _, _) => match key.code {
+                        KeyCode::Esc | KeyCode::Char('r') | KeyCode::Char('R') => {
+                            if let Some(Prompt::PersonalSign(signer_addr, message, sender)) =
+                                self.prompt.take()
+                            {
+                                sender
+                                    .send((signer_addr, message, false))
+                                    .expect("failed to send personal_sign prompt response");
+                            }
+                        }
+                        KeyCode::Char('a') | KeyCode::Char('A') => {
+                            if let Some(Prompt::PersonalSign(signer_addr, message, sender)) =
+                                self.prompt.take()
+                            {
+                                sender
+                                    .send((signer_addr, message, true))
+                                    .expect("failed to send personal_sign prompt response");
                             }
                         }
                         _ => {}
@@ -699,6 +738,40 @@ impl App {
                     }
                 });
             }
+            InteractiveRequest::PersonalSign(signer, message) => {
+                let (sender, receiver) = oneshot::channel::<(Address, Bytes, bool)>();
+                self.prompt_sender
+                    .send(Prompt::PersonalSign(signer, message, sender))
+                    .expect("failed to send personal_sign prompt");
+                let wallet = self.wallet_pane.clone();
+                tokio::spawn(async move {
+                    let (signer, message, should_sign) =
+                        receiver.await.expect("failed to receive personal_sign response");
+                    if should_sign {
+                        tracing::debug!("signing personal message now");
+                        response_sender
+                            .send(InteractiveResponse::PersonalSign(
+                                wallet
+                                    .sign_message(Some(signer), &message)
+                                    .await
+                                    .map_err(|e| {
+                                        tracing::error!(?e, "failed to sign personal message");
+                                        let boxed_error: Box<dyn std::error::Error + Send + Sync> =
+                                            Box::new(e);
+                                        boxed_error
+                                    }),
+                            ))
+                            .expect("failed to send personal_sign response");
+                    } else {
+                        tracing::debug!("personal_sign rejected");
+                        response_sender
+                            .send(InteractiveResponse::PersonalSign(Err(Box::new(
+                                NexumTuiError::UserRejectedSigning,
+                            ))))
+                            .expect("failed to send personal_sign response");
+                    }
+                });
+            }
         }
     }
 }
@@ -720,6 +793,7 @@ enum Prompt {
         Box<TypedData>,
         oneshot::Sender<(Address, Box<TypedData>, bool)>,
     ),
+    PersonalSign(Address, Bytes, oneshot::Sender<(Address, Bytes, bool)>),
 }
 
 #[derive(Debug)]
