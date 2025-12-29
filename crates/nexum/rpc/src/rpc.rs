@@ -181,13 +181,18 @@ impl RpcServerBuilder {
 }
 
 pub fn chain_id_or_name_to_named_chain(chain: &str) -> eyre::Result<NamedChain> {
-    let chain = chain.parse::<NamedChain>().map(Some).unwrap_or_else(|_| {
-        chain
-            .parse::<u64>()
-            .map(|chainid| NamedChain::try_from(chainid).ok())
-            .ok()
-            .flatten()
-    });
+    // NamedChain uses strum's kebab-case serialization, so convert to lowercase for name matching
+    let chain = chain
+        .to_lowercase()
+        .parse::<NamedChain>()
+        .map(Some)
+        .unwrap_or_else(|_| {
+            chain
+                .parse::<u64>()
+                .map(|chainid| NamedChain::try_from(chainid).ok())
+                .ok()
+                .flatten()
+        });
     chain.ok_or_eyre("failed to parse chain")
 }
 
