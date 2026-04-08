@@ -1,43 +1,68 @@
 {
-  description = "nexum";
+  description = "Nexum - A high-performance web3 computer";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
-      in
-      {
-        devShells.default = with pkgs; mkShell {
-          buildInputs = [
-            # System dependencies
-            openssl
-            pcsclite
-            pkg-config
 
-            # Rust toolchain with WASM target
-            ((rust-bin.selectLatestNightlyWith
-              (toolchain: toolchain.default)).override
-              { targets = [ "wasm32-unknown-unknown" ]; }) # or `toolchain.minimal`
-
-            # Development tools
-            wasm-pack      # WASM build tool
-            trunk          # WASM web app bundler
-            just           # Task runner
-            nodePackages.web-ext  # Browser extension development
-            cargo-audit
-          ];
+        # Nightly required: stylers (Leptos CSS) uses #![feature(proc_macro_span)]
+        rustToolchain = (pkgs.rust-bin.selectLatestNightlyWith
+          (toolchain: toolchain.default)).override {
+          extensions = [ "rust-src" "rust-analyzer" "clippy" ];
+          targets = [ "wasm32-unknown-unknown" ];
         };
 
-        packages.default = nixpkgs.legacyPackages.x86_64-linux.hello;
+        # Native build dependencies
+        nativeBuildInputs = with pkgs; [
+          pkg-config
+        ];
+
+        buildInputs = with pkgs; [
+          openssl
+          pcsclite
+        ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
+          Security
+          CoreFoundation
+          SystemConfiguration
+          PCSC
+        ]);
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          inherit buildInputs nativeBuildInputs;
+
+          packages = with pkgs; [
+            # Rust
+            rustToolchain
+            cargo-audit
+
+            # WASM
+            wasm-pack
+            trunk
+
+            # Development tools
+            just
+            web-ext
+          ];
+
+          env = {
+            RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
+            RUST_BACKTRACE = "1";
+          };
+        };
       }
     );
 }
