@@ -129,16 +129,12 @@ async fn main() -> eyre::Result<()> {
     app_result
 }
 
+#[derive(Default)]
 enum AppPane {
     Tabs,
+    #[default]
     Wallet,
     Dashboard,
-}
-
-impl Default for AppPane {
-    fn default() -> Self {
-        Self::Wallet
-    }
 }
 
 impl AppPane {
@@ -151,15 +147,11 @@ impl AppPane {
     }
 }
 
+#[derive(Default)]
 enum AppTab {
+    #[default]
     Main,
     Settings,
-}
-
-impl Default for AppTab {
-    fn default() -> Self {
-        Self::Main
-    }
 }
 
 impl AppTab {
