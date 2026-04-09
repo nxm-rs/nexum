@@ -279,10 +279,8 @@ fn parse_entry(data: &[u8], entry_type: EntryType) -> Option<Entry> {
     for tlv in &tlvs {
         match Into::<u8>::into(tlv.tag()) {
             TAG_AID => aid = Some(Bytes::copy_from_slice(tlv.value())),
-            TAG_LIFECYCLE => {
-                if !tlv.value().is_empty() {
-                    lifecycle = tlv.value()[0];
-                }
+            TAG_LIFECYCLE if !tlv.value().is_empty() => {
+                lifecycle = tlv.value()[0];
             }
             TAG_PRIVILEGES => privileges = Bytes::copy_from_slice(tlv.value()),
             TAG_MODULE_AID => {

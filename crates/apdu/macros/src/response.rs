@@ -794,31 +794,31 @@ pub(crate) fn expand_response(
     });
 
     // Implementation of the parse_response method
-    let parse_response_impl = if response.custom_parser.is_some() {
-        // For custom parser, we use the provided parser
-        let custom_parser = response.custom_parser.as_ref().unwrap();
-        quote! {
-            fn parse_response(response: nexum_apdu_core::Response) -> Result<Self::Success, Self::Error> {
-                (#custom_parser)(&response)
-            }
-        }
-    } else {
-        // Standard parser implementation
-        quote! {
-            fn parse_response(response: nexum_apdu_core::Response) -> Result<Self::Success, Self::Error> {
-                let status = response.status();
-                let sw1 = status.sw1;
-                let sw2 = status.sw2;
-                let data_payload = response.payload();
+    let parse_response_impl = response.custom_parser.as_ref().map_or_else(
+        || {
+            quote! {
+                fn parse_response(response: nexum_apdu_core::Response) -> Result<Self::Success, Self::Error> {
+                    let status = response.status();
+                    let sw1 = status.sw1;
+                    let sw2 = status.sw2;
+                    let data_payload = response.payload();
 
-                match (sw1, sw2) {
-                    #(#match_arms,)*
-                    // For unmatched status words, use the Unknown variant
-                    _ => Err(Self::Error::Unknown { sw1, sw2 }),
+                    match (sw1, sw2) {
+                        #(#match_arms,)*
+                        // For unmatched status words, use the Unknown variant
+                        _ => Err(Self::Error::Unknown { sw1, sw2 }),
+                    }
                 }
             }
-        }
-    };
+        },
+        |custom_parser| {
+            quote! {
+                fn parse_response(response: nexum_apdu_core::Response) -> Result<Self::Success, Self::Error> {
+                    (#custom_parser)(&response)
+                }
+            }
+        },
+    );
 
     // Generate the code
     let tokens = quote! {

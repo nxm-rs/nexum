@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly. It provides both a Chrome browser extension and a terminal-based interface (TUI) for interacting with Ethereum networks.
 
 **Key Info:**
-- **Language:** Rust (2024 edition, MSRV 1.88)
+- **Language:** Rust (2024 edition, MSRV 1.94)
 - **Platforms:** WebAssembly (browser), native (terminal)
 - **License:** AGPL-3.0-or-later
 - **Primary dependencies:** Alloy (Ethereum), jsonrpsee (JSON-RPC), tokio (async runtime)

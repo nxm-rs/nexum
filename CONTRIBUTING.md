@@ -136,7 +136,7 @@ wasm-pack test --headless --firefox
 
 ### Required Tools
 
-1. [Rust toolchain](https://www.rust-lang.org/tools/install) (MSRV: 1.88)
+1. [Rust toolchain](https://www.rust-lang.org/tools/install) (MSRV: 1.94)
 2. [`wasm-pack`](https://github.com/rustwasm/wasm-pack) - For building WASM modules
 3. [`trunk`](https://trunkrs.dev/) - For building the browser UI
 4. [`just`](https://just.systems/) - Task runner (optional but recommended)
