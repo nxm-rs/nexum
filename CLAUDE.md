@@ -18,7 +18,7 @@ Nexum is a high-performance Ethereum provider written in Rust and compiled to We
 
 ### High-Level Structure
 
-Nexum is organized into three main layers:
+Nexum is organised into four main layers:
 
 1. **APDU Layer** (`crates/apdu/`) - Smart card communication protocol
    - `core`: Foundation types (ApduCommand, ApduResponse, CardTransport, Executor)
@@ -36,6 +36,8 @@ Nexum is organized into three main layers:
    - `rpc`: JSON-RPC server with namespaces (eth, net, wallet, web3)
    - `tui`: Terminal interface with ratatui
    - `extension`: Five WASM components for browser integration
+
+4. **Runtime Layer** (`crates/nexum/runtime/`) — WASM Component Model host that loads guest modules conforming to the `web3:runtime` WIT package. Exposes universal host interfaces (consensus, local store, remote store, messaging, logging) so guest modules are portable across host environments.
 
 ### Browser Extension Architecture
 
@@ -78,6 +80,12 @@ just run-ext
 
 # Package extension for distribution
 just pack-ext
+
+# Build the WASM runtime host
+cargo build -p nexum-runtime
+
+# Build an example guest module (wasm32-wasip2)
+cargo build --target wasm32-wasip2 -p nexum-runtime-example
 ```
 
 ### Testing
@@ -119,6 +127,9 @@ cargo run -p nexum-rpc -- --host 127.0.0.1 --port 1248
 
 # Run Keycard CLI
 cargo run -p keycard-cli -- --help
+
+# Run the runtime host against a guest WASM module
+cargo run -p nexum-runtime -- path/to/guest.wasm
 ```
 
 ---
@@ -272,3 +283,7 @@ For detailed information about specific components, see:
 - Extension worker: `crates/nexum/extension/worker/src/`
 - Shared types: `crates/nexum/primitives/src/`
 - TUI: `crates/nexum/tui/src/main.rs`
+- Runtime host: `crates/nexum/runtime/src/main.rs`
+- WIT interfaces: `wit/web3-runtime/`
+- Example guest module: `modules/example/src/lib.rs`
+- Runtime design docs: `docs/runtime/`

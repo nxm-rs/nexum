@@ -12,6 +12,8 @@ Nexum is an Ethereum provider written in Rust and compiled to WebAssembly, built
 
 Nexum combines **WebTransport** with a **terminal-based** interface: ideal for developers seeking a flexible, performant tool to interact with Ethereum across web and terminal environments.
 
+Nexum also ships a **WASM Component Model runtime** for portable Ethereum automation modules. Guest modules are written against the universal `web3:runtime` WIT package, which defines abstract host interfaces for consensus access, local and decentralised storage, pub/sub messaging, and structured logging. Because every host capability is expressed as WIT, the same guest module runs unchanged across native, mobile, and browser hosts that implement these interfaces. See [docs/runtime/](./docs/runtime/) for the full design.
+
 ## Goals
 
 1. **Compliance**: Full [`EIP-1193`](https://eips.ethereum.org/EIPS/eip-1193) and [`EIP-6963`](https://eips.ethereum.org/EIPS/eip-6963) compliance.

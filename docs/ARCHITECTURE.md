@@ -4,7 +4,7 @@ This document provides a comprehensive overview of Nexum's architecture, compone
 
 ## Overview
 
-Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly. It provides both a browser extension and a terminal-based interface (TUI) for interacting with Ethereum networks. The codebase is organized into multiple focused crates that handle different concerns: APDU smart card operations, Keycard integration, core RPC functionality, and extension components.
+Nexum is a high-performance Ethereum provider written in Rust and compiled to WebAssembly. It provides both a browser extension and a terminal-based interface (TUI) for interacting with Ethereum networks. The codebase is organised into multiple focused crates that handle different concerns: APDU smart card operations, Keycard integration, core RPC functionality, extension components, and a WASM Component Model runtime for portable guest modules.
 
 **Key Technologies:**
 - Language: Rust
@@ -36,12 +36,19 @@ nexum/
 │       ├── primitives/             # Shared types and protocols (WASM)
 │       ├── rpc/                    # JSON-RPC server and namespaces
 │       ├── tui/                    # Terminal user interface (ratatui)
+│       ├── runtime/                # WASM Component Model host (guest modules)
 │       └── extension/              # Browser extension components
 │           ├── chrome-sys/         # Chrome API bindings (WASM)
 │           ├── worker/             # Service worker (WASM)
 │           ├── injector/           # Content script injector (WASM)
 │           ├── injected/           # Injected frame script (WASM)
 │           └── browser-ui/         # Extension popup UI (Leptos/WASM)
+│
+├── wit/
+│   └── web3-runtime/               # Universal WIT interfaces for guest modules
+│
+└── modules/
+    └── example/                    # Example headless guest module
 ```
 
 **Default members for `cargo build`:** `rpc` and `tui` (the CLI applications)
@@ -164,6 +171,33 @@ nexum/
   - `signers`: Account management (Ledger support via `load_ledger_accounts()`)
   - Response channel: Sends `InteractiveResponse` back to RPC server for request fulfillment
   - Logging to file (`nxm.log`) via custom writer
+
+### 4. Runtime Layer (`crates/nexum/runtime/`)
+
+**Purpose:** Host-side WASM Component Model runtime that loads guest modules conforming to the `web3:runtime` WIT package and exposes a set of universal, host-environment-agnostic interfaces. The runtime allows third parties to ship portable Ethereum automation modules (watchers, indexers, agents) that run unchanged across native, mobile, and browser hosts, as long as the host implements the same WIT interfaces.
+
+#### Universal WIT Interfaces (`wit/web3-runtime/`)
+
+The `web3:runtime` package defines the abstract surface guests can rely on:
+
+- `csn` — JSON-RPC consensus access for chain reads (blocks, receipts, logs, state)
+- `local-store` — keyed local persistence scoped to the guest module
+- `remote-store` — content-addressed decentralised storage (Swarm/IPFS-style)
+- `msg` — pub/sub messaging over a Waku-style transport
+- `logging` — structured logs routed through the host's tracing infrastructure
+- `types` — shared event and configuration types used across the other interfaces
+- `headless-module` — the main guest world, which exports `init` and `on_event`
+
+#### Guest Module Lifecycle
+
+1. The host instantiates the component from a WASM binary and links the host implementations of each imported interface.
+2. The host calls `init(config)` once, passing a serialised configuration payload so the guest can establish state and subscriptions.
+3. The host feeds subsequent events into `on_event(event)` — block headers, messages, timers, and other host-originated notifications.
+4. Guests interact with the outside world exclusively through the imported WIT interfaces, so the host controls all I/O, persistence, and network access.
+
+Because all host capabilities are expressed as WIT interfaces, this layer is deliberately host-environment-agnostic: the same guest binaries can run against alternative host implementations (mobile, browser, server) without changes.
+
+See [docs/runtime/](./runtime/) for full design documentation.
 
 ---
 
@@ -492,3 +526,7 @@ wasm-pack build -t web --release crates/nexum/extension/injected
 - **Type Definitions:** Look in `crates/nexum/primitives/src/`
 - **UI Components:** Navigate `crates/nexum/extension/browser-ui/src/`
 - **Manifest & Build:** Check `crates/nexum/extension/public/manifest.json`
+- **Runtime Host:** Start at `crates/nexum/runtime/src/main.rs`
+- **WIT Interfaces:** Browse `wit/web3-runtime/`
+- **Example Module:** See `modules/example/src/lib.rs`
+- **Runtime Design Docs:** Read [docs/runtime/](./runtime/)
