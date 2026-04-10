@@ -22,7 +22,10 @@
         rustToolchain = (pkgs.rust-bin.selectLatestNightlyWith
           (toolchain: toolchain.default)).override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" ];
-          targets = [ "wasm32-unknown-unknown" ];
+          # Two WASM targets are required simultaneously:
+          #   - wasm32-unknown-unknown: browser extension crates (wasm-bindgen)
+          #   - wasm32-wasip2:          runtime modules (WASM Component Model / wit-bindgen)
+          targets = [ "wasm32-unknown-unknown" "wasm32-wasip2" ];
         };
 
         # Native build dependencies
@@ -52,6 +55,8 @@
             # WASM
             wasm-pack
             trunk
+            wasm-tools
+            wabt
 
             # Development tools
             just
