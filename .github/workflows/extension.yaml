@@ -19,7 +19,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           toolchain: nightly-2026-04-07
-          targets: wasm32-unknown-unknown,x86_64-unknown-linux-gnu
+          targets: wasm32-unknown-unknown,wasm32-wasip2,x86_64-unknown-linux-gnu
           components: clippy,rustfmt
 
       - uses: actions/cache@v4
@@ -55,6 +55,15 @@ jobs:
 
       - name: Cargo build extension
         run: just be
+
+      - name: Cargo build runtime host
+        run: just build-runtime
+
+      - name: Cargo build runtime example module
+        run: just build-runtime-example
+
+      - name: Cargo clippy runtime
+        run: just check-runtime
 
       - name: Upload firefox extension
         uses: actions/upload-artifact@v4

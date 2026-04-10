@@ -27,5 +27,22 @@ build:
 test:
 	cargo test --all-targets --all-features --workspace
 
+# Build the WASM Component Model runtime host crate
+build-runtime:
+	cargo build -p nexum-runtime --release
+
+# Build the example guest WASM module (wasm32-wasip2 target)
+build-runtime-example:
+	cargo build --target wasm32-wasip2 --release -p nexum-runtime-example
+
+# Run the runtime host against the example guest module
+run-runtime: build-runtime build-runtime-example
+	cargo run -p nexum-runtime -- target/wasm32-wasip2/release/nexum_runtime_example.wasm
+
+# Clippy gate for the runtime crate and example module
+check-runtime:
+	cargo clippy -p nexum-runtime --all-targets -- -Dwarnings
+	cargo clippy --target wasm32-wasip2 -p nexum-runtime-example -- -Dwarnings
+
 # clippy-extension:
 # 	cargo clippy --all-targets --all-features --target wasm32-unknown-unknown -p browser-ui -p worker -p injected -p injector -- -Dwarnings
