@@ -1,0 +1,19 @@
+[package]
+name = "nexum-runtime-example"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+description = "Example guest WASM module for the nexum runtime"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen.workspace = true
+
+[lints]
+workspace = true
