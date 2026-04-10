@@ -1,0 +1,39 @@
+package web3:runtime@0.1.0;
+
+interface types {
+    type chain-id = u64;
+
+    record block-data {
+        chain-id: chain-id,
+        number: u64,
+        hash: list<u8>,
+        timestamp: u64,
+    }
+
+    record log-entry {
+        chain-id: chain-id,
+        address: list<u8>,
+        topics: list<list<u8>>,
+        data: list<u8>,
+        block-number: u64,
+        tx-hash: list<u8>,
+        log-index: u32,
+    }
+
+    record message-data {
+        content-topic: string,
+        payload: list<u8>,
+        timestamp: u64,
+        sender: option<list<u8>>,
+    }
+
+    variant event {
+        block(block-data),
+        logs(list<log-entry>),
+        timer(u64),
+        message(message-data),
+    }
+
+    /// Opaque config from shepherd.toml [config] section.
+    type config = list<tuple<string, string>>;
+}

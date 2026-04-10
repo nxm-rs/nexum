@@ -1,0 +1,15 @@
+package web3:runtime@0.1.0;
+
+interface logging {
+    enum level {
+        trace,
+        debug,
+        info,
+        warn,
+        error,
+    }
+
+    /// Emit a structured log message.
+    /// The host decides how to handle it (stdout, file, discard).
+    log: func(level: level, message: string);
+}

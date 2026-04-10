@@ -1,0 +1,36 @@
+package web3:runtime@0.1.0;
+
+interface remote-store {
+    record store-error {
+        code: u16,
+        message: string,
+    }
+
+    /// Upload raw data to the decentralised store.
+    /// Returns the 32-byte content reference (Swarm address).
+    upload: func(data: list<u8>) -> result<list<u8>, store-error>;
+
+    /// Download raw data by 32-byte content reference.
+    download: func(reference: list<u8>) -> result<list<u8>, store-error>;
+
+    /// Read the latest value from a mutable feed.
+    ///
+    /// Feeds are mutable pointers: (owner, topic) -> latest chunk.
+    /// `owner`: 20-byte Ethereum address of the feed owner.
+    /// `topic`: 32-byte topic hash.
+    feed-get: func(
+        owner: list<u8>,
+        topic: list<u8>,
+    ) -> result<option<list<u8>>, store-error>;
+
+    /// Update a mutable feed with new data.
+    ///
+    /// The host signs the feed update with its configured identity.
+    /// `topic`: 32-byte topic hash.
+    /// `data`: the payload to publish.
+    /// Returns the 32-byte reference of the new chunk.
+    feed-set: func(
+        topic: list<u8>,
+        data: list<u8>,
+    ) -> result<list<u8>, store-error>;
+}

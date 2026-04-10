@@ -1,0 +1,19 @@
+[package]
+name = "nexum-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+exclude.workspace = true
+description = "WASM Component Model host runtime for nexum modules"
+
+[dependencies]
+wasmtime.workspace = true
+wasmtime-wasi.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
+[lints]
+workspace = true

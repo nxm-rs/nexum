@@ -26,6 +26,7 @@ members = [
     "crates/nexum/extension/browser-ui/",
     "crates/nexum/primitives/",
     "crates/nexum/rpc/",
+    "crates/nexum/runtime/",
     "crates/nexum/tui/",
 ]
 default-members = ["crates/nexum/rpc", "crates/nexum/tui/"]
@@ -71,6 +72,8 @@ url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "js"] }
 gloo-timers = { version = "0.3", features = ["futures"] }
 tokio = { version = "1", features = ["full"] }
+wasmtime = { version = "43", features = ["component-model"] }
+wasmtime-wasi = "43"
 eyre = "0.6"
 
 console_error_panic_hook = "0.1"
