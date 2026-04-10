@@ -10,9 +10,9 @@
 //! against `web3:runtime` can be executed in this host or in any other
 //! conforming host (mobile, browser, embedded) without modification.
 
-use anyhow::Context as _;
 use std::time::Instant;
 use wasmtime::component::{Component, Linker, ResourceTable};
+use wasmtime::error::Context as _;
 use wasmtime::{Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
@@ -224,7 +224,6 @@ async fn main() -> anyhow::Result<()> {
 
     let mut config = wasmtime::Config::new();
     config.wasm_component_model(true);
-    config.async_support(true);
     let engine = Engine::new(&config)?;
 
     let start = Instant::now();
