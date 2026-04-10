@@ -1,11 +1,11 @@
 name: Lint, build, test
 
-# run this action on main branch and every pull request
+# run this action on main, runtime, and every pull request targeting them
 on:
   push:
-    branches: [ main ]
+    branches: [ main, runtime ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, runtime ]
 
 jobs:
   ci:
