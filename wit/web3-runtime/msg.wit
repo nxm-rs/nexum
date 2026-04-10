@@ -1,0 +1,30 @@
+package web3:runtime@0.1.0;
+
+interface msg {
+    record msg-error {
+        code: u16,
+        message: string,
+    }
+
+    record message {
+        content-topic: string,
+        payload: list<u8>,
+        timestamp: u64,
+        /// Optional sender identity (protocol-dependent).
+        sender: option<list<u8>>,
+    }
+
+    /// Publish a message to a content topic.
+    ///
+    /// Content topics follow the format: /<app>/<version>/<topic>/<encoding>
+    /// e.g. "/shepherd/1/twap-updates/proto"
+    publish: func(content-topic: string, payload: list<u8>) -> result<_, msg-error>;
+
+    /// Query historical messages from the Waku store protocol.
+    query: func(
+        content-topic: string,
+        start-time: option<u64>,
+        end-time: option<u64>,
+        limit: option<u32>,
+    ) -> result<list<message>, msg-error>;
+}

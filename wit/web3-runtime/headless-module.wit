@@ -1,0 +1,16 @@
+package web3:runtime@0.1.0;
+
+/// Headless module — automation, background processing.
+/// No UI capabilities. Runs on any conforming host.
+world headless-module {
+    use types.{config, event};
+
+    import csn;
+    import local-store;
+    import remote-store;
+    import msg;
+    import logging;
+
+    export init: func(config: config) -> result<_, string>;
+    export on-event: func(event: event) -> result<_, string>;
+}

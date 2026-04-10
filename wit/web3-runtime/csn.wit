@@ -1,0 +1,23 @@
+package web3:runtime@0.1.0;
+
+interface csn {
+    use types.{chain-id};
+
+    record json-rpc-error {
+        code: s64,
+        message: string,
+        data: option<string>,
+    }
+
+    /// Execute a JSON-RPC request against the specified chain.
+    ///
+    /// The host routes to its configured provider for the given chain,
+    /// applying whatever middleware is appropriate for the platform
+    /// (timeout, retry, rate-limit, fallback on server; simple HTTP
+    /// on mobile; window.ethereum or injected provider in WebView).
+    ///
+    /// `method` includes the namespace prefix (e.g. "eth_call").
+    /// `params` and the success value are JSON-encoded strings.
+    request: func(chain-id: chain-id, method: string, params: string)
+        -> result<string, json-rpc-error>;
+}
