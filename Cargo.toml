@@ -10,15 +10,6 @@ authors = ["Nexum Contributors"]
 
 [workspace]
 members = [
-    "crates/apdu/core",
-    "crates/apdu/globalplatform",
-    "crates/apdu/macros",
-    "crates/apdu/pcsc",
-
-    "crates/keycard/cli",
-    "crates/keycard/keycard",
-    "crates/keycard/signer",
-
     "crates/nexum/extension/worker/",
     "crates/nexum/extension/injected/",
     "crates/nexum/extension/injector/",
@@ -92,73 +83,3 @@ derive_more = { version = "2", default-features = false, features = ["display"] 
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "serde"] }
 clap = { version = "4", features = ["derive"] }
-cbc = { version = "0.1", default-features = false }
-cbc-mac = { version = "0.1", default-features = false }
-cipher = { version = "0.4", default-features = false }
-zeroize = { version = "1", features = ["derive"] }
-bytes = { version = "1", default-features = false }
-iso7816-tlv = "0.4"
-rand = "0.9"
-
-# APDU
-## APDU crates
-nexum-apdu-core = { path = "crates/apdu/core" }
-nexum-apdu-macros = { path = "crates/apdu/macros" }
-nexum-apdu-globalplatform = { path = "crates/apdu/globalplatform" }
-nexum-apdu-transport-pcsc = { path = "crates/apdu/pcsc" }
-
-## Crypto
-des = { version = "0.8", default-features = false }
-
-## PC/SC
-pcsc = { version = "2", default-features = false }
-
-## Serialization & parsing
-hex = "0.4"
-
-## Concurrency
-crossbeam-channel = { version = "0.5", default-features = false }
-
-## Macros
-proc-macro2 = "1"
-quote = "1"
-syn = { version = "2", features = ["full", "extra-traits"] }
-heck = "0.5"
-
-## Miscellaneous
-zip = { version = "4", default-features = false }
-
-# Keycard
-## keycard crates
-nexum-keycard = { path = "crates/keycard/keycard" }
-nexum-keycard-signer = { path = "crates/keycard/signer" }
-
-## crypto
-aes = { version = "0.8", default-features = false }
-alloy-primitives = { version = "1", default-features = false }
-alloy-network = { version = "1", default-features = false }
-alloy-signer = { version = "1", default-features = false }
-alloy-consensus = { version = "1", default-features = false }
-coins-bip32 = { version = "0.12", default-features = false }
-coins-bip39 = { version = "0.12", default-features = false }
-k256 = { version = "0.13", features = ["ecdsa", "ecdh"] }
-pbkdf2 = "0.12"
-sha2 = "0.10"
-block-buffer = { version = "0.11.0-rc.4", default-features = false }
-block-padding = { version = "0.4.0-rc.3", default-features = false }
-
-## bytes and encoding
-base64 = "0.22"
-generic-array = "0.14"
-unicode-normalization = "0.1"
-
-## async
-async-trait = "0.1"
-
-## misc
-colored = "3"
-anyhow = "1"
-parking_lot = "0.12"
-
-# Compatibility: k256 0.13 requires rand_core 0.6 (rand 0.8)
-rand_v8 = { version = "0.8", package = "rand" }
