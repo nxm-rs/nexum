@@ -101,6 +101,7 @@ pub enum InteractiveRequest {
     SignTransaction(Box<EthereumTypedTransaction<TxEip4844Variant>>),
     EthSign(Address, Bytes),
     EthSignTypedData(Address, Box<TypedData>),
+    PersonalSign(Address, Bytes),
 }
 
 /// Responses for the interactive requests
@@ -111,6 +112,7 @@ pub enum InteractiveResponse {
     SignTransaction(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
     EthSign(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
     EthSignTypedData(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
+    PersonalSign(Result<Signature, Box<dyn std::error::Error + Send + Sync>>),
 }
 
 pub async fn make_interactive_request(
@@ -181,13 +183,18 @@ impl RpcServerBuilder {
 }
 
 pub fn chain_id_or_name_to_named_chain(chain: &str) -> eyre::Result<NamedChain> {
-    let chain = chain.parse::<NamedChain>().map(Some).unwrap_or_else(|_| {
-        chain
-            .parse::<u64>()
-            .map(|chainid| NamedChain::try_from(chainid).ok())
-            .ok()
-            .flatten()
-    });
+    // NamedChain uses strum's kebab-case serialization, so convert to lowercase for name matching
+    let chain = chain
+        .to_lowercase()
+        .parse::<NamedChain>()
+        .map(Some)
+        .unwrap_or_else(|_| {
+            chain
+                .parse::<u64>()
+                .map(|chainid| NamedChain::try_from(chainid).ok())
+                .ok()
+                .flatten()
+        });
     chain.ok_or_eyre("failed to parse chain")
 }
 

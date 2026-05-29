@@ -94,7 +94,9 @@ impl Config {
         self.rpcs
             .iter()
             .filter_map(|(chain_name, url)| {
+                // NamedChain uses strum's kebab-case serialization, so convert to lowercase
                 chain_name
+                    .to_lowercase()
                     .parse::<NamedChain>()
                     .map(|chain| (chain, url.clone()))
                     .inspect_err(|e| {

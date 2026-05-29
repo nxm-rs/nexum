@@ -177,6 +177,26 @@ where
         }
     })?;
 
+    // personal_sign has reversed parameter order compared to eth_sign: (message, address)
+    eth_module.register_async_method(
+        "personal_sign",
+        async |params, ctx, _| -> RpcResult<Bytes> {
+            let (message, signer_addr) = params.parse::<(Bytes, Address)>()?;
+            let (sender, receiver) = oneshot::channel::<InteractiveResponse>();
+            ctx.sender
+                .send((InteractiveRequest::PersonalSign(signer_addr, message), sender))
+                .await
+                .map_err(json_rpc_internal_error)?;
+            let res = receiver.await.map_err(json_rpc_internal_error)?;
+            match res {
+                InteractiveResponse::PersonalSign(signature) => Ok(signature
+                    .map(|s| s.as_bytes().into())
+                    .map_err(json_rpc_internal_error)?),
+                _ => Err(ErrorObject::from(ErrorCode::InternalError)),
+            }
+        },
+    )?;
+
     eth_module.register_async_method(
         "eth_signTypedData_v4",
         async |params, ctx, _| -> RpcResult<Bytes> {
